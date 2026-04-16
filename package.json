@@ -1,0 +1,8 @@
+{
+    "name": "urbanluxe-booking",
+    "version": "1.0.0",
+    "description": "Urban Luxe Apartments booking system",
+    "dependencies": {
+          "@supabase/supabase-js": "^2.39.0"
+    }
+}
