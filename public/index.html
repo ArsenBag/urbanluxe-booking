@@ -3,114 +3,316 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Urban Luxe — Бронирование апартаментов в Ташкенте</title>
+<title>Urban Luxe — Премиальные апартаменты в Ташкенте</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#C4963A;--gold-l:#D4AF6A;--dark:#0F0E0C;--mid:#1A1915;--warm:#F7F3EE;--muted:#A09080;--border:rgba(196,150,58,0.2);--cream:#EDE8E0}
+:root{--gold:#C4963A;--gold-l:#D4AF6A;--dark:#0F0E0C;--mid:#1A1915;--warm:#F7F3EE;--muted:#A09080;--border:rgba(196,150,58,0.18);--cream:#EDE8E0}
 html{scroll-behavior:smooth}
 body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--cream);min-height:100vh}
-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:18px 48px;background:rgba(15,14,12,0.95);backdrop-filter:blur(20px);border-bottom:0.5px solid var(--border)}
-.nav-logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:.18em;color:var(--gold-l)}
-.nav-links{display:flex;gap:24px}
+nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;justify-content:space-between;align-items:center;padding:16px 52px;background:rgba(15,14,12,0.96);backdrop-filter:blur(24px);border-bottom:0.5px solid var(--border)}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:.2em;color:var(--gold-l);text-decoration:none;display:block}
+.nav-sub{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-top:1px}
+.nav-links{display:flex;gap:28px;align-items:center}
 .nav-links a{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}
 .nav-links a:hover{color:var(--gold-l)}
-main{padding-top:80px}
-.hero{text-align:center;padding:80px 48px 60px;border-bottom:0.5px solid var(--border)}
-.hero-tag{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:20px}
-.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(56px,8vw,100px);font-weight:300;line-height:.92;color:var(--warm);margin-bottom:24px}
-.hero h1 em{display:block;font-style:italic;color:var(--gold-l)}
-.hero p{font-size:15px;color:var(--muted);max-width:500px;margin:0 auto;line-height:1.7}
-.section-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:48px 48px 20px}
-.apts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.04);margin:0}
-.apt-card{background:var(--dark);padding:28px;cursor:pointer;transition:all .25s;border:2px solid transparent;position:relative}
-.apt-card:hover{background:var(--mid)}
-.apt-card.selected{background:var(--mid);border-color:var(--gold)}
-.apt-card.selected::after{content:'✓ Выбран';position:absolute;top:16px;right:16px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);background:rgba(196,150,58,.12);padding:4px 10px;border:0.5px solid rgba(196,150,58,.3)}
-.apt-badge{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
-.apt-name{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:300;color:var(--warm);margin-bottom:6px}
-.apt-desc{font-size:12px;color:var(--muted)}
-.booking-section{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,.04);margin-top:1px}
-.calendar-wrap,.form-wrap{background:var(--dark);padding:40px 48px}
-.section-title{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:var(--warm);margin-bottom:28px}
-.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.cal-nav button{background:none;border:0.5px solid var(--border);color:var(--cream);width:32px;height:32px;cursor:pointer;font-size:16px;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.nav-book{background:var(--gold)!important;color:var(--dark)!important;padding:9px 22px!important;font-weight:500!important}
+.hero{height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 60%,rgba(196,150,58,0.07),transparent 60%),#0F0E0C}
+.hero-content{position:relative;z-index:1;padding:0 24px}
+.hero-tag{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);margin-bottom:28px;display:flex;align-items:center;justify-content:center;gap:16px}
+.hero-tag::before,.hero-tag::after{content:'';width:48px;height:0.5px;background:var(--gold);opacity:.6}
+.hero-title{font-family:'Cormorant Garamond',serif;font-size:clamp(58px,9vw,120px);font-weight:300;line-height:.9;color:var(--warm);margin-bottom:32px}
+.hero-title em{display:block;font-style:italic;color:var(--gold-l)}
+.hero-desc{font-size:16px;color:var(--muted);max-width:480px;margin:0 auto 44px;line-height:1.75}
+.hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn-gold{background:var(--gold);color:var(--dark);padding:14px 36px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;font-weight:500;transition:opacity .2s;display:inline-block}
+.btn-gold:hover{opacity:.85}
+.btn-outline{border:0.5px solid rgba(196,150,58,.4);color:var(--gold-l);padding:14px 32px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:all .2s;display:inline-block}
+.btn-outline:hover{border-color:var(--gold);background:rgba(196,150,58,.06)}
+.hero-stats{display:flex;gap:52px;justify-content:center;margin-top:80px;padding-top:52px;border-top:0.5px solid var(--border)}
+.hs-n{font-family:'Cormorant Garamond',serif;font-size:42px;font-weight:300;color:var(--gold-l);line-height:1}
+.hs-l{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.section{padding:100px 0}
+.section-header{text-align:center;margin-bottom:72px;padding:0 48px}
+.s-tag{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:16px}
+.s-title{font-family:'Cormorant Garamond',serif;font-size:clamp(40px,5vw,64px);font-weight:300;color:var(--warm);line-height:1.05}
+.s-title em{font-style:italic;color:var(--gold-l)}
+.s-desc{font-size:15px;color:var(--muted);max-width:520px;margin:16px auto 0;line-height:1.7}
+.apt-card{display:grid;grid-template-columns:1fr 1fr;min-height:560px;border-bottom:0.5px solid var(--border)}
+.apt-card:nth-child(even){direction:rtl}
+.apt-card:nth-child(even)>*{direction:ltr}
+.apt-gallery{position:relative;overflow:hidden;cursor:pointer}
+.apt-gallery-main{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s;min-height:300px;background:var(--mid)}
+.apt-gallery:hover .apt-gallery-main{transform:scale(1.04)}
+.apt-thumbs{position:absolute;bottom:16px;left:16px;display:flex;gap:8px}
+.apt-thumb{width:56px;height:42px;object-fit:cover;border:1.5px solid transparent;cursor:pointer;transition:all .2s;opacity:.65;background:var(--mid)}
+.apt-thumb:hover,.apt-thumb.active{border-color:var(--gold);opacity:1}
+.apt-badge-overlay{position:absolute;top:20px;left:20px;background:rgba(15,14,12,.85);border:0.5px solid var(--border);padding:6px 14px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-l)}
+.apt-info{background:var(--mid);padding:52px 56px;display:flex;flex-direction:column;justify-content:center}
+.apt-complex{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.apt-name{font-family:'Cormorant Garamond',serif;font-size:44px;font-weight:300;color:var(--warm);line-height:1;margin-bottom:8px}
+.apt-style{font-family:'Cormorant Garamond',serif;font-size:20px;font-style:italic;color:var(--gold-l);margin-bottom:24px}
+.apt-desc-text{font-size:14px;color:var(--muted);line-height:1.75;margin-bottom:28px}
+.apt-features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:36px}
+.apt-feat{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--cream)}
+.apt-feat::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--gold);flex-shrink:0}
+.btn-book{background:var(--gold);color:var(--dark);padding:13px 30px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:opacity .2s}
+.btn-book:hover{opacity:.85}
+.booking-wrap{background:var(--mid);border-top:0.5px solid var(--border)}
+.booking-inner{display:grid;grid-template-columns:1fr 1fr;min-height:680px}
+.booking-left{padding:64px 56px;border-right:0.5px solid var(--border)}
+.booking-right{padding:64px 56px}
+.booking-title{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:300;color:var(--warm);margin-bottom:8px}
+.booking-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.apt-sel-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:28px}
+.apt-sel-btn{background:var(--dark);border:0.5px solid var(--border);padding:12px 14px;cursor:pointer;text-align:left;transition:all .2s;font-family:'DM Sans',sans-serif}
+.apt-sel-btn:hover{border-color:rgba(196,150,58,.4)}
+.apt-sel-btn.active{border-color:var(--gold);background:rgba(196,150,58,.06)}
+.apt-sel-name{font-size:13px;color:var(--cream);margin-bottom:2px}
+.apt-sel-detail{font-size:10px;color:var(--muted)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cal-nav button{background:none;border:0.5px solid var(--border);color:var(--cream);width:30px;height:30px;cursor:pointer;font-size:15px;transition:all .2s}
 .cal-nav button:hover{border-color:var(--gold);color:var(--gold-l)}
-.cal-month-label{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:var(--warm)}
+.cal-month-label{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:var(--warm)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-dow{text-align:center;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 0}
-.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:2px;cursor:pointer;transition:all .15s;user-select:none}
+.cal-dow{text-align:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 0}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:2px;cursor:pointer;transition:all .15s;user-select:none}
 .cal-day.empty{cursor:default}
-.cal-day.past{color:rgba(160,144,128,0.3);cursor:not-allowed}
+.cal-day.past{color:rgba(160,144,128,0.25);cursor:not-allowed}
 .cal-day.free:hover{background:rgba(196,150,58,.1);color:var(--gold-l)}
-.cal-day.booked{background:rgba(220,60,60,.12);color:#E08080;cursor:not-allowed;text-decoration:line-through}
-.cal-day.today{background:rgba(196,150,58,.15);color:var(--gold-l);font-weight:500;border:0.5px solid rgba(196,150,58,.35)}
+.cal-day.booked{background:rgba(220,60,60,.1);color:#E08080;cursor:not-allowed;text-decoration:line-through}
+.cal-day.today{background:rgba(196,150,58,.14);color:var(--gold-l);font-weight:500;border:0.5px solid rgba(196,150,58,.35)}
 .cal-day.selected-start,.cal-day.selected-end{background:var(--gold);color:var(--dark);font-weight:600}
-.cal-day.in-range{background:rgba(196,150,58,.12);color:var(--cream)}
-.cal-legend{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}
-.leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
-.leg-dot{width:10px;height:10px;border-radius:2px}
-.cal-status{font-size:12px;color:var(--muted);margin-top:14px;padding:10px;background:var(--mid);border:0.5px solid var(--border)}
-.date-display{margin-top:20px;padding:16px;background:var(--mid);border:0.5px solid var(--border)}
-.date-display p{font-size:13px;color:var(--muted);margin-bottom:4px}
-.date-display strong{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--warm)}
-label{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:18px}
+.cal-day.in-range{background:rgba(196,150,58,.1);color:var(--cream)}
+.cal-legend{display:flex;gap:14px;margin-top:12px}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.leg-dot{width:8px;height:8px;border-radius:1px}
+.cal-status{font-size:12px;color:var(--muted);margin-top:12px;padding:8px 12px;background:var(--dark);border:0.5px solid var(--border)}
+.date-info{margin-top:14px;padding:14px;background:var(--dark);border:0.5px solid rgba(196,150,58,.25)}
+.date-info-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.date-info-val{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--warm)}
+label{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:16px}
 label:first-child{margin-top:0}
-input,select{width:100%;padding:12px 14px;background:var(--mid);border:0.5px solid var(--border);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s}
+input,select{width:100%;padding:11px 14px;background:var(--dark);border:0.5px solid var(--border);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s}
 input:focus,select:focus{border-color:var(--gold)}
-input::placeholder{color:rgba(160,144,128,.5)}
+input::placeholder{color:rgba(160,144,128,.45)}
 select option{background:var(--mid);color:var(--cream)}
-.btn-submit{width:100%;margin-top:24px;padding:16px;background:var(--gold);color:var(--dark);border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:opacity .2s}
+.btn-submit{width:100%;margin-top:20px;padding:15px;background:var(--gold);color:var(--dark);border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:opacity .2s}
 .btn-submit:hover:not(:disabled){opacity:.85}
-.btn-submit:disabled{opacity:.5;cursor:not-allowed}
-.sync-section{padding:40px 48px;border-top:0.5px solid var(--border);background:var(--mid)}
-.sync-title{font-size:14px;color:var(--warm);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.sync-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.sync-item{background:var(--dark);border:0.5px solid var(--border);padding:16px}
-.sync-apt{font-size:11px;letter-spacing:.08em;color:var(--gold);margin-bottom:6px}
-.sync-url{font-size:11px;color:var(--muted);word-break:break-all;font-family:monospace;background:rgba(255,255,255,.03);padding:6px 8px;border:0.5px solid var(--border);display:block;margin-top:6px}
-.toast{position:fixed;bottom:28px;right:28px;z-index:999;padding:16px 24px;font-size:13px;border-left:3px solid var(--gold);background:var(--mid);color:var(--cream);max-width:340px;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none}
+.btn-submit:disabled{opacity:.45;cursor:not-allowed}
+.sync-section{padding:64px 52px;border-top:0.5px solid var(--border)}
+.sync-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--warm);margin-bottom:8px}
+.sync-desc{font-size:13px;color:var(--muted);line-height:1.7;max-width:560px;margin-bottom:28px}
+.sync-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.sync-item{background:var(--mid);border:0.5px solid var(--border);padding:14px 16px}
+.sync-apt{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.sync-url-box{background:var(--dark);border:0.5px solid var(--border);padding:8px 10px;display:flex;align-items:center;gap:8px;margin-top:6px}
+.sync-url-text{font-size:10px;color:var(--muted);font-family:monospace;word-break:break-all;flex:1}
+.sync-copy{background:none;border:0.5px solid var(--border);color:var(--muted);padding:4px 8px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.sync-copy:hover{border-color:var(--gold);color:var(--gold-l)}
+.toast{position:fixed;bottom:28px;right:28px;z-index:9999;padding:14px 22px;font-size:13px;border-left:3px solid var(--gold);background:var(--mid);color:var(--cream);max-width:360px;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.error{border-left-color:#E05050}
-.toast.success{border-left-color:#50C050}
-footer{padding:24px 48px;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
-.flogo{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold-l);font-weight:300;letter-spacing:.15em}
-@media(max-width:900px){
-  nav{padding:14px 20px}.hero{padding:60px 24px 48px}
-  .apts-grid{grid-template-columns:1fr}.booking-section{grid-template-columns:1fr}
-  .calendar-wrap,.form-wrap{padding:32px 24px}.sync-section{padding:32px 24px}
-  footer{padding:20px 24px;flex-direction:column;gap:8px}
-}
+.toast.success{border-left-color:#50C878}
+footer{padding:32px 52px;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.flogo{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold-l);font-weight:300;letter-spacing:.16em;text-decoration:none}
+.flinks{display:flex;gap:24px}
+.flinks a{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}
+.flinks a:hover{color:var(--gold-l)}
+.fcopy{font-size:11px;color:var(--muted)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.hero-tag{animation:fadeUp .5s ease both}.hero-title{animation:fadeUp .5s .08s ease both}.hero-desc{animation:fadeUp .5s .14s ease both}.hero-btns{animation:fadeUp .5s .2s ease both}.hero-stats{animation:fadeUp .5s .26s ease both}
+@media(max-width:1024px){.apt-card,.apt-card:nth-child(even){grid-template-columns:1fr;direction:ltr}.apt-gallery{min-height:280px}.apt-info{padding:36px 32px}.booking-inner{grid-template-columns:1fr}.booking-left{border-right:none;border-bottom:0.5px solid var(--border)}.booking-left,.booking-right{padding:40px 32px}}
+@media(max-width:768px){nav{padding:12px 20px}.nav-links a:not(.nav-book){display:none}.hero-stats{gap:28px}.section{padding:72px 0}.section-header{padding:0 24px;margin-bottom:48px}.apt-features{grid-template-columns:1fr}.apt-sel-grid{grid-template-columns:1fr}.sync-section{padding:48px 24px}footer{padding:24px 20px;flex-direction:column;text-align:center}.flinks{justify-content:center}}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-logo">URBAN LUXE</div>
+  <a href="/" class="nav-logo">URBAN LUXE<div class="nav-sub">Ташкент · Премиум</div></a>
   <div class="nav-links">
     <a href="#apartments">Апартаменты</a>
     <a href="#booking">Бронирование</a>
+    <a href="https://t.me/UrbanLuxehotel" target="_blank">Telegram</a>
+    <a href="https://www.instagram.com/urbanluxe.uz" target="_blank">Instagram</a>
+    <a href="#booking" class="nav-book">Забронировать</a>
   </div>
 </nav>
 
-<main>
-  <section class="hero">
-    <div class="hero-tag">Ташкент · Премиум апартаменты</div>
-    <h1>Забронируйте<br><em>онлайн</em></h1>
-    <p>Выберите апартамент, укажите даты и заполните форму. Подтверждение придёт в течение часа.</p>
-  </section>
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-tag">Ташкент · Узбекистан</div>
+    <h1 class="hero-title">Urban<br><em>Luxe</em></h1>
+    <p class="hero-desc">Премиальные апартаменты в сердце Ташкента. Уникальный дизайн, полный комфорт и лучшие локации города.</p>
+    <div class="hero-btns">
+      <a href="#apartments" class="btn-gold">Смотреть апартаменты</a>
+      <a href="#booking" class="btn-outline">Забронировать</a>
+    </div>
+    <div class="hero-stats">
+      <div><div class="hs-n">22</div><div class="hs-l">Апартамента</div></div>
+      <div><div class="hs-n">4</div><div class="hs-l">Комплекса</div></div>
+      <div><div class="hs-n">4.9★</div><div class="hs-l">Рейтинг</div></div>
+      <div><div class="hs-n">24/7</div><div class="hs-l">Поддержка</div></div>
+    </div>
+  </div>
+</section>
 
-  <section id="apartments">
-    <div class="section-label">Выберите апартамент</div>
-    <div class="apts-grid" id="aptsGrid"></div>
-  </section>
+<section id="apartments" class="section">
+  <div class="section-header">
+    <div class="s-tag">Наши апартаменты</div>
+    <h2 class="s-title">Выберите свой<br><em>стиль жизни</em></h2>
+    <p class="s-desc">Каждый апартамент — отдельный мир с уникальным дизайном и атмосферой.</p>
+  </div>
 
-  <section id="booking" class="booking-section">
-    <div class="calendar-wrap">
-      <div class="section-title">Выберите даты</div>
+  <div class="apt-card" id="card-nest_b15">
+    <div class="apt-gallery" onclick="bookApt('nest_b15')">
+      <img class="apt-gallery-main" id="img-nest_b15" src="images/nest_b15_0.jpg" alt="Апартамент 15">
+      <div class="apt-badge-overlay">NEST One · B Block · 3 этаж</div>
+      <div class="apt-thumbs">
+        <img class="apt-thumb active" src="images/nest_b15_0.jpg" onclick="event.stopPropagation();swP('nest_b15',this,'images/nest_b15_0.jpg')">
+        <img class="apt-thumb" src="images/nest_b15_1.jpg" onclick="event.stopPropagation();swP('nest_b15',this,'images/nest_b15_1.jpg')">
+        <img class="apt-thumb" src="images/nest_b15_2.jpg" onclick="event.stopPropagation();swP('nest_b15',this,'images/nest_b15_2.jpg')">
+      </div>
+    </div>
+    <div class="apt-info">
+      <div class="apt-complex">NEST One Complex · B Block</div>
+      <div class="apt-name">Апартамент 15</div>
+      <div class="apt-style">Оливковый стиль</div>
+      <p class="apt-desc-text">Уютная студия в теплых оливковых тонах с современной мебелью. Светлый интерьер, качественное постельное белье — всё необходимое для комфортного проживания в центре Ташкента.</p>
+      <div class="apt-features">
+        <div class="apt-feat">Студия · 1 спальня</div>
+        <div class="apt-feat">3 этаж · Уютный вид</div>
+        <div class="apt-feat">Smart TV · Wi-Fi</div>
+        <div class="apt-feat">Кухня · Посуда</div>
+        <div class="apt-feat">Стиральная машина</div>
+        <div class="apt-feat">Кондиционер</div>
+      </div>
+      <div><button class="btn-book" onclick="bookApt('nest_b15')">Забронировать</button></div>
+    </div>
+  </div>
+
+  <div class="apt-card" id="card-nest_a249">
+    <div class="apt-gallery" onclick="bookApt('nest_a249')">
+      <img class="apt-gallery-main" id="img-nest_a249" src="images/nest_a249_0.jpg" alt="Апартамент 249">
+      <div class="apt-badge-overlay">NEST One · A Block · 13 этаж</div>
+      <div class="apt-thumbs">
+        <img class="apt-thumb active" src="images/nest_a249_0.jpg" onclick="event.stopPropagation();swP('nest_a249',this,'images/nest_a249_0.jpg')">
+        <img class="apt-thumb" src="images/nest_a249_1.jpg" onclick="event.stopPropagation();swP('nest_a249',this,'images/nest_a249_1.jpg')">
+        <img class="apt-thumb" src="images/nest_a249_2.jpg" onclick="event.stopPropagation();swP('nest_a249',this,'images/nest_a249_2.jpg')">
+      </div>
+    </div>
+    <div class="apt-info">
+      <div class="apt-complex">NEST One Complex · A Block</div>
+      <div class="apt-name">Апартамент 249</div>
+      <div class="apt-style">Урбан-лофт</div>
+      <p class="apt-desc-text">Дизайнерский лофт на 13 этаже с панорамными видами. Тёмный мрамор, синий бархат, матовый металл — атмосфера городского шика. Идеально для деловых поездок и романтических уикендов.</p>
+      <div class="apt-features">
+        <div class="apt-feat">Лофт · Высокие потолки</div>
+        <div class="apt-feat">13 этаж · Панорама</div>
+        <div class="apt-feat">Smart TV · Wi-Fi</div>
+        <div class="apt-feat">Кофемашина</div>
+        <div class="apt-feat">Стиральная машина</div>
+        <div class="apt-feat">Кондиционер</div>
+      </div>
+      <div><button class="btn-book" onclick="bookApt('nest_a249')">Забронировать</button></div>
+    </div>
+  </div>
+
+  <div class="apt-card" id="card-nest_a481">
+    <div class="apt-gallery" onclick="bookApt('nest_a481')">
+      <img class="apt-gallery-main" id="img-nest_a481" src="images/nest_a481_0.jpg" alt="Апартамент 481">
+      <div class="apt-badge-overlay">NEST One · A Block · 25 этаж</div>
+      <div class="apt-thumbs">
+        <img class="apt-thumb active" src="images/nest_a481_0.jpg" onclick="event.stopPropagation();swP('nest_a481',this,'images/nest_a481_0.jpg')">
+        <img class="apt-thumb" src="images/nest_a481_1.jpg" onclick="event.stopPropagation();swP('nest_a481',this,'images/nest_a481_1.jpg')">
+        <img class="apt-thumb" src="images/nest_a481_2.jpg" onclick="event.stopPropagation();swP('nest_a481',this,'images/nest_a481_2.jpg')">
+      </div>
+    </div>
+    <div class="apt-info">
+      <div class="apt-complex">NEST One Complex · A Block</div>
+      <div class="apt-name">Апартамент 481</div>
+      <div class="apt-style">Светлый · Золотые акценты</div>
+      <p class="apt-desc-text">Просторный апартамент 2+1 на 25 этаже с видом на Tashkent City. Белые стены, золотые акценты и натуральный свет создают атмосферу роскоши. Идеально для семей и длительного проживания.</p>
+      <div class="apt-features">
+        <div class="apt-feat">2+1 · 2 спальни</div>
+        <div class="apt-feat">25 этаж · Вид на город</div>
+        <div class="apt-feat">Smart TV · Wi-Fi</div>
+        <div class="apt-feat">Полная кухня</div>
+        <div class="apt-feat">Стиральная машина</div>
+        <div class="apt-feat">Кондиционер</div>
+      </div>
+      <div><button class="btn-book" onclick="bookApt('nest_a481')">Забронировать</button></div>
+    </div>
+  </div>
+
+  <div class="apt-card" id="card-nest_a233">
+    <div class="apt-gallery" onclick="bookApt('nest_a233')">
+      <img class="apt-gallery-main" id="img-nest_a233" src="images/nest_a233_0.jpg" alt="Апартамент 233">
+      <div class="apt-badge-overlay">NEST One · A Block · 12 этаж</div>
+      <div class="apt-thumbs">
+        <img class="apt-thumb active" src="images/nest_a233_0.jpg" onclick="event.stopPropagation();swP('nest_a233',this,'images/nest_a233_0.jpg')">
+        <img class="apt-thumb" src="images/nest_a233_1.jpg" onclick="event.stopPropagation();swP('nest_a233',this,'images/nest_a233_1.jpg')">
+        <img class="apt-thumb" src="images/nest_a233_2.jpg" onclick="event.stopPropagation();swP('nest_a233',this,'images/nest_a233_2.jpg')">
+      </div>
+    </div>
+    <div class="apt-info">
+      <div class="apt-complex">NEST One Complex · A Block</div>
+      <div class="apt-name">Апартамент 233</div>
+      <div class="apt-style">Французская классика</div>
+      <p class="apt-desc-text">Элегантный апартамент 3+1 с просторным балконом. Мягкие тона, роскошная мебель — атмосфера парижского шика. Для больших семей и особых случаев.</p>
+      <div class="apt-features">
+        <div class="apt-feat">3+1 · 3 спальни</div>
+        <div class="apt-feat">Просторный балкон</div>
+        <div class="apt-feat">Smart TV · Wi-Fi</div>
+        <div class="apt-feat">Полная кухня</div>
+        <div class="apt-feat">Стиральная машина</div>
+        <div class="apt-feat">2 кондиционера</div>
+      </div>
+      <div><button class="btn-book" onclick="bookApt('nest_a233')">Забронировать</button></div>
+    </div>
+  </div>
+
+  <div class="apt-card" id="card-utower_65">
+    <div class="apt-gallery" onclick="bookApt('utower_65')">
+      <img class="apt-gallery-main" id="img-utower_65" src="images/utower_65_0.jpg" alt="Апартамент 65">
+      <div class="apt-badge-overlay">U-Tower NRG · 6 этаж</div>
+      <div class="apt-thumbs">
+        <img class="apt-thumb active" src="images/utower_65_0.jpg" onclick="event.stopPropagation();swP('utower_65',this,'images/utower_65_0.jpg')">
+        <img class="apt-thumb" src="images/utower_65_1.jpg" onclick="event.stopPropagation();swP('utower_65',this,'images/utower_65_1.jpg')">
+        <img class="apt-thumb" src="images/utower_65_2.jpg" onclick="event.stopPropagation();swP('utower_65',this,'images/utower_65_2.jpg')">
+      </div>
+    </div>
+    <div class="apt-info">
+      <div class="apt-complex">U-Tower NRG Complex</div>
+      <div class="apt-name">Апартамент 65</div>
+      <div class="apt-style">Дерево · Оранжевый</div>
+      <p class="apt-desc-text">Стильная студия с рифлёными стеклянными перегородками и золотыми люстрами. Балкон с оранжевыми стульями и видом на Ташкент. Рядом Tashkent City, City Mall, Seoul Mun.</p>
+      <div class="apt-features">
+        <div class="apt-feat">Студия · Балкон</div>
+        <div class="apt-feat">6 этаж · Вид на город</div>
+        <div class="apt-feat">Smart TV · Wi-Fi</div>
+        <div class="apt-feat">Кофемашина</div>
+        <div class="apt-feat">Стиральная машина</div>
+        <div class="apt-feat">Кондиционер</div>
+      </div>
+      <div><button class="btn-book" onclick="bookApt('utower_65')">Забронировать</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="booking" class="booking-wrap">
+  <div class="booking-inner">
+    <div class="booking-left">
+      <div class="s-tag">Шаг 1</div>
+      <div class="booking-title">Бронирование</div>
+      <div class="booking-sub">Выберите апартамент, затем отметьте даты</div>
+      <div class="apt-sel-grid" id="aptSelGrid"></div>
+      <div class="s-tag" style="margin-top:24px;margin-bottom:14px">Шаг 2 — Даты</div>
       <div class="cal-nav">
         <button onclick="changeMonth(-1)">←</button>
-        <div class="cal-month-label" id="calMonthLabel">Апрель 2026</div>
+        <div class="cal-month-label" id="calMonthLabel"></div>
         <button onclick="changeMonth(1)">→</button>
       </div>
       <div class="cal-grid" id="calGrid">
@@ -120,19 +322,19 @@ footer{padding:24px 48px;border-top:0.5px solid var(--border);display:flex;justi
         <div class="cal-dow">Вс</div>
       </div>
       <div class="cal-legend">
-        <div class="leg"><div class="leg-dot" style="background:rgba(196,150,58,.15);border:0.5px solid var(--border)"></div>Свободно</div>
+        <div class="leg"><div class="leg-dot" style="background:rgba(196,150,58,.15);border:0.5px solid rgba(196,150,58,.3)"></div>Свободно</div>
         <div class="leg"><div class="leg-dot" style="background:rgba(220,60,60,.12)"></div>Занято</div>
         <div class="leg"><div class="leg-dot" style="background:var(--gold)"></div>Выбрано</div>
       </div>
-      <div class="cal-status" id="calStatus">Выберите апартамент для загрузки занятости</div>
-      <div class="date-display" id="dateDisplay" style="display:none">
-        <p>Заезд → Выезд</p>
-        <strong id="dateDisplayText"></strong>
+      <div class="cal-status" id="calStatus">Выберите апартамент</div>
+      <div class="date-info" id="dateInfo" style="display:none">
+        <div class="date-info-label">Ваши даты</div>
+        <div class="date-info-val" id="dateInfoVal"></div>
       </div>
     </div>
-
-    <div class="form-wrap">
-      <div class="section-title">Ваши данные</div>
+    <div class="booking-right">
+      <div class="s-tag">Шаг 3</div>
+      <div class="booking-title" style="margin-bottom:24px">Ваши данные</div>
       <label>Имя и фамилия *</label>
       <input type="text" id="guestName" placeholder="Иван Иванов">
       <label>Телефон *</label>
@@ -146,202 +348,66 @@ footer{padding:24px 48px;border-top:0.5px solid var(--border);display:flex;justi
         <option value="3">3 гостя</option>
         <option value="4">4 гостя</option>
         <option value="5">5 гостей</option>
-        <option value="6">6 гостей</option>
+        <option value="6">6+ гостей</option>
       </select>
-      <button class="btn-submit" id="submitBtn" onclick="submitBooking()" disabled>Выберите даты и апартамент</button>
+      <label>Особые пожелания</label>
+      <input type="text" id="guestNotes" placeholder="Поздний заезд, детская кроватка...">
+      <button class="btn-submit" id="submitBtn" onclick="submitBooking()" disabled>Выберите апартамент и даты</button>
+      <div style="margin-top:16px;padding:12px 14px;background:var(--dark);border:0.5px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7">Подтверждение в течение часа. Оплата при заезде. Отмена за 24 ч — бесплатно.</div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section class="sync-section">
-    <div class="sync-title">📅 Синхронизация с Airbnb и Booking.com</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Подключите эти ссылки в настройках Airbnb и Booking.com — занятые даты будут автоматически блокироваться на всех платформах.</p>
-    <div class="sync-grid" id="syncGrid"></div>
-  </section>
-</main>
+<section class="sync-section">
+  <div class="sync-title">Синхронизация с Airbnb и Booking.com</div>
+  <p class="sync-desc">Подключите iCal ссылки в настройках площадок — занятые даты блокируются автоматически.</p>
+  <div class="sync-grid" id="syncGrid"></div>
+</section>
 
 <div class="toast" id="toast"></div>
 
 <footer>
-  <div class="flogo">URBAN LUXE</div>
-  <div>Прямое бронирование — лучшая цена</div>
-  <div>@urbanluxe.uz</div>
+  <a href="/" class="flogo">URBAN LUXE</a>
+  <div class="flinks">
+    <a href="https://www.instagram.com/urbanluxe.uz" target="_blank">Instagram</a>
+    <a href="https://t.me/UrbanLuxehotel" target="_blank">Telegram</a>
+    <a href="#apartments">Апартаменты</a>
+    <a href="#booking">Бронирование</a>
+  </div>
+  <div class="fcopy">© 2025 Urban Luxe · Ташкент · urbanluxe.uz</div>
 </footer>
 
 <script>
-const BASE_URL = '/.netlify/functions';
-
-const APARTMENTS = [
-  {id:'nest_b15',complex:'NEST One · B Block · 3 этаж',name:'Апартамент 15',desc:'Студия · Оливковый стиль'},
-  {id:'nest_a249',complex:'NEST One · A Block · 13 этаж',name:'Апартамент 249',desc:'Лофт · Чёрный мрамор'},
-  {id:'nest_a481',complex:'NEST One · A Block · 25 этаж',name:'Апартамент 481',desc:'Светлый · Золотые акценты'},
-  {id:'nest_a233',complex:'NEST One · A Block · 12 этаж',name:'Апартамент 233',desc:'3+1 · Французская классика · Балкон'},
-  {id:'nest_a23',complex:'NEST One · A Block · 12 этаж',name:'Апартамент 23',desc:'2+1 · Эко-терракота · Кабинет'},
-  {id:'utower_65',complex:'U-Tower NRG · 6 этаж',name:'Апартамент 65',desc:'Студия · Балкон · Стеклянные перегородки'},
+const BASE='/.netlify/functions';
+const APTS=[
+  {id:'nest_b15',name:'Апартамент 15',detail:'NEST One · B Block · 3 эт.'},
+  {id:'nest_a249',name:'Апартамент 249',detail:'NEST One · A Block · 13 эт.'},
+  {id:'nest_a481',name:'Апартамент 481',detail:'NEST One · A Block · 25 эт.'},
+  {id:'nest_a233',name:'Апартамент 233',detail:'NEST One · A Block · 12 эт.'},
+  {id:'nest_a23',name:'Апартамент 23',detail:'NEST One · A Block · 12 эт.'},
+  {id:'utower_65',name:'Апартамент 65',detail:'U-Tower NRG · 6 эт.'},
 ];
-
-let selectedApt=null,checkIn=null,checkOut=null,bookedRanges=[],calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
-
-function init(){renderApts();renderSyncGrid();renderCalendar();}
-
-function renderApts(){
-  document.getElementById('aptsGrid').innerHTML=APARTMENTS.map(a=>`<div class="apt-card" id="apt_${a.id}" onclick="selectApt('${a.id}')"><div class="apt-badge">${a.complex}</div><div class="apt-name">${a.name}</div><div class="apt-desc">${a.desc}</div></div>`).join('');
+let selApt=null,checkIn=null,checkOut=null,bookedRanges=[],calY=new Date().getFullYear(),calM=new Date().getMonth();
+function swP(id,thumb,src){document.getElementById('img-'+id).src=src;document.querySelectorAll('#card-'+id+' .apt-thumb').forEach(t=>t.classList.remove('active'));thumb.classList.add('active');}
+function init(){
+  document.getElementById('aptSelGrid').innerHTML=APTS.map(a=>`<button class="apt-sel-btn" id="sel_${a.id}" onclick="selectApt('${a.id}')"><div class="apt-sel-name">${a.name}</div><div class="apt-sel-detail">${a.detail}</div></button>`).join('');
+  document.getElementById('syncGrid').innerHTML=APTS.map(a=>`<div class="sync-item"><div class="sync-apt">${a.detail} · ${a.name}</div><div class="sync-url-box"><span class="sync-url-text">${location.origin}${BASE}/calendar?apt=${a.id}</span><button class="sync-copy" onclick="cpUrl('${location.origin}${BASE}/calendar?apt=${a.id}',this)">Копировать</button></div></div>`).join('');
+  renderCal();
 }
-
-function renderSyncGrid(){
-  document.getElementById('syncGrid').innerHTML=APARTMENTS.map(a=>`<div class="sync-item"><div class="sync-apt">${a.complex} · ${a.name}</div><code class="sync-url">${location.origin}${BASE_URL}/calendar?apt=${a.id}</code></div>`).join('');
-}
-
-function selectApt(aptId){
-  selectedApt=aptId;
-  document.querySelectorAll('.apt-card').forEach(c=>c.classList.remove('selected'));
-  const card=document.getElementById('apt_'+aptId);
-  if(card)card.classList.add('selected');
-  checkIn=null;checkOut=null;
-  updateSubmitBtn();
-  loadCalendar(aptId);
-  document.getElementById('booking').scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-async function loadCalendar(aptId){
-  const status=document.getElementById('calStatus');
-  status.textContent='⏳ Загружаем занятость...';
-  bookedRanges=[];
-  renderCalendar();
-  try{
-    const res=await fetch(`${BASE_URL}/calendar?apt=${aptId}`);
-    if(!res.ok)throw new Error();
-    const text=await res.text();
-    bookedRanges=parseICS(text);
-    status.textContent=bookedRanges.length>0?`✓ Загружено ${bookedRanges.length} бронирований`:'✓ Все даты свободны';
-    renderCalendar();
-  }catch(e){
-    status.textContent='⚠️ Не удалось загрузить данные';
-    renderCalendar();
-  }
-}
-
-function parseICS(text){
-  const ranges=[];
-  const lines=text.replace(/\r\n/g,'\n').split('\n');
-  let inEvent=false,start=null,end=null;
-  function parseD(s){const d=s.split(':').pop().replace(/[^0-9]/g,'');if(d.length>=8)return new Date(+d.substr(0,4),+d.substr(4,2)-1,+d.substr(6,2));return null;}
-  for(const line of lines){
-    if(line==='BEGIN:VEVENT'){inEvent=true;start=null;end=null;}
-    if(line==='END:VEVENT'&&inEvent){if(start&&end)ranges.push({start,end});inEvent=false;}
-    if(inEvent){if(line.startsWith('DTSTART'))start=parseD(line);if(line.startsWith('DTEND'))end=parseD(line);}
-  }
-  return ranges;
-}
-
-function isBooked(date){
-  const d=new Date(date);d.setHours(0,0,0,0);
-  return bookedRanges.some(r=>{const s=new Date(r.start);s.setHours(0,0,0,0);const e=new Date(r.end);e.setHours(0,0,0,0);return d>=s&&d<e;});
-}
-
-const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-
-function changeMonth(dir){
-  calMonth+=dir;
-  if(calMonth>11){calMonth=0;calYear++;}
-  if(calMonth<0){calMonth=11;calYear--;}
-  renderCalendar();
-}
-
-function renderCalendar(){
-  document.getElementById('calMonthLabel').textContent=MONTHS[calMonth]+' '+calYear;
-  const grid=document.getElementById('calGrid');
-  while(grid.children.length>7)grid.removeChild(grid.lastChild);
-  const today=new Date();today.setHours(0,0,0,0);
-  const firstDay=new Date(calYear,calMonth,1);
-  let dow=firstDay.getDay();dow=dow===0?6:dow-1;
-  for(let i=0;i<dow;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}
-  const days=new Date(calYear,calMonth+1,0).getDate();
-  for(let d=1;d<=days;d++){
-    const date=new Date(calYear,calMonth,d);date.setHours(0,0,0,0);
-    const el=document.createElement('div');el.textContent=d;
-    let cls='cal-day';
-    if(date<today)cls+=' past';
-    else if(checkIn&&date.getTime()===checkIn.getTime())cls+=' selected-start';
-    else if(checkOut&&date.getTime()===checkOut.getTime())cls+=' selected-end';
-    else if(checkIn&&checkOut&&date>checkIn&&date<checkOut)cls+=' in-range';
-    else if(date.getTime()===today.getTime())cls+=' today';
-    else if(isBooked(date))cls+=' booked';
-    else cls+=' free';
-    el.className=cls;
-    if(!cls.includes('past')&&!cls.includes('booked'))el.onclick=()=>onDayClick(date);
-    grid.appendChild(el);
-  }
-}
-
-function onDayClick(date){
-  if(!selectedApt){showToast('Сначала выберите апартамент','error');return;}
-  if(!checkIn||(checkIn&&checkOut)){checkIn=date;checkOut=null;}
-  else{
-    if(date<=checkIn){checkIn=date;checkOut=null;}
-    else{
-      let cur=new Date(checkIn);cur.setDate(cur.getDate()+1);let hasBooked=false;
-      while(cur<date){if(isBooked(cur)){hasBooked=true;break;}cur.setDate(cur.getDate()+1);}
-      if(hasBooked){showToast('В выбранном периоде есть занятые даты','error');return;}
-      checkOut=date;
-    }
-  }
-  renderCalendar();updateDateDisplay();updateSubmitBtn();
-}
-
-function updateDateDisplay(){
-  const dd=document.getElementById('dateDisplay'),dt=document.getElementById('dateDisplayText');
-  if(checkIn&&checkOut){
-    const fmt=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
-    const nights=Math.round((checkOut-checkIn)/86400000);
-    dt.textContent=`${fmt(checkIn)} → ${fmt(checkOut)} · ${nights} ${nights===1?'ночь':nights<5?'ночи':'ночей'}`;
-    dd.style.display='block';
-  }else if(checkIn){
-    dt.textContent=`Заезд: ${checkIn.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} — выберите дату выезда`;
-    dd.style.display='block';
-  }else dd.style.display='none';
-}
-
-function updateSubmitBtn(){
-  const btn=document.getElementById('submitBtn');
-  if(selectedApt&&checkIn&&checkOut){
-    const apt=APARTMENTS.find(a=>a.id===selectedApt);
-    const fmt=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
-    btn.textContent=`Забронировать · ${apt.name} · ${fmt(checkIn)}–${fmt(checkOut)}`;
-    btn.disabled=false;
-  }else{btn.textContent='Выберите даты и апартамент';btn.disabled=true;}
-}
-
-async function submitBooking(){
-  const name=document.getElementById('guestName').value.trim();
-  const phone=document.getElementById('guestPhone').value.trim();
-  const email=document.getElementById('guestEmail').value.trim();
-  const guests=document.getElementById('guestsCount').value;
-  if(!selectedApt)return showToast('Выберите апартамент','error');
-  if(!checkIn||!checkOut)return showToast('Выберите даты','error');
-  if(!name)return showToast('Введите имя','error');
-  if(!phone)return showToast('Введите телефон','error');
-  const btn=document.getElementById('submitBtn');
-  btn.disabled=true;btn.textContent='⏳ Отправляем...';
-  const toISO=d=>d.toISOString().split('T')[0];
-  try{
-    const res=await fetch(`${BASE_URL}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apartment_id:selectedApt,guest_name:name,guest_phone:phone,guest_email:email||null,check_in:toISO(checkIn),check_out:toISO(checkOut),guests_count:parseInt(guests)})});
-    const data=await res.json();
-    if(res.ok&&data.success){
-      showToast('✓ Бронь принята! Подтверждение придёт в ближайшее время.','success');
-      checkIn=null;checkOut=null;
-      renderCalendar();updateDateDisplay();updateSubmitBtn();loadCalendar(selectedApt);
-    }else if(res.status===409){
-      showToast('Эти даты уже заняты. Выберите другой период.','error');updateSubmitBtn();
-    }else throw new Error(data.error||'Ошибка');
-  }catch(e){showToast('Ошибка при отправке. Попробуйте ещё раз.','error');updateSubmitBtn();}
-}
-
-function showToast(msg,type=''){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast show '+type;
-  setTimeout(()=>t.className='toast',4000);
-}
-
+function cpUrl(url,btn){navigator.clipboard.writeText(url).then(()=>{btn.textContent='✓ Скопировано';setTimeout(()=>btn.textContent='Копировать',2000);});}
+function bookApt(id){document.getElementById('booking').scrollIntoView({behavior:'smooth'});setTimeout(()=>selectApt(id),300);}
+function selectApt(id){selApt=id;document.querySelectorAll('.apt-sel-btn').forEach(b=>b.classList.remove('active'));const b=document.getElementById('sel_'+id);if(b)b.classList.add('active');checkIn=null;checkOut=null;updBtn();loadCal(id);}
+async function loadCal(id){const s=document.getElementById('calStatus');s.textContent='⏳ Загружаем...';bookedRanges=[];renderCal();try{const r=await fetch(`${BASE}/calendar?apt=${id}`);if(!r.ok)throw 0;bookedRanges=parseICS(await r.text());s.textContent=bookedRanges.length?`✓ Бронирований: ${bookedRanges.length}`:'✓ Все даты свободны';renderCal();}catch(e){s.textContent='⚠️ Ошибка загрузки';renderCal();}}
+function parseICS(txt){const r=[];const ls=txt.replace(/\r\n/g,'\n').split('\n');let in_=false,s=null,e=null;const pd=l=>{const d=l.split(':').pop().replace(/[^0-9]/g,'');return d.length>=8?new Date(+d.substr(0,4),+d.substr(4,2)-1,+d.substr(6,2)):null;};for(const l of ls){if(l==='BEGIN:VEVENT'){in_=true;s=null;e=null;}if(l==='END:VEVENT'&&in_){if(s&&e)r.push({start:s,end:e});in_=false;}if(in_){if(l.startsWith('DTSTART'))s=pd(l);if(l.startsWith('DTEND'))e=pd(l);}}return r;}
+function isBkd(d){const dt=new Date(d);dt.setHours(0,0,0,0);return bookedRanges.some(r=>{const s=new Date(r.start);s.setHours(0,0,0,0);const e=new Date(r.end);e.setHours(0,0,0,0);return dt>=s&&dt<e;});}
+const MO=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+function changeMonth(d){calM+=d;if(calM>11){calM=0;calY++;}if(calM<0){calM=11;calY--;}renderCal();}
+function renderCal(){document.getElementById('calMonthLabel').textContent=MO[calM]+' '+calY;const g=document.getElementById('calGrid');while(g.children.length>7)g.removeChild(g.lastChild);const today=new Date();today.setHours(0,0,0,0);const fd=new Date(calY,calM,1);let dow=fd.getDay();dow=dow===0?6:dow-1;for(let i=0;i<dow;i++){const el=document.createElement('div');el.className='cal-day empty';g.appendChild(el);}const days=new Date(calY,calM+1,0).getDate();for(let d=1;d<=days;d++){const dt=new Date(calY,calM,d);dt.setHours(0,0,0,0);const el=document.createElement('div');el.textContent=d;let c='cal-day';if(dt<today)c+=' past';else if(checkIn&&dt.getTime()===checkIn.getTime())c+=' selected-start';else if(checkOut&&dt.getTime()===checkOut.getTime())c+=' selected-end';else if(checkIn&&checkOut&&dt>checkIn&&dt<checkOut)c+=' in-range';else if(dt.getTime()===today.getTime())c+=' today';else if(isBkd(dt))c+=' booked';else c+=' free';el.className=c;if(!c.includes('past')&&!c.includes('booked'))el.onclick=()=>onDay(dt);g.appendChild(el);}}
+function onDay(dt){if(!selApt){showToast('Сначала выберите апартамент','error');return;}if(!checkIn||(checkIn&&checkOut)){checkIn=dt;checkOut=null;}else if(dt<=checkIn){checkIn=dt;checkOut=null;}else{let c=new Date(checkIn);c.setDate(c.getDate()+1);let hb=false;while(c<dt){if(isBkd(c)){hb=true;break;}c.setDate(c.getDate()+1);}if(hb){showToast('В выбранном периоде есть занятые даты','error');return;}checkOut=dt;}renderCal();updDI();updBtn();}
+function updDI(){const di=document.getElementById('dateInfo'),dv=document.getElementById('dateInfoVal');if(checkIn&&checkOut){const fmt=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});const n=Math.round((checkOut-checkIn)/86400000);dv.textContent=`${fmt(checkIn)} — ${fmt(checkOut)} · ${n} ${n===1?'ночь':n<5?'ночи':'ночей'}`;di.style.display='block';}else if(checkIn){dv.textContent=`Заезд: ${checkIn.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} — выберите выезд`;di.style.display='block';}else di.style.display='none';}
+function updBtn(){const btn=document.getElementById('submitBtn');if(selApt&&checkIn&&checkOut){const a=APTS.find(x=>x.id===selApt);const fmt=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});btn.textContent=`Забронировать · ${a.name} · ${fmt(checkIn)}–${fmt(checkOut)}`;btn.disabled=false;}else{btn.textContent='Выберите апартамент и даты';btn.disabled=true;}}
+async function submitBooking(){const nm=document.getElementById('guestName').value.trim();const ph=document.getElementById('guestPhone').value.trim();const em=document.getElementById('guestEmail').value.trim();const gc=document.getElementById('guestsCount').value;const nt=document.getElementById('guestNotes').value.trim();if(!selApt)return showToast('Выберите апартамент','error');if(!checkIn||!checkOut)return showToast('Выберите даты','error');if(!nm)return showToast('Введите имя','error');if(!ph)return showToast('Введите телефон','error');const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='⏳ Отправляем...';const iso=d=>d.toISOString().split('T')[0];try{const res=await fetch(`${BASE}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apartment_id:selApt,guest_name:nm,guest_phone:ph,guest_email:em||null,check_in:iso(checkIn),check_out:iso(checkOut),guests_count:parseInt(gc),notes:nt||null})});const data=await res.json();if(res.ok&&data.success){showToast('✓ Бронь принята! Подтверждение в течение часа.','success');checkIn=null;checkOut=null;renderCal();updDI();updBtn();loadCal(selApt);}else if(res.status===409){showToast('Эти даты заняты','error');updBtn();}else throw 0;}catch(e){showToast('Ошибка. Попробуйте ещё раз.','error');updBtn();}}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',4500);}
 init();
 </script>
 </body>
