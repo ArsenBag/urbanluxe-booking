@@ -32,47 +32,109 @@ function formatDate(dateStr) {
 
 function fetchFromSupabase(aptId) {
   return new Promise((resolve, reject) => {
-    const url = new URL(process.env.SUPABASE_URL + '/rest/v1/bookings');
-    url.searchParams.set('apartment_id', 'eq.' + aptId);
+    const url = new URL(`${process.env.SUPABASE_URL}/rest/v1/bookings`);
+    url.searchParams.set('apartment_id', `eq.${aptId}`);
     url.searchParams.set('select', '*');
     url.searchParams.set('status', 'neq.cancelled');
+
     const options = {
       headers: {
         'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': 'Bearer ' + process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
         'Content-Type': 'application/json',
       },
     };
+
     https.get(url.toString(), options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { resolve([]); } });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          resolve([]);
+        }
+      });
     }).on('error', () => resolve([]));
   });
 }
 
 exports.handler = async (event) => {
-  const aptId = event.queryStringParameters && event.queryStringParameters.apt;
+  const aptId = event.queryStringParameters?.apt;
+
+  // If no apt specified, return list of all available calendars
   if (!aptId) {
-    const baseUrl = (event.headers && event.headers.host) ? 'https://' + event.headers.host : 'https://fastidious-blancmange-678804.netlify.app';
+    const baseUrl = event.headers?.host 
+      ? `https://${event.headers.host}` 
+      : 'https://fastidious-blancmange-678804.netlify.app';
+    
     const list = Object.entries(APARTMENTS).map(([id, apt]) => ({
-      id, name: apt.name, complex: apt.complex,
-      ical_url: baseUrl + '/.netlify/functions/calendar?apt=' + id,
+      id,
+      name: apt.name,
+      complex: apt.complex,
+      ical_url: `${baseUrl}/.netlify/functions/calendar?apt=${id}`,
     }));
-    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(list, null, 2) };
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify(list, null, 2),
+    };
   }
+
+  // Validate apartment ID
   if (!APARTMENTS[aptId]) {
-    return { statusCode: 404, body: 'Apartment not found. Call without ?apt= to see all IDs.' };
+    return {
+      statusCode: 404,
+      body: `Apartment "${aptId}" not found. Call without ?apt= to see all available IDs.`,
+    };
   }
+
   const apt = APARTMENTS[aptId];
   const bookings = await fetchFromSupabase(aptId);
+
+  // Generate iCal
   const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  let ical = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Urban Luxe//Booking System//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Urban Luxe - ' + apt.name,'X-WR-TIMEZONE:Asia/Tashkent'];
-  bookings.forEach((b, i) => {
-    if (b.check_in && b.check_out) {
-      ical.push('BEGIN:VEVENT','UID:booking-' + (b.id||i) + '-' + aptId + '@urbanluxe.cc','DTSTART;VALUE=DATE:' + formatDate(b.check_in),'DTEND;VALUE=DATE:' + formatDate(b.check_out),'DTSTAMP:' + now,'SUMMARY:Booking - ' + (b.guest_name||'Guest'),'LOCATION:' + apt.name + ', ' + apt.complex + ', Tashkent','STATUS:CONFIRMED','TRANSP:OPAQUE','END:VEVENT');
+  
+  let ical = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Urban Luxe//Booking System//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:Urban Luxe — ${apt.name}`,
+    'X-WR-TIMEZONE:Asia/Tashkent',
+  ];
+
+  bookings.forEach((booking, index) => {
+    if (booking.check_in && booking.check_out) {
+      const uid = `booking-${booking.id || index}-${aptId}@urbanluxe.cc`;
+      ical.push(
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTART;VALUE=DATE:${formatDate(booking.check_in)}`,
+        `DTEND;VALUE=DATE:${formatDate(booking.check_out)}`,
+        `DTSTAMP:${now}`,
+        `SUMMARY:Бронь — ${booking.guest_name || 'Гость'}`,
+        `DESCRIPTION:Гость: ${booking.guest_name || 'N/A'}\\nТелефон: ${booking.guest_phone || 'N/A'}\\nEmail: ${booking.guest_email || 'N/A'}\\nГостей: ${booking.guests_count || 'N/A'}\\nЗаметки: ${booking.notes || 'нет'}`,
+        `LOCATION:${apt.name}, ${apt.complex}, Ташкент`,
+        'STATUS:CONFIRMED',
+        'TRANSP:OPAQUE',
+        'END:VEVENT'
+      );
     }
   });
+
   ical.push('END:VCALENDAR');
-  return { statusCode: 200, headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'attachment; filename=urbanluxe-' + aptId + '.ics', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache, no-store, must-revalidate' }, body: ical.join('\r\n') };
+
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `attachment; filename="urbanluxe-${aptId}.ics"`,
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    },
+    body: ical.join('\r\n'),
+  };
 };
