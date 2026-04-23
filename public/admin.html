@@ -69,7 +69,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 </div>
 <div class="section" id="tab-apartments"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Апартаменты</h2><button class="btn btn-sm" onclick="openAM()">+ Добавить</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Название</th><th>Комплекс</th><th>Этаж</th><th>Тип</th><th>Пн-Чт</th><th>Пт-Вс</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="aT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
 <div class="section" id="tab-bookings"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Бронирования</h2><button class="btn btn-sm btn-outline" onclick="loadAll()">Обновить</button></div><div class="table-wrap"><table><thead><tr><th>Апартамент</th><th>Гость</th><th>Телефон</th><th>Заезд</th><th>Выезд</th><th>Ночей</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="bT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
-<div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb active" onclick="setP('month',this)">По месяцам</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
+<div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb" onclick="setP('day',this)">По дням</button><button class="pb" onclick="setP('week',this)">По неделям</button><button class="pb active" onclick="setP('month',this)">По месяцам</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
 <div class="section" id="tab-staff"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Сотрудники</h2><div class="stats"><div class="stat"><div class="stat-label">Всего</div><div class="stat-value">1</div></div><div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value">—</div></div><div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value">—</div></div></div><div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Контакт</th><th>Статус</th></tr></thead><tbody><tr><td>Арсен</td><td>Менеджер</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr></tbody></table></div></div>
 </div></div>
 <div class="modal-overlay" id="aptM"><div class="modal"><h2 id="amT">Добавить</h2><input type="hidden" id="amE"><div class="form-row"><div><label>ID</label><input type="text" id="amI"></div><div><label>Название</label><input type="text" id="amN"></div></div><div class="form-row"><div><label>Комплекс</label><select id="amC"><option>Nest One</option><option>U-Tower</option><option>U-Tower 2</option><option>Mirabad</option><option>Kislorod</option></select></div><div><label>Этаж</label><input type="number" id="amF"></div></div><div class="form-row"><div><label>Цена Пн-Чт</label><input type="number" id="amW"></div><div><label>Цена Пт-Вс</label><input type="number" id="amWe"></div></div><div class="form-row"><div><label>Тип</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div><label>iCal URL</label><input type="text" id="amU"><div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div><div id="amErr" class="error" style="display:none"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
@@ -78,7 +78,8 @@ const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1
 const sb=supabase.createClient(SB_URL,SB_KEY);
 const API_BASE='/.netlify/functions';
 let AA=[],AB=[],C1,C2,C3,C4;
-let sheetsData=null;  // данные из Google Sheets
+let sheetsData=null;  // данные из Google Sheets (месяц)
+let weeklyData=null;  // данные из Google Sheets (неделя)
 let icalData={};      // данные из iCal {apt_id: [{start, end}]}
 
 // ============ AUTH ============
@@ -94,10 +95,11 @@ async function loadAll(){
   st.textContent='⟳ Загрузка...';st.className='data-src data-src-sheets pulse';
   
   // Параллельная загрузка из 3 источников
-  const [sbResult, shResult, icalResult] = await Promise.allSettled([
+  const [sbResult, shResult, icalResult, wkResult] = await Promise.allSettled([
     loadSupabase(),
     loadSheets(),
-    loadIcalAll()
+    loadIcalAll(),
+    loadWeeklySheets()
   ]);
   
   st.textContent='✓ Данные актуальны';st.className='data-src data-src-sheets';st.classList.remove('pulse');
@@ -193,6 +195,83 @@ function parseSummaryCSV(csv){
   }
   
   return{months:months.map(m=>({label:m.label,year:m.year})),summary};
+}
+
+async function loadWeeklySheets(){
+  const SHEET_ID='1NHqPZV8Dx2dKmfTCpb8LcdA4AtuqSfKyyyWs5UF2HtY';
+  try{
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Неделя')}`);
+    if(!r.ok)return;
+    const csv=await r.text();
+    weeklyData=parseWeeklyCSV(csv);
+    console.log('[SHEETS] Weekly data loaded',weeklyData);
+  }catch(e){console.warn('Weekly sheets failed:',e)}
+}
+
+function parseWeeklyCSV(csv){
+  const rows=csv.split('\n').filter(l=>l.trim()).map(line=>{
+    const cells=[];let cell='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){if(inQ&&line[i+1]==='"'){cell+='"';i++}else inQ=!inQ}
+      else if(ch===','&&!inQ){cells.push(cell.trim());cell=''}
+      else if(ch!=='\r')cell+=ch;
+    }
+    cells.push(cell.trim());return cells;
+  });
+  
+  // Найдём строки по лейблам
+  const findRow=(search)=>rows.findIndex(r=>r[0]&&r[0].toLowerCase().includes(search.toLowerCase()));
+  
+  const dateRowIdx=findRow('аппартамент');
+  const revenueIdx=findRow('итого поступлении');
+  const rentIdx=findRow('аренда + офис');
+  const expIdx=findRow('расходы');
+  const cleanIdx=findRow('клининг');
+  const salaryIdx=findRow('зарплат');
+  const mktIdx=findRow('маркетинг');
+  const netIdx=findRow('итого чистыми');
+  const wkRevIdx=findRow('итого поступлении за неделю');
+  const wkRentIdx=findRow('итого аренда за неделю');
+  const wkExpIdx=findRow('итого расходы за неделю');
+  const wkClnIdx=findRow('итого клининг');
+  const wkSalIdx=findRow('итого зарплата');
+  const wkMktIdx=findRow('итого маркетинг');
+  
+  // Ежедневные данные
+  const dates=dateRowIdx>=0?rows[dateRowIdx].slice(1):[];
+  const getDaily=(idx)=>idx>=0?rows[idx].slice(1).map(v=>parseNum(v)):[];
+  
+  const daily={
+    dates,
+    revenue:getDaily(revenueIdx),
+    rent:getDaily(rentIdx),
+    expenses:getDaily(expIdx),
+    cleaning:getDaily(cleanIdx),
+    salary:getDaily(salaryIdx),
+    marketing:getDaily(mktIdx),
+    net:getDaily(netIdx)
+  };
+  
+  // Понедельные итоги (значения в определённых колонках — первый день каждой недели)
+  const getWeekly=(idx)=>{
+    if(idx<0)return[];
+    return rows[idx].slice(1).filter(v=>v&&v.trim()!=='').map(v=>parseNum(v));
+  };
+  
+  const weekly={
+    revenue:getWeekly(wkRevIdx),
+    rent:getWeekly(wkRentIdx),
+    expenses:getWeekly(wkExpIdx),
+    cleaning:getWeekly(wkClnIdx),
+    salary:getWeekly(wkSalIdx),
+    marketing:getWeekly(wkMktIdx)
+  };
+  
+  // Посчитаем чистыми за неделю
+  weekly.net=weekly.revenue.map((r,i)=>r-(weekly.rent[i]||0)-(weekly.expenses[i]||0)-(weekly.cleaning[i]||0)-(weekly.salary[i]||0)-(weekly.marketing[i]||0));
+  
+  return{daily,weekly};
 }
 
 async function loadIcalAll(){
@@ -459,9 +538,93 @@ function rOcc(){
 }
 
 // ============ FINANCE TAB (Google Sheets) ============
-function setP(p,el){document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));el.classList.add('active');rFin()}
+let currentPeriod='month';
+function setP(p,el){document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));el.classList.add('active');currentPeriod=p;rFin(p)}
 
-function rFin(){
+function rFin(period){
+  period=period||currentPeriod||'month';
+  const titles={day:'Доход по дням (Google Sheets)',week:'Доход по неделям (Google Sheets)',month:'Доход по месяцам (Google Sheets)'};
+  document.getElementById('fT').textContent=titles[period];
+  
+  if(period==='day'&&weeklyData&&weeklyData.daily){
+    rFinDaily();
+  }else if(period==='week'&&weeklyData&&weeklyData.weekly){
+    rFinWeekly();
+  }else{
+    rFinMonthly();
+  }
+}
+
+function rFinDaily(){
+  const d=weeklyData.daily;
+  const n=new Date(),dm=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();
+  const todayIdx=n.getDate()-1;
+  
+  // KPI карточки за текущий месяц
+  const totRev=d.revenue.reduce((s,v)=>s+v,0);
+  const totRent=d.rent.reduce((s,v)=>s+v,0);
+  const totExp=d.expenses.reduce((s,v)=>s+v,0);
+  const totNet=d.net.reduce((s,v)=>s+v,0);
+  const margin=totRev?Math.round(totNet/totRev*100):0;
+  
+  document.getElementById('fS').innerHTML=`
+    <div class="stat"><div class="stat-label">Поступления за месяц</div><div class="stat-value">$${Math.round(totRev).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Аренда + офис</div><div class="stat-value">$${Math.round(totRent).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Расходы</div><div class="stat-value">$${Math.round(totExp).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Чистыми</div><div class="stat-value" style="color:${totNet>=0?'var(--green)':'var(--red)'}">$${Math.round(totNet).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Маржинальность</div><div class="stat-value">${margin}%</div></div>`;
+  
+  // График по дням
+  const lb=d.dates.slice(0,dm).map((_,i)=>i+1);
+  const rv=d.revenue.slice(0,dm);
+  const np=d.net.slice(0,dm);
+  
+  if(C4)C4.destroy();
+  C4=new Chart(document.getElementById('cFin'),{type:'bar',data:{labels:lb,datasets:[
+    {label:'Доход',data:rv,backgroundColor:rv.map((_,i)=>i===todayIdx?'rgba(201,169,97,1)':'rgba(201,169,97,.5)'),borderWidth:0},
+    {label:'Чистыми',data:np,backgroundColor:np.map((_,i)=>i===todayIdx?'rgba(46,204,113,.9)':'rgba(46,204,113,.3)'),borderWidth:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a8a096'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': $'+Math.round(ctx.raw).toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e',maxRotation:0,callback:function(v,i){return i%5===0?lb[i]:''}},grid:{display:false}}}}});
+  
+  // Таблица — показываем только дни с данными
+  document.getElementById('fTB').innerHTML=d.dates.slice(0,dm).map((date,i)=>{
+    const rev=d.revenue[i]||0;if(!rev)return'';
+    const rent=d.rent[i]||0,exp=d.expenses[i]||0,cln=d.cleaning[i]||0,sal=d.salary[i]||0,mkt=d.marketing[i]||0,net=d.net[i]||0;
+    const isToday=i===todayIdx;
+    return`<tr${isToday?' style="background:var(--gold-s)"':''}><td>${date}</td><td style="color:var(--gold)">$${Math.round(rev).toLocaleString()}</td><td>$${Math.round(rent).toLocaleString()}</td><td>—</td><td>$${Math.round(exp).toLocaleString()}</td><td>$${Math.round(cln).toLocaleString()}</td><td>$${Math.round(sal).toLocaleString()}</td><td>$${Math.round(mkt).toLocaleString()}</td><td style="color:${net>=0?'var(--green)':'var(--red)'}">$${Math.round(net).toLocaleString()}</td></tr>`;
+  }).join('')||'<tr><td colspan="9" class="loading">Нет данных</td></tr>';
+}
+
+function rFinWeekly(){
+  const w=weeklyData.weekly;
+  const weekLabels=w.revenue.map((_,i)=>'Неделя '+(i+1));
+  
+  const totRev=w.revenue.reduce((s,v)=>s+v,0);
+  const totRent=w.rent.reduce((s,v)=>s+v,0);
+  const totExp=w.expenses.reduce((s,v)=>s+v,0);
+  const totNet=w.net.reduce((s,v)=>s+v,0);
+  const margin=totRev?Math.round(totNet/totRev*100):0;
+  
+  document.getElementById('fS').innerHTML=`
+    <div class="stat"><div class="stat-label">Поступления за месяц</div><div class="stat-value">$${Math.round(totRev).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Аренда + офис</div><div class="stat-value">$${Math.round(totRent).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Расходы</div><div class="stat-value">$${Math.round(totExp).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Чистыми</div><div class="stat-value" style="color:${totNet>=0?'var(--green)':'var(--red)'}">$${Math.round(totNet).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Маржинальность</div><div class="stat-value">${margin}%</div></div>`;
+  
+  if(C4)C4.destroy();
+  C4=new Chart(document.getElementById('cFin'),{type:'bar',data:{labels:weekLabels,datasets:[
+    {label:'Доход',data:w.revenue,backgroundColor:'rgba(201,169,97,.6)',borderColor:'#c9a961',borderWidth:1},
+    {label:'Чистыми',data:w.net,backgroundColor:'rgba(46,204,113,.4)',borderColor:'#2ecc71',borderWidth:1}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a8a096'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': $'+Math.round(ctx.raw).toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+  
+  document.getElementById('fTB').innerHTML=weekLabels.map((label,i)=>{
+    const rev=w.revenue[i]||0;if(!rev)return'';
+    const rent=w.rent[i]||0,exp=w.expenses[i]||0,cln=w.cleaning[i]||0,sal=w.salary[i]||0,mkt=w.marketing[i]||0,net=w.net[i]||0;
+    return`<tr><td>${label}</td><td style="color:var(--gold)">$${Math.round(rev).toLocaleString()}</td><td>$${Math.round(rent).toLocaleString()}</td><td>—</td><td>$${Math.round(exp).toLocaleString()}</td><td>$${Math.round(cln).toLocaleString()}</td><td>$${Math.round(sal).toLocaleString()}</td><td>$${Math.round(mkt).toLocaleString()}</td><td style="color:${net>=0?'var(--green)':'var(--red)'}">$${Math.round(net).toLocaleString()}</td></tr>`;
+  }).join('')||'<tr><td colspan="9" class="loading">Нет данных</td></tr>';
+}
+
+function rFinMonthly(){
   document.getElementById('fT').textContent='Доход по месяцам (Google Sheets)';
   
   if(sheetsData&&sheetsData.summary){
