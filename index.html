@@ -448,7 +448,7 @@ card.style.display=(c==='all'||card.dataset.complex===c)?'block':'none';
 }
 
 // Set min dates
-(function(){
+window.addEventListener('load',function(){
 var today=new Date();
 var fpIn=flatpickr('#searchCheckIn',{
 dateFormat:'Y-m-d',
@@ -465,7 +465,7 @@ altFormat:'d.m.Y',
 minDate:today,
 locale:{firstDayOfWeek:1,weekdays:{shorthand:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],longhand:['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота']},months:{shorthand:['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],longhand:['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']}}
 });
-})();
+});
 
 var selectedApt=null;
 
