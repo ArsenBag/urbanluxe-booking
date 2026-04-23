@@ -435,6 +435,7 @@ span.flatpickr-weekday{color:var(--gold)!important;font-weight:500}
 <div class="footer__bottom"><span>&copy; 2026 Urban Luxe. Все права защищены.</span><span>urbanluxe.cc</span></div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 window.addEventListener('scroll',()=>{document.getElementById('nav').classList.toggle('s',scrollY>40)});
 
@@ -447,7 +448,7 @@ card.style.display=(c==='all'||card.dataset.complex===c)?'block':'none';
 }
 
 // Set min dates
-(function(){
+window.addEventListener('load',function(){
 var today=new Date();
 var fpIn=flatpickr('#searchCheckIn',{
 dateFormat:'Y-m-d',
@@ -565,6 +566,5 @@ btn.textContent='Отправить заявку';
 btn.disabled=false;
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
