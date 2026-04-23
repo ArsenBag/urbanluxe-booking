@@ -365,29 +365,43 @@ img{display:block;width:100%;height:100%;object-fit:cover}
 </section>
 
 <section class="booking" id="booking">
-<div>
+<div class="sh" style="margin-bottom:48px">
+<div class="sh__left">
 <div class="sh__label">Бронирование</div>
-<h2 class="sh__title" style="margin-bottom:24px">Забронируйте <em>свою</em> резиденцию.</h2>
-<p style="color:var(--ink-m);font-size:15px;line-height:1.8;margin-bottom:32px">Заполните форму — мы подтвердим в течение часа. Или напишите напрямую менеджеру в Telegram.</p>
-<div style="display:flex;gap:16px;flex-wrap:wrap">
-<a href="https://t.me/Arsen_bnb" class="btn-p" style="display:inline-flex;align-items:center;gap:8px" target="_blank">Telegram @Arsen_bnb</a>
-<a href="https://instagram.com/urbanluxe.uz" class="btn-g" target="_blank">Instagram →</a>
+<h2 class="sh__title">Найдите <em>свободную</em> резиденцию.</h2>
 </div>
 </div>
-<div class="booking__form">
-<h3>Оставить заявку</h3>
-<div class="form-row"><label>Апартамент</label><select><option>Выберите апартамент</option><option>Nest One — Кв. 15 ($90/ночь)</option><option>Nest One — Кв. 249 ($105/ночь)</option><option>Nest One — Кв. 481 ($125/ночь)</option><option>Nest One — Кв. 233 ($135/ночь)</option><option>Nest One — Кв. 353 ($105/ночь)</option><option>U-Tower — Кв. 65 ($90/ночь)</option><option>U-Tower — Кв. 73 ($90/ночь)</option><option>U-Tower — Кв. 171 ($85/ночь)</option><option>U-Tower — Кв. 208 ($85/ночь)</option><option>U-Tower — Кв. 310 ($85/ночь)</option><option>U-Tower — Кв. 410 ($95/ночь)</option><option>U-Tower 2 — Кв. 5 ($115/ночь)</option><option>U-Tower 2 — Кв. 9 ($115/ночь)</option><option>U-Tower 2 — Кв. 207 ($135/ночь)</option><option>U-Tower 2 — Кв. 228 ($135/ночь)</option><option>U-Tower 2 — Кв. 296 ($105/ночь)</option><option>U-Tower 2 — Кв. 92 ($105/ночь)</option><option>Mirabad — Кв. 111 ($115/ночь)</option><option>Mirabad — Кв. 205 ($90/ночь)</option><option>Kislorod — Кв. 49 ($105/ночь)</option><option>Kislorod — Кв. 58 ($115/ночь)</option><option>Kislorod — Кв. 128 ($115/ночь)</option></select></div>
-<div class="form-grid">
-<div class="form-row"><label>Заезд</label><input type="date"></div>
-<div class="form-row"><label>Выезд</label><input type="date"></div>
+
+<div class="search-box" style="background:var(--bg2);padding:40px;border:.5px solid var(--line);margin-bottom:48px">
+<h3 style="font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:24px">Поиск по датам</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:end">
+<div class="form-row"><label>Дата заезда</label><input type="date" id="searchCheckIn"></div>
+<div class="form-row"><label>Дата выезда</label><input type="date" id="searchCheckOut"></div>
+<button class="btn-p" id="searchBtn" onclick="searchAvailability()" style="height:48px">Найти апартаменты</button>
 </div>
-<div class="form-row"><label>Имя и фамилия</label><input type="text" placeholder="Иван Иванов"></div>
-<div class="form-grid">
-<div class="form-row"><label>Телефон</label><input type="tel" placeholder="+998 90 123 45 67"></div>
-<div class="form-row"><label>Гостей</label><select><option>1</option><option>2</option><option selected>2</option><option>3</option><option>4</option><option>5+</option></select></div>
+<div id="searchStatus" style="margin-top:16px;font-size:14px;color:var(--ink-m)"></div>
 </div>
-<div class="form-row"><label>Комментарий</label><textarea placeholder="Ранний заезд, детская кроватка..."></textarea></div>
-<button class="btn-p form-submit">Отправить заявку</button>
+
+<div id="searchResults" style="display:none">
+<h3 style="font-family:var(--fd);font-size:22px;font-weight:400;margin-bottom:24px;color:var(--gold)">Доступные апартаменты</h3>
+<div id="resultsList" class="grid" style="gap:6px;margin-bottom:48px"></div>
+</div>
+
+<div id="bookingForm" style="display:none;background:var(--bg2);padding:40px;border:.5px solid var(--line)">
+<h3 style="font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:8px">Забронировать</h3>
+<p id="bookingAptInfo" style="color:var(--gold);font-size:14px;margin-bottom:24px"></p>
+<input type="hidden" id="bookingAptId">
+<div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div class="form-row"><label>Имя и фамилия *</label><input type="text" id="guestName" placeholder="Иван Иванов"></div>
+<div class="form-row"><label>Телефон *</label><input type="tel" id="guestPhone" placeholder="+998 90 123 45 67"></div>
+</div>
+<div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+<div class="form-row"><label>Email</label><input type="email" id="guestEmail" placeholder="email@example.com"></div>
+<div class="form-row"><label>Гостей</label><select id="guestCount"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5+</option></select></div>
+</div>
+<div class="form-row" style="margin-top:20px"><label>Комментарий</label><textarea id="guestNotes" placeholder="Ранний заезд, детская кроватка..."></textarea></div>
+<button class="btn-p" id="submitBooking" onclick="submitBooking()" style="width:100%;margin-top:16px">Отправить заявку</button>
+<p style="margin-top:16px;font-size:13px;color:var(--ink-d)">Или напишите напрямую: <a href="https://t.me/Arsen_bnb" style="color:var(--gold)">Telegram @Arsen_bnb</a></p>
 </div>
 </section>
 
@@ -398,11 +412,12 @@ img{display:block;width:100%;height:100%;object-fit:cover}
 <div><h5>Контакты</h5><a href="https://t.me/Arsen_bnb">Telegram @Arsen_bnb</a><a href="https://t.me/UrbanLuxehotel">Канал @UrbanLuxehotel</a><a href="https://instagram.com/urbanluxe.uz">Instagram @urbanluxe.uz</a></div>
 <div><h5>Информация</h5><a href="#">Условия бронирования</a><a href="#">Правила проживания</a><a href="#">FAQ</a></div>
 </div>
-<div class="footer__bottom"><span>© 2026 Urban Luxe. Все права защищены.</span><span>urbanluxe.cc</span></div>
+<div class="footer__bottom"><span>&copy; 2026 Urban Luxe. Все права защищены.</span><span>urbanluxe.cc</span></div>
 </footer>
 
 <script>
 window.addEventListener('scroll',()=>{document.getElementById('nav').classList.toggle('s',scrollY>40)});
+
 function filterApts(c){
 document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));
 event.target.classList.add('active');
@@ -410,8 +425,115 @@ document.querySelectorAll('.card').forEach(card=>{
 card.style.display=(c==='all'||card.dataset.complex===c)?'block':'none';
 });
 }
-</script>
 
-  document.querySelector('.form-submit').onclick=async function(e){e.preventDefault();var f=document.querySelector('.booking__form'),s=f.querySelectorAll('select'),i=f.querySelectorAll('input'),t=f.querySelector('textarea'),m={'Nest One — Кв. 15 ($90/ночь)':'nest_15','Nest One — Кв. 249 ($105/ночь)':'nest_249','Nest One — Кв. 481 ($125/ночь)':'nest_481','Nest One — Кв. 233 ($135/ночь)':'nest_233','Nest One — Кв. 353 ($105/ночь)':'nest_353','U-Tower — Кв. 65 ($90/ночь)':'utower_65','U-Tower — Кв. 73 ($90/ночь)':'utower_73','U-Tower — Кв. 171 ($85/ночь)':'utower_171','U-Tower — Кв. 208 ($85/ночь)':'utower_208','U-Tower — Кв. 310 ($85/ночь)':'utower_310','U-Tower — Кв. 410 ($95/ночь)':'utower_410','U-Tower 2 — Кв. 5 ($115/ночь)':'utower2_5','U-Tower 2 — Кв. 9 ($115/ночь)':'utower2_9','U-Tower 2 — Кв. 207 ($135/ночь)':'utower2_207','U-Tower 2 — Кв. 228 ($135/ночь)':'utower2_228','U-Tower 2 — Кв. 296 ($105/ночь)':'utower2_296','U-Tower 2 — Кв. 92 ($105/ночь)':'utower2_92','Mirabad — Кв. 111 ($115/ночь)':'mirabad_111','Mirabad — Кв. 205 ($90/ночь)':'mirabad_205','Kislorod — Кв. 49 ($105/ночь)':'kislorod_49','Kislorod — Кв. 58 ($115/ночь)':'kislorod_58','Kislorod — Кв. 128 ($115/ночь)':'kislorod_128'},a=m[s[0].options[s[0].selectedIndex].text];if(!a){alert('Выберите апартамент');return}if(!i[0].value||!i[1].value){alert('Укажите даты');return}if(!i[2].value||!i[3].value){alert('Укажите имя и телефон');return}this.textContent='Отправка...';this.disabled=true;try{var r=await fetch('/.netlify/functions/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apartment_id:a,guest_name:i[2].value,guest_phone:i[3].value,check_in:i[0].value,check_out:i[1].value,guests_count:parseInt(s[1].value)||2,notes:t?t.value:''})});var d=await r.json();if(d.success){alert('Заявка отправлена! Мы свяжемся в течение часа.')}else{alert(d.error||'Ошибка')}}catch(x){alert('Ошибка. Напишите @Arsen_bnb')}this.textContent='Отправить заявку';this.disabled=false};
+// Set min dates
+(function(){
+var today=new Date().toISOString().split('T')[0];
+var ci=document.getElementById('searchCheckIn');
+var co=document.getElementById('searchCheckOut');
+if(ci)ci.min=today;
+if(co)co.min=today;
+ci.addEventListener('change',function(){co.min=this.value});
+})();
+
+var selectedApt=null;
+
+async function searchAvailability(){
+var ci=document.getElementById('searchCheckIn').value;
+var co=document.getElementById('searchCheckOut').value;
+var status=document.getElementById('searchStatus');
+var results=document.getElementById('searchResults');
+var list=document.getElementById('resultsList');
+
+if(!ci||!co){status.textContent='Укажите даты заезда и выезда';return}
+if(ci>=co){status.textContent='Дата выезда должна быть позже даты заезда';return}
+
+status.innerHTML='<span style="color:var(--gold)">Ищем свободные апартаменты...</span>';
+document.getElementById('searchBtn').disabled=true;
+document.getElementById('bookingForm').style.display='none';
+
+try{
+var r=await fetch('/.netlify/functions/availability?check_in='+ci+'&check_out='+co);
+var d=await r.json();
+
+if(d.available&&d.available.length>0){
+status.textContent='Найдено '+d.available_count+' свободных апартаментов из '+d.total_apartments+' на '+d.nights+' ноч.';
+list.innerHTML='';
+d.available.forEach(function(apt){
+var card=document.createElement('div');
+card.className='card';
+card.style.cursor='pointer';
+card.onclick=function(){selectForBooking(apt)};
+card.innerHTML='<div class="card__img" style="background:var(--bg3);aspect-ratio:3/2;display:flex;align-items:center;justify-content:center"><div class="card__badge">'+apt.complex+' · Этаж '+apt.floor+'</div><div style="z-index:3;position:relative;text-align:center;padding:20px"><div style="font-family:var(--fd);font-size:32px;color:var(--gold)">$'+apt.total+'</div><div style="font-size:11px;color:var(--ink-m);letter-spacing:.15em;text-transform:uppercase;margin-top:4px">за '+apt.nights+' ноч.</div></div></div><div class="card__info" style="position:relative;padding:20px"><h3 class="card__title" style="font-size:22px">'+apt.name+'</h3><p class="card__sub">'+apt.style+'</p><div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:.5px solid var(--line)"><span style="color:var(--ink-m);font-size:13px">от $'+apt.weekday+'/ночь</span><span style="color:var(--gold);font-size:11px;letter-spacing:.15em;text-transform:uppercase">Выбрать →</span></div></div>';
+list.appendChild(card);
+});
+results.style.display='block';
+}else{
+status.textContent='К сожалению, на выбранные даты нет свободных апартаментов. Попробуйте другие даты.';
+results.style.display='none';
+}
+}catch(e){
+status.textContent='Ошибка загрузки. Попробуйте позже или напишите @Arsen_bnb';
+}
+document.getElementById('searchBtn').disabled=false;
+}
+
+function selectForBooking(apt){
+selectedApt=apt;
+document.getElementById('bookingAptId').value=apt.id;
+document.getElementById('bookingAptInfo').textContent=apt.complex+' · '+apt.name+' · '+apt.style+' · $'+apt.total+' за '+apt.nights+' ноч. ('+apt.check_in+' — '+apt.check_out+')';
+document.getElementById('bookingForm').style.display='block';
+document.getElementById('bookingForm').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+async function submitBooking(){
+var aptId=document.getElementById('bookingAptId').value;
+var name=document.getElementById('guestName').value.trim();
+var phone=document.getElementById('guestPhone').value.trim();
+var email=document.getElementById('guestEmail').value.trim();
+var count=document.getElementById('guestCount').value;
+var notes=document.getElementById('guestNotes').value.trim();
+var btn=document.getElementById('submitBooking');
+
+if(!aptId){alert('Выберите апартамент');return}
+if(!name){alert('Укажите имя');return}
+if(!phone){alert('Укажите телефон');return}
+
+btn.textContent='Отправка...';
+btn.disabled=true;
+
+try{
+var r=await fetch('/.netlify/functions/book',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+apartment_id:aptId,
+guest_name:name,
+guest_phone:phone,
+guest_email:email,
+check_in:selectedApt.check_in,
+check_out:selectedApt.check_out,
+guests_count:parseInt(count)||2,
+notes:notes
+})
+});
+var d=await r.json();
+if(d.success){
+alert('Заявка отправлена!\n\nАпартамент: '+selectedApt.name+'\nДаты: '+selectedApt.check_in+' — '+selectedApt.check_out+'\nИтого: $'+selectedApt.total+'\n\nМы свяжемся с вами в течение часа.');
+document.getElementById('guestName').value='';
+document.getElementById('guestPhone').value='';
+document.getElementById('guestEmail').value='';
+document.getElementById('guestNotes').value='';
+document.getElementById('bookingForm').style.display='none';
+}else{
+alert(d.error||'Ошибка. Попробуйте позже.');
+}
+}catch(e){
+alert('Ошибка соединения. Напишите в Telegram @Arsen_bnb');
+}
+btn.textContent='Отправить заявку';
+btn.disabled=false;
+}
+</script>
 </body>
 </html>
