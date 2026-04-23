@@ -1,88 +1,78 @@
-const { createClient } = require('@supabase/supabase-js');
+const https = require('https');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+// Apartment IDs mapping
+const APARTMENTS = {
+  'nest_15':    { name: 'Nest One — Кв. 15',    complex: 'Nest One 1', floor: 3 },
+  'nest_249':   { name: 'Nest One — Кв. 249',   complex: 'Nest One 1', floor: 13 },
+  'nest_481':   { name: 'Nest One — Кв. 481',   complex: 'Nest One 2', floor: 25 },
+  'nest_233':   { name: 'Nest One — Кв. 233',   complex: 'Nest One 2', floor: 12 },
+  'nest_353':   { name: 'Nest One — Кв. 353',   complex: 'Nest One 1', floor: 18 },
+  'utower_65':  { name: 'U-Tower — Кв. 65',     complex: 'U-Tower 1',  floor: 6 },
+  'utower_73':  { name: 'U-Tower — Кв. 73',     complex: 'U-Tower 1',  floor: 6 },
+  'utower_171': { name: 'U-Tower — Кв. 171',    complex: 'U-Tower 1',  floor: 11 },
+  'utower_208': { name: 'U-Tower — Кв. 208',    complex: 'U-Tower 1',  floor: 13 },
+  'utower_310': { name: 'U-Tower — Кв. 310',    complex: 'U-Tower 1',  floor: 18 },
+  'utower_410': { name: 'U-Tower — Кв. 410',    complex: 'U-Tower 1',  floor: 24 },
+  'utower2_5':  { name: 'U-Tower 2 — Кв. 5',    complex: 'U-Tower 2',  floor: 3 },
+  'utower2_9':  { name: 'U-Tower 2 — Кв. 9',    complex: 'U-Tower 2',  floor: 4 },
+  'utower2_207':{ name: 'U-Tower 2 — Кв. 207',  complex: 'U-Tower 2',  floor: 13 },
+  'utower2_228':{ name: 'U-Tower 2 — Кв. 228',  complex: 'U-Tower 2',  floor: 13 },
+  'utower2_296':{ name: 'U-Tower 2 — Кв. 296',  complex: 'U-Tower 2',  floor: 17 },
+  'utower2_92': { name: 'U-Tower 2 — Кв. 92',   complex: 'U-Tower 2',  floor: 7 },
+  'mirabad_111':{ name: 'Mirabad — Кв. 111',    complex: 'Mirabad 2',  floor: 8 },
+  'mirabad_205':{ name: 'Mirabad — Кв. 205',    complex: 'Mirabad 1',  floor: 8 },
+  'kislorod_49':{ name: 'Kislorod — Кв. 49',    complex: 'Kislorod 2', floor: 10 },
+  'kislorod_58':{ name: 'Kislorod — Кв. 58',    complex: 'Kislorod 2', floor: 11 },
+  'kislorod_128':{ name: 'Kislorod — Кв. 128',  complex: 'Kislorod 2', floor: 13 },
+};
 
 function formatDate(dateStr) {
-    return dateStr.replace(/-/g, '');
+  return dateStr.replace(/-/g, '');
 }
 
-function generateUID(id) {
-    return `${id}@urbanluxe.uz`;
+function fetchFromSupabase(aptId) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(process.env.SUPABASE_URL + '/rest/v1/bookings');
+    url.searchParams.set('apartment_id', 'eq.' + aptId);
+    url.searchParams.set('select', '*');
+    url.searchParams.set('status', 'neq.cancelled');
+    const options = {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': 'Bearer ' + process.env.SUPABASE_SERVICE_KEY,
+        'Content-Type': 'application/json',
+      },
+    };
+    https.get(url.toString(), options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { resolve([]); } });
+    }).on('error', () => resolve([]));
+  });
 }
 
 exports.handler = async (event) => {
-    const aptId = event.queryStringParameters?.apt;
-
+  const aptId = event.queryStringParameters && event.queryStringParameters.apt;
   if (!aptId) {
-    return {
-      statusCode: 400,
-      body: 'Missing apt parameter'
-};
-}
-
-  try {
-    // Get confirmed bookings for this apartment
-    const { data: bookings, error } = await supabase
-      .from('bookings')
-      .select('id, guest_name, check_in, check_out, status')
-      .eq('apartment_id', aptId)
-      .in('status', ['confirmed', 'pending'])
-      .order('check_in', { ascending: true });
-
-    if (error) throw error;
-
-    // Get apartment info
-    const { data: apt } = await supabase
-      .from('apartments')
-      .select('name, complex')
-      .eq('id', aptId)
-      .single();
-
-    const aptName = apt ? `${apt.complex} - ${apt.name}` : aptId;
-    const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
-    // Build iCal
-    let ical = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Urban Luxe//Booking Calendar//RU',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      `X-WR-CALNAME:${aptName}`,
-      'X-WR-TIMEZONE:Asia/Tashkent',
-    ];
-
-    for (const booking of bookings || []) {
-      ical = ical.concat([
-                'BEGIN:VEVENT',
-                `UID:${generateUID(booking.id)}`,
-                `DTSTAMP:${now}`,
-                `DTSTART;VALUE=DATE:${formatDate(booking.check_in)}`,
-                `DTEND;VALUE=DATE:${formatDate(booking.check_out)}`,
-                `SUMMARY:Занято`,
-                `STATUS:${booking.status === 'confirmed' ? 'CONFIRMED' : 'TENTATIVE'}`,
-                'END:VEVENT',
-              ]);
-                         }
-
-    ical.push('END:VCALENDAR');
-
-    return {
-            statusCode: 200,
-            headers: {
-              'Content-Type': 'text/calendar; charset=utf-8',
-                        'Content-Disposition': `attachment; filename="${aptId}.ics"`,
-                        'Cache-Control': 'no-cache, no-store',
-                        'Access-Control-Allow-Origin': '*',
-                },
-                      body: ical.join('\r\n'),
-                        };
-
-                                                       } catch (err) {
-    console.error('Calendar error:', err);
-    return { statusCode: 500, body: 'Server error' };
-}
+    const baseUrl = (event.headers && event.headers.host) ? 'https://' + event.headers.host : 'https://fastidious-blancmange-678804.netlify.app';
+    const list = Object.entries(APARTMENTS).map(([id, apt]) => ({
+      id, name: apt.name, complex: apt.complex,
+      ical_url: baseUrl + '/.netlify/functions/calendar?apt=' + id,
+    }));
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(list, null, 2) };
+  }
+  if (!APARTMENTS[aptId]) {
+    return { statusCode: 404, body: 'Apartment not found. Call without ?apt= to see all IDs.' };
+  }
+  const apt = APARTMENTS[aptId];
+  const bookings = await fetchFromSupabase(aptId);
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  let ical = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Urban Luxe//Booking System//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Urban Luxe - ' + apt.name,'X-WR-TIMEZONE:Asia/Tashkent'];
+  bookings.forEach((b, i) => {
+    if (b.check_in && b.check_out) {
+      ical.push('BEGIN:VEVENT','UID:booking-' + (b.id||i) + '-' + aptId + '@urbanluxe.cc','DTSTART;VALUE=DATE:' + formatDate(b.check_in),'DTEND;VALUE=DATE:' + formatDate(b.check_out),'DTSTAMP:' + now,'SUMMARY:Booking - ' + (b.guest_name||'Guest'),'LOCATION:' + apt.name + ', ' + apt.complex + ', Tashkent','STATUS:CONFIRMED','TRANSP:OPAQUE','END:VEVENT');
+    }
+  });
+  ical.push('END:VCALENDAR');
+  return { statusCode: 200, headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'attachment; filename=urbanluxe-' + aptId + '.ics', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache, no-store, must-revalidate' }, body: ical.join('\r\n') };
 };
