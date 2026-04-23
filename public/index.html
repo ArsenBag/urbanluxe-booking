@@ -140,6 +140,26 @@ img{display:block;width:100%;height:100%;object-fit:cover}
 }
 @media(min-width:1025px) and (max-width:1280px){.grid{grid-template-columns:repeat(2,1fr)}}
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+<style>
+.flatpickr-calendar{background:var(--bg2)!important;border:.5px solid var(--line)!important;box-shadow:0 20px 60px rgba(0,0,0,.5)!important;font-family:var(--fb)!important}
+.flatpickr-months .flatpickr-month{background:var(--bg2)!important;color:var(--ink)!important}
+.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg2)!important;color:var(--ink)!important}
+.flatpickr-current-month input.cur-year{color:var(--ink)!important}
+span.flatpickr-weekday{color:var(--gold)!important;font-weight:500}
+.flatpickr-day{color:var(--ink)!important;border-radius:0!important}
+.flatpickr-day:hover{background:var(--gold-s)!important;border-color:var(--gold)!important}
+.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange{background:var(--gold)!important;border-color:var(--gold)!important;color:var(--bg)!important}
+.flatpickr-day.inRange{background:var(--gold-s)!important;border-color:transparent!important;box-shadow:none!important}
+.flatpickr-day.today{border-color:var(--gold)!important}
+.flatpickr-day.flatpickr-disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--ink-d)!important}
+.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--gold)!important;fill:var(--gold)!important}
+.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--ink)!important}
+.numInputWrapper span{border-color:var(--line)!important}
+.numInputWrapper span:hover{background:var(--gold-s)!important}
+.flatpickr-time input{color:var(--ink)!important}
+</style>
 </head>
 <body>
 
@@ -428,12 +448,22 @@ card.style.display=(c==='all'||card.dataset.complex===c)?'block':'none';
 
 // Set min dates
 (function(){
-var today=new Date().toISOString().split('T')[0];
-var ci=document.getElementById('searchCheckIn');
-var co=document.getElementById('searchCheckOut');
-if(ci)ci.min=today;
-if(co)co.min=today;
-ci.addEventListener('change',function(){co.min=this.value});
+var today=new Date();
+var fpIn=flatpickr('#searchCheckIn',{
+dateFormat:'Y-m-d',
+altInput:true,
+altFormat:'d.m.Y',
+minDate:today,
+locale:{firstDayOfWeek:1,weekdays:{shorthand:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],longhand:['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота']},months:{shorthand:['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],longhand:['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']}},
+onChange:function(dates){if(dates[0]){var next=new Date(dates[0]);next.setDate(next.getDate()+1);fpOut.set('minDate',next);if(!fpOut.selectedDates.length)fpOut.open()}}
+});
+var fpOut=flatpickr('#searchCheckOut',{
+dateFormat:'Y-m-d',
+altInput:true,
+altFormat:'d.m.Y',
+minDate:today,
+locale:{firstDayOfWeek:1,weekdays:{shorthand:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],longhand:['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота']},months:{shorthand:['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],longhand:['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']}}
+});
 })();
 
 var selectedApt=null;
@@ -457,7 +487,7 @@ var r=await fetch('/.netlify/functions/availability?check_in='+ci+'&check_out='+
 var d=await r.json();
 
 if(d.available&&d.available.length>0){
-status.textContent='Найдено '+d.available_count+' свободных апартаментов из '+d.total_apartments+' на '+d.nights+' ноч.';
+var nn=d.available.length>0?d.available[0].nights:0;status.textContent='Найдено '+d.available_count+' свободных апартаментов из '+d.total_apartments+' на '+nn+' ноч.';
 list.innerHTML='';
 d.available.forEach(function(apt){
 var card=document.createElement('div');
@@ -535,5 +565,6 @@ btn.textContent='Отправить заявку';
 btn.disabled=false;
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
