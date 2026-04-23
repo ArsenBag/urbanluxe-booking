@@ -114,11 +114,86 @@ async function loadSupabase(){
 }
 
 async function loadSheets(){
+  const SHEET_ID='1NHqPZV8Dx2dKmfTCpb8LcdA4AtuqSfKyyyWs5UF2HtY';
+  const MONTH_SHEET=encodeURIComponent('Месяц');
+  
   try{
+    // Попытка 1: прямой CSV из Google Sheets
+    const csvUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}`;
+    const r=await fetch(csvUrl);
+    if(r.ok){
+      const csv=await r.text();
+      sheetsData=parseMonthlyCSV(csv);
+      console.log('[SHEETS] Loaded directly from Google Sheets');
+      return;
+    }
+  }catch(e){console.warn('Direct Sheets failed:',e)}
+  
+  try{
+    // Попытка 2: через Netlify proxy
     const r=await fetch(API_BASE+'/sheets-proxy?sheet=month');
-    if(r.ok) sheetsData=await r.json();
-    else console.warn('Sheets proxy error:',r.status);
-  }catch(e){console.warn('Sheets unavailable:',e)}
+    if(r.ok){sheetsData=await r.json();console.log('[SHEETS] Loaded via proxy');return;}
+  }catch(e){console.warn('Sheets proxy unavailable:',e)}
+}
+
+function parseNum(s){
+  if(!s)return 0;
+  const c=s.replace(/[$%\s\u00a0\u202f\u2009]/g,'').replace(',','.');
+  return parseFloat(c)||0;
+}
+
+function parseMonthlyCSV(csv){
+  const rows=csv.split('\n').filter(l=>l.trim()).map(line=>{
+    const cells=[];let cell='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){if(inQ&&line[i+1]==='"'){cell+='"';i++}else inQ=!inQ}
+      else if(ch===','&&!inQ){cells.push(cell.trim());cell=''}
+      else if(ch!=='\r')cell+=ch;
+    }
+    cells.push(cell.trim());return cells;
+  });
+  
+  if(rows.length<3)return null;
+  
+  // Build month info from first 2 rows
+  const yearRow=rows[0]||[], headerRow=rows[1]||[];
+  const months=[];
+  for(let i=1;i<headerRow.length;i++){
+    if(headerRow[i]&&headerRow[i]!==''){
+      months.push({label:headerRow[i],year:yearRow[i]||yearRow[i-1]||'2026',index:i});
+    }
+  }
+  
+  // Find summary rows (search from bottom)
+  const summaryKeys=[
+    {search:'Количество заселени',key:'bookings_count'},
+    {search:'Итого Забронировали',key:'total_revenue'},
+    {search:'Аренда',key:'rent'},
+    {search:'Комисси',key:'commission'},
+    {search:'Расходы',key:'expenses'},
+    {search:'Клининг',key:'cleaning'},
+    {search:'Зарплат',key:'salary'},
+    {search:'Маркетинг',key:'marketing'},
+    {search:'Итого чистыми',key:'net_profit'},
+    {search:'Доля маркетинга',key:'marketing_share'}
+  ];
+  
+  const summary={};
+  for(const row of rows){
+    if(!row[0])continue;
+    const cell0=row[0].toLowerCase().replace(/["]/g,'');
+    for(const sk of summaryKeys){
+      if(cell0.includes(sk.search.toLowerCase())){
+        summary[sk.key]={};
+        for(const m of months){
+          summary[sk.key][m.label]=parseNum(row[m.index]||'0');
+        }
+      }
+    }
+  }
+  
+  return{months:months.map(m=>({label:m.label,year:m.year})),summary};
 }
 
 async function loadIcalAll(){
