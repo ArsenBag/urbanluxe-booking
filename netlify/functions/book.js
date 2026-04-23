@@ -25,66 +25,43 @@ const APARTMENTS = {
   'kislorod_128':{ name: 'Kislorod — Кв. 128',  weekday: 115, weekend: 125 },
 };
 
-function postJSON(url, data, headers = {}) {
+function httpsRequest(url, options, postData) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
-    const postData = JSON.stringify(data);
-    const options = {
+    const reqOptions = {
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-        ...headers,
-      },
+      method: options.method || 'POST',
+      headers: options.headers || {},
     };
-    const req = https.request(options, (res) => {
+    const req = https.request(reqOptions, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
-      res.on('end', () => resolve({ status: res.statusCode, body }));
+      res.on('end', () => resolve({ statusCode: res.statusCode, body, headers: res.headers }));
     });
-    req.on('error', reject);
-    req.write(postData);
+    req.on('error', (e) => { console.error('Request error:', e.message); reject(e); });
+    if (postData) req.write(postData);
     req.end();
   });
 }
 
 function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
-  let total = 0;
-  let nights = 0;
-  const start = new Date(checkIn);
+  let total = 0, nights = 0;
+  const current = new Date(checkIn);
   const end = new Date(checkOut);
-  const current = new Date(start);
-  
   while (current < end) {
-    const day = current.getDay(); // 0=Sun, 5=Fri, 6=Sat
-    if (day === 5 || day === 6) {
-      total += weekendPrice;
-    } else {
-      total += weekdayPrice;
-    }
+    const day = current.getDay();
+    total += (day === 5 || day === 6) ? weekendPrice : weekdayPrice;
     nights++;
     current.setDate(current.getDate() + 1);
   }
-  
   return { total, nights };
 }
 
 exports.handler = async (event) => {
-  // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
-      body: '',
-    };
+    return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }, body: '' };
   }
-
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
@@ -93,28 +70,17 @@ exports.handler = async (event) => {
     const data = JSON.parse(event.body);
     const { apartment_id, guest_name, guest_phone, guest_email, check_in, check_out, guests_count, notes } = data;
 
-    // Validation
     if (!apartment_id || !guest_name || !guest_phone || !check_in || !check_out) {
-      return {
-        statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Заполните обязательные поля: апартамент, имя, телефон, даты' }),
-      };
+      return { statusCode: 400, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Заполните обязательные поля' }) };
     }
 
     const apt = APARTMENTS[apartment_id];
     if (!apt) {
-      return {
-        statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Апартамент не найден' }),
-      };
+      return { statusCode: 400, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Апартамент не найден' }) };
     }
 
-    // Calculate price
     const { total, nights } = calculateTotal(check_in, check_out, apt.weekday, apt.weekend);
 
-    // Save to Supabase
     const booking = {
       apartment_id,
       guest_name,
@@ -130,46 +96,50 @@ exports.handler = async (event) => {
       created_at: new Date().toISOString(),
     };
 
-    const supabaseResult = await postJSON(
-      `${process.env.SUPABASE_URL}/rest/v1/bookings`,
-      booking,
+    // Save to Supabase
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    const postData = JSON.stringify(booking);
+
+    console.log('[BOOK] Saving to Supabase:', supabaseUrl);
+    console.log('[BOOK] Data:', postData);
+
+    const sbResult = await httpsRequest(
+      `${supabaseUrl}/rest/v1/bookings`,
       {
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=representation',
-      }
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Prefer': 'return=representation',
+          'Content-Length': String(Buffer.byteLength(postData)),
+        },
+      },
+      postData
     );
 
-    // Send Telegram notification
-    const tgMessage = `🏠 *Новая заявка с сайта!*
+    console.log('[BOOK] Supabase status:', sbResult.statusCode);
+    console.log('[BOOK] Supabase response:', sbResult.body.substring(0, 500));
 
-📍 ${apt.name}
-👤 ${guest_name}
-📞 ${guest_phone}
-📧 ${guest_email || 'не указан'}
+    // Send Telegram
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChat = process.env.TELEGRAM_CHAT_ID;
 
-📅 Заезд: ${check_in}
-📅 Выезд: ${check_out}
-🌙 Ночей: ${nights}
-👥 Гостей: ${guests_count || 1}
+    if (tgToken && tgChat) {
+      const tgMessage = `🏠 *Новая заявка с сайта!*\n\n📍 ${apt.name}\n👤 ${guest_name}\n📞 ${guest_phone}\n📧 ${guest_email || 'не указан'}\n\n📅 Заезд: ${check_in}\n📅 Выезд: ${check_out}\n🌙 Ночей: ${nights}\n👥 Гостей: ${guests_count || 1}\n\n💰 Итого: $${total}\n📝 ${notes || 'без комментариев'}\n\n⏳ Статус: ожидает подтверждения`;
 
-💰 Итого: $${total}
-📝 ${notes || 'без комментариев'}
+      const tgData = JSON.stringify({ chat_id: tgChat, text: tgMessage, parse_mode: 'Markdown' });
 
-⏳ Статус: ожидает подтверждения`;
-
-    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
       try {
-        await postJSON(
-          `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-          {
-            chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: tgMessage,
-            parse_mode: 'Markdown',
-          }
+        const tgResult = await httpsRequest(
+          `https://api.telegram.org/bot${tgToken}/sendMessage`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(tgData)) } },
+          tgData
         );
+        console.log('[BOOK] Telegram status:', tgResult.statusCode);
       } catch (e) {
-        console.error('Telegram error:', e);
+        console.error('[BOOK] Telegram error:', e.message);
       }
     }
 
@@ -180,15 +150,12 @@ exports.handler = async (event) => {
         success: true,
         message: 'Заявка отправлена! Мы свяжемся с вами в течение часа.',
         booking: { apartment: apt.name, check_in, check_out, nights, total },
+        supabase_status: sbResult.statusCode,
       }),
     };
 
   } catch (e) {
-    console.error('Error:', e);
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'Произошла ошибка. Попробуйте позже или напишите в Telegram.' }),
-    };
+    console.error('[BOOK] Error:', e);
+    return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Ошибка сервера' }) };
   }
 };
