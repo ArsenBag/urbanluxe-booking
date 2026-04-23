@@ -118,19 +118,18 @@ async function loadSheets(){
   const MONTH_SHEET=encodeURIComponent('Месяц');
   
   try{
-    // Попытка 1: прямой CSV из Google Sheets
-    const csvUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}`;
-    const r=await fetch(csvUrl);
+    // Запрашиваем только итоговые строки (113-122) — там все нужные данные
+    const summaryUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}&range=A113:G122`;
+    const r=await fetch(summaryUrl);
     if(r.ok){
       const csv=await r.text();
-      sheetsData=parseMonthlyCSV(csv);
-      console.log('[SHEETS] Loaded directly from Google Sheets');
+      sheetsData=parseSummaryCSV(csv);
+      console.log('[SHEETS] Loaded directly from Google Sheets',sheetsData);
       return;
     }
   }catch(e){console.warn('Direct Sheets failed:',e)}
   
   try{
-    // Попытка 2: через Netlify proxy
     const r=await fetch(API_BASE+'/sheets-proxy?sheet=month');
     if(r.ok){sheetsData=await r.json();console.log('[SHEETS] Loaded via proxy');return;}
   }catch(e){console.warn('Sheets proxy unavailable:',e)}
@@ -142,7 +141,9 @@ function parseNum(s){
   return parseFloat(c)||0;
 }
 
-function parseMonthlyCSV(csv){
+function parseSummaryCSV(csv){
+  // Парсим итоговые строки: Количество, Итого, Аренда, Комиссия, Расходы, Клининг, Зарплата, Маркетинг, Чистыми, Доля
+  // Колонки: A=label, B=Декабрь(2025), C=Январь, D=Февраль, E=Март, F=Апрель, G=Май
   const rows=csv.split('\n').filter(l=>l.trim()).map(line=>{
     const cells=[];let cell='',inQ=false;
     for(let i=0;i<line.length;i++){
@@ -154,37 +155,35 @@ function parseMonthlyCSV(csv){
     cells.push(cell.trim());return cells;
   });
   
-  if(rows.length<3)return null;
+  // Месяцы хардкодим — они соответствуют колонкам B-G
+  const months=[
+    {label:'Декабрь',year:'2025',index:1},
+    {label:'Январь',year:'2026',index:2},
+    {label:'Февраль',year:'2026',index:3},
+    {label:'Март',year:'2026',index:4},
+    {label:'Апрель',year:'2026',index:5},
+    {label:'Май',year:'2026',index:6}
+  ];
   
-  // Build month info from first 2 rows
-  const yearRow=rows[0]||[], headerRow=rows[1]||[];
-  const months=[];
-  for(let i=1;i<headerRow.length;i++){
-    if(headerRow[i]&&headerRow[i]!==''){
-      months.push({label:headerRow[i],year:yearRow[i]||yearRow[i-1]||'2026',index:i});
-    }
-  }
-  
-  // Find summary rows (search from bottom)
   const summaryKeys=[
-    {search:'Количество заселени',key:'bookings_count'},
-    {search:'Итого Забронировали',key:'total_revenue'},
-    {search:'Аренда',key:'rent'},
-    {search:'Комисси',key:'commission'},
-    {search:'Расходы',key:'expenses'},
-    {search:'Клининг',key:'cleaning'},
-    {search:'Зарплат',key:'salary'},
-    {search:'Маркетинг',key:'marketing'},
-    {search:'Итого чистыми',key:'net_profit'},
-    {search:'Доля маркетинга',key:'marketing_share'}
+    {search:'количество заселени',key:'bookings_count'},
+    {search:'итого забронировали',key:'total_revenue'},
+    {search:'аренда',key:'rent'},
+    {search:'комисси',key:'commission'},
+    {search:'расходы',key:'expenses'},
+    {search:'клининг',key:'cleaning'},
+    {search:'зарплат',key:'salary'},
+    {search:'маркетинг',key:'marketing'},
+    {search:'итого чистыми',key:'net_profit'},
+    {search:'доля маркетинга',key:'marketing_share'}
   ];
   
   const summary={};
   for(const row of rows){
     if(!row[0])continue;
-    const cell0=row[0].toLowerCase().replace(/["]/g,'');
+    const cell0=row[0].toLowerCase().replace(/"/g,'');
     for(const sk of summaryKeys){
-      if(cell0.includes(sk.search.toLowerCase())){
+      if(cell0.includes(sk.search)){
         summary[sk.key]={};
         for(const m of months){
           summary[sk.key][m.label]=parseNum(row[m.index]||'0');
@@ -317,9 +316,19 @@ function rRevC(){
 }
 
 function rCompC(){
-  const c={};AA.forEach(a=>{c[a.complex]=(c[a.complex]||0)+1});
-  if(!Object.keys(c).length){c['Nest One']=5;c['U-Tower']=6;c['U-Tower 2']=6;c['Mirabad']=2;c['Kislorod']=3;}
-  const l=Object.keys(c),v=Object.values(c),cl=['#c9a961','#e74c3c','#3498db','#2ecc71','#9b59b6'];
+  const c={'Nest One':5,'U-Tower':12,'Mirabad':2,'Kislorod':3};
+  if(AA.length){
+    // Recalculate from Supabase data, merging U-Tower 2 into U-Tower
+    const cc={};
+    AA.forEach(a=>{
+      let cx=a.complex;
+      if(cx==='U-Tower 2')cx='U-Tower';
+      cc[cx]=(cc[cx]||0)+1;
+    });
+    Object.keys(c).forEach(k=>delete c[k]);
+    Object.assign(c,cc);
+  }
+  const l=Object.keys(c),v=Object.values(c),cl=['#c9a961','#3498db','#2ecc71','#e67e22'];
   if(C2)C2.destroy();
   C2=new Chart(document.getElementById('cComp'),{type:'doughnut',data:{labels:l,datasets:[{data:v,backgroundColor:cl.slice(0,l.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#a8a096',padding:12}}}}});
 }
@@ -327,18 +336,16 @@ function rCompC(){
 function rCplx(){
   const complexes={
     'Nest One':{t:5,b:0,color:'#c9a961'},
-    'U-Tower':{t:6,b:0,color:'#3498db'},
-    'U-Tower 2':{t:6,b:0,color:'#9b59b6'},
+    'U-Tower':{t:12,b:0,color:'#3498db'},
     'Mirabad':{t:2,b:0,color:'#2ecc71'},
     'Kislorod':{t:3,b:0,color:'#e67e22'}
   };
   
-  // Подсчёт из iCal данных
   const n=new Date(),td=new Date().toISOString().slice(0,10);
   const aptComplex={
     nest_15:'Nest One',nest_249:'Nest One',nest_481:'Nest One',nest_233:'Nest One',nest_353:'Nest One',
     utower_65:'U-Tower',utower_73:'U-Tower',utower_171:'U-Tower',utower_208:'U-Tower',utower_310:'U-Tower',utower_410:'U-Tower',
-    utower2_5:'U-Tower 2',utower2_9:'U-Tower 2',utower2_207:'U-Tower 2',utower2_228:'U-Tower 2',utower2_296:'U-Tower 2',utower2_92:'U-Tower 2',
+    utower2_5:'U-Tower',utower2_9:'U-Tower',utower2_207:'U-Tower',utower2_228:'U-Tower',utower2_296:'U-Tower',utower2_92:'U-Tower',
     mirabad_111:'Mirabad',mirabad_205:'Mirabad',
     kislorod_49:'Kislorod',kislorod_58:'Kislorod',kislorod_128:'Kislorod'
   };
