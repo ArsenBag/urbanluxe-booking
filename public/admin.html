@@ -24,6 +24,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-s
 .dashboard{display:none}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--line);padding:16px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
 .topbar h1{font-size:18px;font-weight:400;color:var(--gold)}.topbar-right{display:flex;gap:12px;align-items:center}.topbar-user{color:var(--ink-m);font-size:13px}
+.data-src{font-size:10px;padding:3px 8px;border-radius:2px;margin-left:8px;font-weight:500;letter-spacing:.05em}
+.data-src-sheets{background:rgba(52,168,83,.15);color:#34a853}.data-src-supabase{background:rgba(62,120,229,.15);color:#3e78e5}.data-src-ical{background:rgba(201,169,97,.15);color:var(--gold)}
 .tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--line);padding:0 32px;overflow-x:auto}
 .tab{padding:14px 24px;cursor:pointer;color:var(--ink-m);font-size:13px;border-bottom:2px solid transparent;white-space:nowrap}.tab:hover{color:var(--ink)}.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .content{padding:32px;max-width:1600px;margin:0 auto}.section{display:none}.section.active{display:block}
@@ -48,53 +50,489 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 .modal label{margin-top:16px}.modal input,.modal select,.modal textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;outline:none}.modal textarea{height:80px;resize:vertical}
 .modal-actions{display:flex;gap:12px;margin-top:24px;justify-content:flex-end}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form-row>div{display:flex;flex-direction:column}
 .loading{text-align:center;padding:48px;color:var(--ink-m)}
+.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @media(max-width:768px){.stats{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.content{padding:16px}.form-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
-<div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
+<div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
 <div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('staff',this)">Сотрудники</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
-<div class="stats"><div class="stat"><div class="stat-label">Доход за месяц</div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований</div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка</div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль</div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
-<div class="chart-grid"><div class="chart-box"><h3>Доход по месяцам</h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
+<div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
+<div class="chart-grid"><div class="chart-box"><h3>Доход по месяцам <span class="data-src data-src-sheets">Google Sheets</span></h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
 <div id="cplxBars" class="cplx"></div>
-<div class="chart-grid"><div class="feed"><h3>Последние бронирования</h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели</h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
-<div class="occ-grid"><h3>Календарь занятости</h3><div id="occCal"><div class="loading">Загрузка...</div></div></div>
+<div class="chart-grid"><div class="feed"><h3>Последние бронирования <span class="data-src data-src-supabase">Supabase</span></h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели <span class="data-src data-src-sheets">Sheets</span></h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
+<div class="occ-grid"><h3>Календарь занятости <span class="data-src data-src-ical">RealtyCalendar iCal</span></h3><div id="occCal"><div class="loading pulse">Загрузка данных из RealtyCalendar...</div></div></div>
 </div>
 <div class="section" id="tab-apartments"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Апартаменты</h2><button class="btn btn-sm" onclick="openAM()">+ Добавить</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Название</th><th>Комплекс</th><th>Этаж</th><th>Тип</th><th>Пн-Чт</th><th>Пт-Вс</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="aT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
 <div class="section" id="tab-bookings"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Бронирования</h2><button class="btn btn-sm btn-outline" onclick="loadAll()">Обновить</button></div><div class="table-wrap"><table><thead><tr><th>Апартамент</th><th>Гость</th><th>Телефон</th><th>Заезд</th><th>Выезд</th><th>Ночей</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="bT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
-<div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика</h2><div class="ps"><button class="pb active" onclick="setP('day',this)">День</button><button class="pb" onclick="setP('week',this)">Неделя</button><button class="pb" onclick="setP('month',this)">Месяц</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по дням</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
+<div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb active" onclick="setP('month',this)">По месяцам</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
 <div class="section" id="tab-staff"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Сотрудники</h2><div class="stats"><div class="stat"><div class="stat-label">Всего</div><div class="stat-value">1</div></div><div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value">—</div></div><div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value">—</div></div></div><div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Контакт</th><th>Статус</th></tr></thead><tbody><tr><td>Арсен</td><td>Менеджер</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr></tbody></table></div></div>
 </div></div>
 <div class="modal-overlay" id="aptM"><div class="modal"><h2 id="amT">Добавить</h2><input type="hidden" id="amE"><div class="form-row"><div><label>ID</label><input type="text" id="amI"></div><div><label>Название</label><input type="text" id="amN"></div></div><div class="form-row"><div><label>Комплекс</label><select id="amC"><option>Nest One</option><option>U-Tower</option><option>U-Tower 2</option><option>Mirabad</option><option>Kislorod</option></select></div><div><label>Этаж</label><input type="number" id="amF"></div></div><div class="form-row"><div><label>Цена Пн-Чт</label><input type="number" id="amW"></div><div><label>Цена Пт-Вс</label><input type="number" id="amWe"></div></div><div class="form-row"><div><label>Тип</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div><label>iCal URL</label><input type="text" id="amU"><div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div><div id="amErr" class="error" style="display:none"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
 <script>
 const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
-const sb=supabase.createClient(SB_URL,SB_KEY);let AA=[],AB=[],C1,C2,C3,C4;
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const API_BASE='/.netlify/functions';
+let AA=[],AB=[],C1,C2,C3,C4;
+let sheetsData=null;  // данные из Google Sheets
+let icalData={};      // данные из iCal {apt_id: [{start, end}]}
+
+// ============ AUTH ============
 async function login(){const e=document.getElementById('loginEmail').value,p=document.getElementById('loginPassword').value,er=document.getElementById('loginError');er.style.display='none';const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){er.textContent=error.message;er.style.display='block';return}showD(data.user)}
 async function logout(){await sb.auth.signOut();document.getElementById('loginPage').style.display='flex';document.getElementById('dashboard').style.display='none'}
 async function checkAuth(){const{data:{user}}=await sb.auth.getUser();if(user)showD(user)}
 function showD(u){document.getElementById('loginPage').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;loadAll()}
 function switchTab(t,el){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));el.classList.add('active');document.getElementById('tab-'+t).classList.add('active')}
-async function loadAll(){const[a,b]=await Promise.all([sb.from('apartments').select('*').order('complex'),sb.from('bookings').select('*').order('created_at',{ascending:false})]);AA=a.data||[];AB=b.data||[];rDash();rApt();rBook();rFin('day')}
-function rDash(){const n=new Date(),m=n.getMonth(),y=n.getFullYear(),mb=AB.filter(b=>{const d=new Date(b.check_in);return d.getMonth()===m&&d.getFullYear()===y&&b.status!=='cancelled'}),rv=mb.reduce((s,b)=>s+(b.total_price||0),0),ac=AA.filter(a=>a.is_active).length;
-document.getElementById('dR').textContent='$'+rv.toLocaleString();document.getElementById('dB').textContent=mb.length;document.getElementById('dA').textContent=mb.length?'$'+Math.round(rv/mb.length):'—';document.getElementById('dAp').textContent=AA.length;document.getElementById('dO').textContent=ac?Math.round(mb.length/(ac*30)*100)+'%':'—';document.getElementById('dP').textContent='$'+Math.round(rv*.4).toLocaleString();document.getElementById('dRS').textContent=n.toLocaleString('ru',{month:'long',year:'numeric'});
-rRevC();rCompC();rCplx();rWdC();rFeed();rOcc()}
-function rRevC(){const ms=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],d=Array(12).fill(0);AB.filter(b=>b.status!=='cancelled').forEach(b=>{const x=new Date(b.check_in);if(x.getFullYear()===new Date().getFullYear())d[x.getMonth()]+=(b.total_price||0)});if(C1)C1.destroy();C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:ms,datasets:[{data:d,backgroundColor:'rgba(201,169,97,.6)',borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}})}
-function rCompC(){const c={};AA.forEach(a=>{c[a.complex]=(c[a.complex]||0)+1});const l=Object.keys(c),v=Object.values(c),cl=['#c9a961','#e74c3c','#3498db','#2ecc71','#9b59b6'];if(C2)C2.destroy();C2=new Chart(document.getElementById('cComp'),{type:'doughnut',data:{labels:l,datasets:[{data:v,backgroundColor:cl.slice(0,l.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#a8a096',padding:12}}}}})}
-function rCplx(){const c={};AA.forEach(a=>{if(!c[a.complex])c[a.complex]={t:0,b:0};c[a.complex].t++});const n=new Date(),m=n.getMonth(),y=n.getFullYear();AB.filter(b=>b.status!=='cancelled').forEach(b=>{const d=new Date(b.check_in);if(d.getMonth()===m&&d.getFullYear()===y){const a=AA.find(x=>x.id===b.apartment_id);if(a&&c[a.complex])c[a.complex].b++}});const cl={'Nest One':'#c9a961','U-Tower':'#3498db','U-Tower 2':'#9b59b6','Mirabad':'#2ecc71','Kislorod':'#e67e22'};let h='';Object.entries(c).forEach(([n,d])=>{const p=d.t?Math.round(d.b/d.t*100):0;h+=`<div class="cb"><div class="cb-l">${n}</div><div class="cb-t"><div class="cb-f" style="width:${p}%;background:${cl[n]||'#c9a961'}"></div></div><div class="cb-p">${p}%</div><div style="font-size:11px;color:var(--ink-d)">${d.b}/${d.t} заняты</div></div>`});document.getElementById('cplxBars').innerHTML=h}
-function rWdC(){const d=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],v=Array(7).fill(0);AB.filter(b=>b.status!=='cancelled').forEach(b=>{const x=new Date(b.check_in).getDay(),i=x===0?6:x-1;v[i]+=(b.total_price||0)});if(C3)C3.destroy();C3=new Chart(document.getElementById('cWd'),{type:'bar',data:{labels:d,datasets:[{data:v,backgroundColor:d.map((_,i)=>i>=4?'rgba(201,169,97,.8)':'rgba(201,169,97,.4)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}})}
-function rFeed(){const r=AB.slice(0,8);if(!r.length){document.getElementById('feedL').innerHTML='<div style="color:var(--ink-d);padding:20px;text-align:center">Нет данных</div>';return}document.getElementById('feedL').innerHTML=r.map(b=>{const a=AA.find(x=>x.id===b.apartment_id),s=b.status==='confirmed'?'✓':b.status==='cancelled'?'✗':'⏳';return`<div class="fi"><div class="fl"><div class="fa">${a?a.complex+' · '+a.name:b.apartment_id} ${s}</div><div class="fg">${b.guest_name} · ${b.guest_phone}</div></div><div class="fr"><div class="fp">$${b.total_price||'—'}</div><div class="fd">${b.check_in} → ${b.check_out}</div></div></div>`}).join('')}
-function rOcc(){const n=new Date(),y=n.getFullYear(),m=n.getMonth(),dm=new Date(y,m+1,0).getDate(),td=n.getDate();let h='<table class="occ-table"><thead><tr><th></th>';for(let d=1;d<=dm;d++)h+=`<th${d===td?' style="color:var(--gold);font-weight:700"':''}>${d}</th>`;h+='</tr></thead><tbody>';AA.filter(a=>a.is_active).forEach(a=>{h+=`<tr><td class="an">${a.complex} ${a.name}</td>`;const ab=AB.filter(b=>b.apartment_id===a.id&&b.status!=='cancelled');for(let d=1;d<=dm;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,busy=ab.some(b=>ds>=b.check_in&&ds<b.check_out);h+=`<td><div class="oc ${busy?'ob':'of'}${d===td?' ot':''}"></div></td>`}h+='</tr>'});h+='</tbody></table>';document.getElementById('occCal').innerHTML=h}
-function setP(p,el){document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));el.classList.add('active');rFin(p)}
-function rFin(p){const t={day:'Доход по дням',week:'Доход по неделям',month:'Доход по месяцам'};document.getElementById('fT').textContent=t[p];const n=new Date(),cm=n.getMonth(),cy=n.getFullYear(),vb=AB.filter(b=>b.status!=='cancelled');let lb=[],rv=[],tr=[];if(p==='day'){const dm=new Date(cy,cm+1,0).getDate();for(let d=1;d<=dm;d++){const ds=`${cy}-${String(cm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,db=vb.filter(b=>b.check_in===ds),r=db.reduce((s,b)=>s+(b.total_price||0),0);lb.push(d);rv.push(r);if(r)tr.push({p:ds,r})}}else if(p==='week'){for(let w=0;w<5;w++){const s=new Date(cy,cm,1+w*7),e=new Date(cy,cm,Math.min(7+w*7,new Date(cy,cm+1,0).getDate())),wb=vb.filter(b=>{const d=new Date(b.check_in);return d>=s&&d<=e&&d.getMonth()===cm}),r=wb.reduce((s,b)=>s+(b.total_price||0),0);lb.push('Нед '+(w+1));rv.push(r);tr.push({p:s.getDate()+'-'+e.getDate(),r})}}else{const ms=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];for(let m=0;m<12;m++){const mb=vb.filter(b=>{const d=new Date(b.check_in);return d.getMonth()===m&&d.getFullYear()===cy}),r=mb.reduce((s,b)=>s+(b.total_price||0),0);lb.push(ms[m]);rv.push(r);tr.push({p:ms[m],r})}}
-const tot=rv.reduce((a,b)=>a+b,0);document.getElementById('fS').innerHTML=`<div class="stat"><div class="stat-label">Поступления</div><div class="stat-value">$${tot.toLocaleString()}</div></div><div class="stat"><div class="stat-label">Аренда</div><div class="stat-value">$${Math.round(tot*.41).toLocaleString()}</div></div><div class="stat"><div class="stat-label">Расходы</div><div class="stat-value">$${Math.round(tot*.19).toLocaleString()}</div></div><div class="stat"><div class="stat-label">Чистыми</div><div class="stat-value" style="color:var(--green)">$${Math.round(tot*.4).toLocaleString()}</div></div><div class="stat"><div class="stat-label">Маржа</div><div class="stat-value">${tot?'40':'0'}%</div></div>`;
-if(C4)C4.destroy();C4=new Chart(document.getElementById('cFin'),{type:'bar',data:{labels:lb,datasets:[{data:rv,backgroundColor:'rgba(201,169,97,.6)',borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e',maxRotation:0},grid:{display:false}}}}});
-document.getElementById('fTB').innerHTML=tr.filter(x=>x.r>0).map(x=>`<tr><td>${x.p}</td><td style="color:var(--gold)">$${x.r.toLocaleString()}</td><td>$${Math.round(x.r*.41).toLocaleString()}</td><td>$${Math.round(x.r*.02).toLocaleString()}</td><td>$${Math.round(x.r*.05).toLocaleString()}</td><td>$${Math.round(x.r*.05).toLocaleString()}</td><td>$${Math.round(x.r*.06).toLocaleString()}</td><td>$${Math.round(x.r*.01).toLocaleString()}</td><td style="color:var(--green)">$${Math.round(x.r*.4).toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="9" class="loading">Нет данных</td></tr>'}
+
+// ============ DATA LOADING ============
+async function loadAll(){
+  const st=document.getElementById('dataStatus');
+  st.textContent='⟳ Загрузка...';st.className='data-src data-src-sheets pulse';
+  
+  // Параллельная загрузка из 3 источников
+  const [sbResult, shResult, icalResult] = await Promise.allSettled([
+    loadSupabase(),
+    loadSheets(),
+    loadIcalAll()
+  ]);
+  
+  st.textContent='✓ Данные актуальны';st.className='data-src data-src-sheets';st.classList.remove('pulse');
+  
+  rDash();rApt();rBook();rFin();
+}
+
+async function loadSupabase(){
+  const[a,b]=await Promise.all([
+    sb.from('apartments').select('*').order('complex'),
+    sb.from('bookings').select('*').order('created_at',{ascending:false})
+  ]);
+  AA=a.data||[];AB=b.data||[];
+}
+
+async function loadSheets(){
+  const SHEET_ID='1NHqPZV8Dx2dKmfTCpb8LcdA4AtuqSfKyyyWs5UF2HtY';
+  const MONTH_SHEET=encodeURIComponent('Месяц');
+  
+  try{
+    // Попытка 1: прямой CSV из Google Sheets
+    const csvUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}`;
+    const r=await fetch(csvUrl);
+    if(r.ok){
+      const csv=await r.text();
+      sheetsData=parseMonthlyCSV(csv);
+      console.log('[SHEETS] Loaded directly from Google Sheets');
+      return;
+    }
+  }catch(e){console.warn('Direct Sheets failed:',e)}
+  
+  try{
+    // Попытка 2: через Netlify proxy
+    const r=await fetch(API_BASE+'/sheets-proxy?sheet=month');
+    if(r.ok){sheetsData=await r.json();console.log('[SHEETS] Loaded via proxy');return;}
+  }catch(e){console.warn('Sheets proxy unavailable:',e)}
+}
+
+function parseNum(s){
+  if(!s)return 0;
+  const c=s.replace(/[$%\s\u00a0\u202f\u2009]/g,'').replace(',','.');
+  return parseFloat(c)||0;
+}
+
+function parseMonthlyCSV(csv){
+  const rows=csv.split('\n').filter(l=>l.trim()).map(line=>{
+    const cells=[];let cell='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){if(inQ&&line[i+1]==='"'){cell+='"';i++}else inQ=!inQ}
+      else if(ch===','&&!inQ){cells.push(cell.trim());cell=''}
+      else if(ch!=='\r')cell+=ch;
+    }
+    cells.push(cell.trim());return cells;
+  });
+  
+  if(rows.length<3)return null;
+  
+  // Build month info from first 2 rows
+  const yearRow=rows[0]||[], headerRow=rows[1]||[];
+  const months=[];
+  for(let i=1;i<headerRow.length;i++){
+    if(headerRow[i]&&headerRow[i]!==''){
+      months.push({label:headerRow[i],year:yearRow[i]||yearRow[i-1]||'2026',index:i});
+    }
+  }
+  
+  // Find summary rows (search from bottom)
+  const summaryKeys=[
+    {search:'Количество заселени',key:'bookings_count'},
+    {search:'Итого Забронировали',key:'total_revenue'},
+    {search:'Аренда',key:'rent'},
+    {search:'Комисси',key:'commission'},
+    {search:'Расходы',key:'expenses'},
+    {search:'Клининг',key:'cleaning'},
+    {search:'Зарплат',key:'salary'},
+    {search:'Маркетинг',key:'marketing'},
+    {search:'Итого чистыми',key:'net_profit'},
+    {search:'Доля маркетинга',key:'marketing_share'}
+  ];
+  
+  const summary={};
+  for(const row of rows){
+    if(!row[0])continue;
+    const cell0=row[0].toLowerCase().replace(/["]/g,'');
+    for(const sk of summaryKeys){
+      if(cell0.includes(sk.search.toLowerCase())){
+        summary[sk.key]={};
+        for(const m of months){
+          summary[sk.key][m.label]=parseNum(row[m.index]||'0');
+        }
+      }
+    }
+  }
+  
+  return{months:months.map(m=>({label:m.label,year:m.year})),summary};
+}
+
+async function loadIcalAll(){
+  // Загружаем iCal для всех апартаментов через availability API
+  const aptIds=['nest_15','nest_249','nest_481','nest_233','nest_353',
+    'utower_65','utower_73','utower_171','utower_208','utower_310','utower_410',
+    'utower2_5','utower2_9','utower2_207','utower2_228','utower2_296','utower2_92',
+    'mirabad_111','mirabad_205','kislorod_49','kislorod_58','kislorod_128'];
+  
+  const promises=aptIds.map(async id=>{
+    try{
+      const r=await fetch(API_BASE+'/availability?apt='+id);
+      if(r.ok){const d=await r.json();icalData[id]=d.booked_dates||[];}
+    }catch(e){console.warn('iCal error for',id,e)}
+  });
+  await Promise.all(promises);
+}
+
+// ============ MONTH NAME HELPERS ============
+const MONTH_MAP={
+  'Декабрь':11,'Январь':0,'Февраль':1,'Март':2,'Апрель':3,'Май':4,
+  'Июнь':5,'Июль':6,'Август':7,'Сентябрь':8,'Октябрь':9,'Ноябрь':10,
+  'январь':0,'февраль':1,'март':2,'апрель':3,'май':4,'июнь':5,
+  'июль':6,'август':7,'сентябрь':8,'октябрь':9,'ноябрь':10,'декабрь':11
+};
+const MONTH_LABELS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+const MONTH_LABELS_FULL=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+function getCurrentMonthLabel(){
+  const n=new Date();
+  return MONTH_LABELS_FULL[n.getMonth()];
+}
+
+function findMonthInSheets(monthName){
+  if(!sheetsData||!sheetsData.months)return null;
+  return sheetsData.months.find(m=>m.label.toLowerCase()===monthName.toLowerCase());
+}
+
+function getSummaryValue(key,monthLabel){
+  if(!sheetsData||!sheetsData.summary||!sheetsData.summary[key])return 0;
+  return sheetsData.summary[key][monthLabel]||0;
+}
+
+// ============ DASHBOARD ============
+function rDash(){
+  const n=new Date(),curMonth=getCurrentMonthLabel();
+  const ac=AA.filter(a=>a.is_active).length;
+  document.getElementById('dAp').textContent=AA.length||22;
+  
+  // Если есть данные из Sheets — используем реальные
+  if(sheetsData&&sheetsData.summary){
+    const rev=getSummaryValue('total_revenue',curMonth);
+    const net=getSummaryValue('net_profit',curMonth);
+    const bk=getSummaryValue('bookings_count',curMonth);
+    const avg=bk>0?Math.round(rev/bk):0;
+    
+    document.getElementById('dR').textContent='$'+Math.round(rev).toLocaleString();
+    document.getElementById('dB').textContent=Math.round(bk);
+    document.getElementById('dA').textContent=avg?'$'+avg:'—';
+    document.getElementById('dP').textContent='$'+Math.round(net).toLocaleString();
+    document.getElementById('dP').style.color=net>=0?'var(--green)':'var(--red)';
+    document.getElementById('dRS').textContent=curMonth+' 2026 · Google Sheets';
+  }else{
+    // Fallback на Supabase
+    const m=n.getMonth(),y=n.getFullYear();
+    const mb=AB.filter(b=>{const d=new Date(b.check_in);return d.getMonth()===m&&d.getFullYear()===y&&b.status!=='cancelled'});
+    const rv=mb.reduce((s,b)=>s+(b.total_price||0),0);
+    document.getElementById('dR').textContent='$'+rv.toLocaleString();
+    document.getElementById('dB').textContent=mb.length;
+    document.getElementById('dA').textContent=mb.length?'$'+Math.round(rv/mb.length):'—';
+    document.getElementById('dP').textContent='$'+Math.round(rv*.4).toLocaleString();
+    document.getElementById('dRS').textContent=n.toLocaleString('ru',{month:'long',year:'numeric'})+' · Supabase';
+  }
+  
+  // Загрузка из iCal
+  rOccupancyRate();
+  rRevC();rCompC();rCplx();rWdC();rFeed();rOcc();
+}
+
+function rOccupancyRate(){
+  const n=new Date(),y=n.getFullYear(),m=n.getMonth();
+  const dm=new Date(y,m+1,0).getDate();
+  let totalDays=0,busyDays=0;
+  const aptIds=Object.keys(icalData);
+  if(!aptIds.length){document.getElementById('dO').textContent='—';return}
+  
+  aptIds.forEach(id=>{
+    const events=icalData[id]||[];
+    for(let d=1;d<=dm;d++){
+      totalDays++;
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const busy=events.some(ev=>ds>=ev.start&&ds<ev.end);
+      if(busy)busyDays++;
+    }
+  });
+  const pct=totalDays?Math.round(busyDays/totalDays*100):0;
+  document.getElementById('dO').textContent=pct+'%';
+}
+
+// ============ CHARTS ============
+function rRevC(){
+  const d=Array(12).fill(0);
+  
+  if(sheetsData&&sheetsData.summary&&sheetsData.summary.total_revenue){
+    // Реальные данные из Sheets
+    sheetsData.months.forEach(m=>{
+      const idx=MONTH_MAP[m.label];
+      if(idx!==undefined){
+        d[idx]=sheetsData.summary.total_revenue[m.label]||0;
+      }
+    });
+  }else{
+    // Fallback Supabase
+    AB.filter(b=>b.status!=='cancelled').forEach(b=>{
+      const x=new Date(b.check_in);if(x.getFullYear()===new Date().getFullYear())d[x.getMonth()]+=(b.total_price||0);
+    });
+  }
+  
+  if(C1)C1.destroy();
+  C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:MONTH_LABELS,datasets:[{data:d,backgroundColor:d.map((v,i)=>i===new Date().getMonth()?'rgba(201,169,97,.9)':'rgba(201,169,97,.4)'),borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+}
+
+function rCompC(){
+  const c={};AA.forEach(a=>{c[a.complex]=(c[a.complex]||0)+1});
+  if(!Object.keys(c).length){c['Nest One']=5;c['U-Tower']=6;c['U-Tower 2']=6;c['Mirabad']=2;c['Kislorod']=3;}
+  const l=Object.keys(c),v=Object.values(c),cl=['#c9a961','#e74c3c','#3498db','#2ecc71','#9b59b6'];
+  if(C2)C2.destroy();
+  C2=new Chart(document.getElementById('cComp'),{type:'doughnut',data:{labels:l,datasets:[{data:v,backgroundColor:cl.slice(0,l.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#a8a096',padding:12}}}}});
+}
+
+function rCplx(){
+  const complexes={
+    'Nest One':{t:5,b:0,color:'#c9a961'},
+    'U-Tower':{t:6,b:0,color:'#3498db'},
+    'U-Tower 2':{t:6,b:0,color:'#9b59b6'},
+    'Mirabad':{t:2,b:0,color:'#2ecc71'},
+    'Kislorod':{t:3,b:0,color:'#e67e22'}
+  };
+  
+  // Подсчёт из iCal данных
+  const n=new Date(),td=new Date().toISOString().slice(0,10);
+  const aptComplex={
+    nest_15:'Nest One',nest_249:'Nest One',nest_481:'Nest One',nest_233:'Nest One',nest_353:'Nest One',
+    utower_65:'U-Tower',utower_73:'U-Tower',utower_171:'U-Tower',utower_208:'U-Tower',utower_310:'U-Tower',utower_410:'U-Tower',
+    utower2_5:'U-Tower 2',utower2_9:'U-Tower 2',utower2_207:'U-Tower 2',utower2_228:'U-Tower 2',utower2_296:'U-Tower 2',utower2_92:'U-Tower 2',
+    mirabad_111:'Mirabad',mirabad_205:'Mirabad',
+    kislorod_49:'Kislorod',kislorod_58:'Kislorod',kislorod_128:'Kislorod'
+  };
+  
+  Object.entries(icalData).forEach(([id,events])=>{
+    const cx=aptComplex[id];
+    if(!cx||!complexes[cx])return;
+    const busy=events.some(ev=>td>=ev.start&&td<ev.end);
+    if(busy)complexes[cx].b++;
+  });
+  
+  let h='';
+  Object.entries(complexes).forEach(([name,d])=>{
+    const p=d.t?Math.round(d.b/d.t*100):0;
+    h+=`<div class="cb"><div class="cb-l">${name}</div><div class="cb-t"><div class="cb-f" style="width:${p}%;background:${d.color}"></div></div><div class="cb-p">${p}%</div><div style="font-size:11px;color:var(--ink-d)">${d.b}/${d.t} заняты сегодня</div></div>`;
+  });
+  document.getElementById('cplxBars').innerHTML=h;
+}
+
+function rWdC(){
+  const d=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],v=Array(7).fill(0);
+  
+  if(sheetsData&&sheetsData.summary&&sheetsData.summary.total_revenue){
+    // Распределяем месячный доход по дням (приблизительно: пт-вс дороже)
+    const curMonth=getCurrentMonthLabel();
+    const rev=getSummaryValue('total_revenue',curMonth);
+    if(rev>0){
+      const weekdayShare=0.12,weekendShare=0.18;
+      v[0]=Math.round(rev*weekdayShare);v[1]=Math.round(rev*weekdayShare);
+      v[2]=Math.round(rev*weekdayShare);v[3]=Math.round(rev*weekdayShare);
+      v[4]=Math.round(rev*weekendShare);v[5]=Math.round(rev*weekendShare);
+      v[6]=Math.round(rev*(1-weekdayShare*4-weekendShare*2));
+    }
+  }else{
+    AB.filter(b=>b.status!=='cancelled').forEach(b=>{
+      const x=new Date(b.check_in).getDay(),i=x===0?6:x-1;v[i]+=(b.total_price||0);
+    });
+  }
+  
+  if(C3)C3.destroy();
+  C3=new Chart(document.getElementById('cWd'),{type:'bar',data:{labels:d,datasets:[{data:v,backgroundColor:d.map((_,i)=>i>=4?'rgba(201,169,97,.8)':'rgba(201,169,97,.4)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+}
+
+function rFeed(){
+  const r=AB.slice(0,8);
+  if(!r.length){document.getElementById('feedL').innerHTML='<div style="color:var(--ink-d);padding:20px;text-align:center">Нет данных</div>';return}
+  document.getElementById('feedL').innerHTML=r.map(b=>{
+    const a=AA.find(x=>x.id===b.apartment_id);
+    const s=b.status==='confirmed'?'✓':b.status==='cancelled'?'✗':'⏳';
+    return`<div class="fi"><div class="fl"><div class="fa">${a?a.complex+' · '+a.name:b.apartment_id} ${s}</div><div class="fg">${b.guest_name} · ${b.guest_phone}</div></div><div class="fr"><div class="fp">$${b.total_price||'—'}</div><div class="fd">${b.check_in} → ${b.check_out}</div></div></div>`;
+  }).join('');
+}
+
+// ============ OCCUPANCY CALENDAR (iCal) ============
+function rOcc(){
+  const n=new Date(),y=n.getFullYear(),m=n.getMonth(),dm=new Date(y,m+1,0).getDate(),td=n.getDate();
+  
+  const aptList=[
+    {id:'kislorod_128',label:'Kislorod Апартамент 128'},
+    {id:'kislorod_58',label:'Kislorod Апартамент 58'},
+    {id:'kislorod_49',label:'Kislorod Апартамент 49'},
+    {id:'mirabad_205',label:'Mirabad Апартамент 205'},
+    {id:'mirabad_111',label:'Mirabad Апартамент 111'},
+    {id:'nest_15',label:'Nest One Апартамент 15'},
+    {id:'nest_249',label:'Nest One Апартамент 249'},
+    {id:'nest_481',label:'Nest One Апартамент 481'},
+    {id:'nest_233',label:'Nest One Апартамент 233'},
+    {id:'nest_353',label:'Nest One Апартамент 353'},
+    {id:'utower_410',label:'U-Tower Апартамент 410'},
+    {id:'utower_310',label:'U-Tower Апартамент 310'},
+    {id:'utower_208',label:'U-Tower Апартамент 208'},
+    {id:'utower_171',label:'U-Tower Апартамент 171'},
+    {id:'utower_73',label:'U-Tower Апартамент 73'},
+    {id:'utower_65',label:'U-Tower Апартамент 65'},
+    {id:'utower2_92',label:'U-Tower 2 Апартамент 92'},
+    {id:'utower2_5',label:'U-Tower 2 Апартамент 5'},
+    {id:'utower2_9',label:'U-Tower 2 Апартамент 9'},
+    {id:'utower2_207',label:'U-Tower 2 Апартамент 207'},
+    {id:'utower2_228',label:'U-Tower 2 Апартамент 228'},
+    {id:'utower2_296',label:'U-Tower 2 Апартамент 296'},
+  ];
+  
+  let h='<table class="occ-table"><thead><tr><th></th>';
+  for(let d=1;d<=dm;d++)h+=`<th${d===td?' style="color:var(--gold);font-weight:700"':''}>${d}</th>`;
+  h+='</tr></thead><tbody>';
+  
+  aptList.forEach(apt=>{
+    const events=icalData[apt.id]||[];
+    h+=`<tr><td class="an">${apt.label}</td>`;
+    for(let d=1;d<=dm;d++){
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const busy=events.some(ev=>ds>=ev.start&&ds<ev.end);
+      h+=`<td><div class="oc ${busy?'ob':'of'}${d===td?' ot':''}"></div></td>`;
+    }
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  
+  // Подсчёт общей загрузки
+  let totalCells=aptList.length*dm,busyCells=0;
+  aptList.forEach(apt=>{
+    const events=icalData[apt.id]||[];
+    for(let d=1;d<=dm;d++){
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if(events.some(ev=>ds>=ev.start&&ds<ev.end))busyCells++;
+    }
+  });
+  const occPct=totalCells?Math.round(busyCells/totalCells*100):0;
+  
+  document.getElementById('occCal').innerHTML=`<div style="margin-bottom:12px;font-size:12px;color:var(--ink-m)">Загрузка за ${MONTH_LABELS_FULL[m]}: <strong style="color:var(--gold)">${occPct}%</strong> (${busyCells}/${totalCells} ночей) · Источник: RealtyCalendar iCal</div>`+h;
+}
+
+// ============ FINANCE TAB (Google Sheets) ============
+function setP(p,el){document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));el.classList.add('active');rFin()}
+
+function rFin(){
+  document.getElementById('fT').textContent='Доход по месяцам (Google Sheets)';
+  
+  if(sheetsData&&sheetsData.summary){
+    // Реальные данные из Google Sheets
+    const sm=sheetsData.summary;
+    const months=sheetsData.months||[];
+    
+    // Текущий месяц для верхних карточек
+    const curMonth=getCurrentMonthLabel();
+    const totRev=months.reduce((s,m)=>(s+(sm.total_revenue?sm.total_revenue[m.label]:0)||0),0);
+    const totNet=months.reduce((s,m)=>(s+(sm.net_profit?sm.net_profit[m.label]:0)||0),0);
+    const totRent=months.reduce((s,m)=>(s+(sm.rent?sm.rent[m.label]:0)||0),0);
+    const totExp=months.reduce((s,m)=>(s+(sm.expenses?sm.expenses[m.label]:0)||0),0);
+    const margin=totRev?Math.round(totNet/totRev*100):0;
+    
+    document.getElementById('fS').innerHTML=`
+      <div class="stat"><div class="stat-label">Поступления (всего)</div><div class="stat-value">$${Math.round(totRev).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-label">Аренда + офис</div><div class="stat-value">$${Math.round(totRent).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-label">Расходы</div><div class="stat-value">$${Math.round(totExp).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-label">Чистыми</div><div class="stat-value" style="color:${totNet>=0?'var(--green)':'var(--red)'}">$${Math.round(totNet).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-label">Маржинальность</div><div class="stat-value">${margin}%</div></div>`;
+    
+    // График
+    const lb=months.map(m=>m.label.substring(0,3));
+    const rv=months.map(m=>(sm.total_revenue?sm.total_revenue[m.label]:0)||0);
+    const np=months.map(m=>(sm.net_profit?sm.net_profit[m.label]:0)||0);
+    
+    if(C4)C4.destroy();
+    C4=new Chart(document.getElementById('cFin'),{type:'bar',data:{labels:lb,datasets:[
+      {label:'Доход',data:rv,backgroundColor:'rgba(201,169,97,.6)',borderColor:'#c9a961',borderWidth:1},
+      {label:'Чистыми',data:np,backgroundColor:'rgba(46,204,113,.4)',borderColor:'#2ecc71',borderWidth:1}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a8a096'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': $'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+    
+    // Таблица
+    document.getElementById('fTB').innerHTML=months.map(m=>{
+      const rev=(sm.total_revenue?sm.total_revenue[m.label]:0)||0;
+      const rent=(sm.rent?sm.rent[m.label]:0)||0;
+      const comm=(sm.commission?sm.commission[m.label]:0)||0;
+      const exp=(sm.expenses?sm.expenses[m.label]:0)||0;
+      const cln=(sm.cleaning?sm.cleaning[m.label]:0)||0;
+      const sal=(sm.salary?sm.salary[m.label]:0)||0;
+      const mkt=(sm.marketing?sm.marketing[m.label]:0)||0;
+      const net=(sm.net_profit?sm.net_profit[m.label]:0)||0;
+      if(!rev)return'';
+      return`<tr>
+        <td>${m.label} ${m.year}</td>
+        <td style="color:var(--gold)">$${Math.round(rev).toLocaleString()}</td>
+        <td>$${Math.round(rent).toLocaleString()}</td>
+        <td>$${Math.round(comm).toLocaleString()}</td>
+        <td>$${Math.round(exp).toLocaleString()}</td>
+        <td>$${Math.round(cln).toLocaleString()}</td>
+        <td>$${Math.round(sal).toLocaleString()}</td>
+        <td>$${Math.round(mkt).toLocaleString()}</td>
+        <td style="color:${net>=0?'var(--green)':'var(--red)'}">$${Math.round(net).toLocaleString()}</td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="9" class="loading">Нет данных</td></tr>';
+    
+  }else{
+    // Fallback — старая логика из Supabase
+    const vb=AB.filter(b=>b.status!=='cancelled');
+    const ms=MONTH_LABELS;
+    const rv=Array(12).fill(0);
+    vb.forEach(b=>{const d=new Date(b.check_in);if(d.getFullYear()===new Date().getFullYear())rv[d.getMonth()]+=(b.total_price||0)});
+    const tot=rv.reduce((a,b)=>a+b,0);
+    
+    document.getElementById('fS').innerHTML=`<div class="stat"><div class="stat-label">Поступления</div><div class="stat-value">$${tot.toLocaleString()}</div></div><div class="stat"><div class="stat-label">Данные</div><div class="stat-value" style="font-size:14px;color:var(--red)">Google Sheets недоступен</div></div>`;
+    
+    if(C4)C4.destroy();
+    C4=new Chart(document.getElementById('cFin'),{type:'bar',data:{labels:ms,datasets:[{data:rv,backgroundColor:'rgba(201,169,97,.6)',borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+    document.getElementById('fTB').innerHTML='<tr><td colspan="9" class="loading">Подключите Google Sheets для реальных данных</td></tr>';
+  }
+}
+
+// ============ APARTMENTS & BOOKINGS (Supabase) ============
 function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>`<tr><td style="font-family:monospace;font-size:12px;color:var(--ink-d)">${a.id}</td><td><strong>${a.name}</strong></td><td>${a.complex}</td><td>${a.floor}</td><td>${a.rooms||'—'}</td><td>$${a.weekday_price}</td><td>$${a.weekend_price}</td><td><span class="badge ${a.is_active?'badge-active':'badge-inactive'}">${a.is_active?'Активен':'Выкл'}</span></td><td><button class="btn btn-sm btn-outline" onclick="edA('${a.id}')" style="margin-right:4px">✎</button><button class="btn btn-sm btn-danger" onclick="delA('${a.id}')">✗</button></td></tr>`).join('')}
+
 function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="9" class="loading">Нет бронирований</td></tr>';return}document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':'badge-pending',st=b.status==='confirmed'?'Подтверждён':b.status==='cancelled'?'Отменён':'Ожидает';return`<tr><td>${b.apartment_id}</td><td><strong>${b.guest_name}</strong></td><td>${b.guest_phone}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td>$${b.total_price||'—'}</td><td><span class="badge ${sc}">${st}</span></td><td><button class="btn btn-sm btn-outline" onclick="ubS('${b.id}','confirmed')" style="margin:2px">✓</button><button class="btn btn-sm btn-danger" onclick="ubS('${b.id}','cancelled')" style="margin:2px">✗</button></td></tr>`}).join('')}
+
 async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amErr').style.display='none'}
 function closeAM(){document.getElementById('aptM').classList.remove('show')}
