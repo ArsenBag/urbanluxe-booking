@@ -800,8 +800,16 @@ function rAnalytics(){
     const mData=apt.monthly[cm]||{revenue:0,rent:0,profit:0,occupancy:0,commission:0};
     // Match to complex/iCal by apartment number in name
     let cx='—',icalId=null,occPct=0;
-    const numMatch=apt.name.match(/[-_](\d+)\s*[-–]/);
-    const aptNum=numMatch?numMatch[1]:null;
+    // Match apartment number: last number before the price ($)
+    // Patterns: "NO-13-249 - 1200$", "U-3-5 - 1200$", "Kislorod Apartment 58 1200$", "U-11- 171 800$"
+    const allNums=[...apt.name.matchAll(/\b(\d+)\b/g)].map(m=>m[1]);
+    // The apartment number is the last number before the price — prices are typically 800-1800
+    // Filter: skip numbers that look like prices (>=800) and take the last remaining
+    let aptNum=null;
+    for(let ni=allNums.length-1;ni>=0;ni--){
+      const num=parseInt(allNums[ni]);
+      if(num<500){aptNum=String(num);break}
+    }
     if(aptNum){
       const mapped=aptMap.find(m=>m.k===aptNum);
       if(mapped){cx=mapped.cx;icalId=mapped.ical;
