@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Urban Luxe — Личный кабинет</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,500;1,400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+<style>
+:root{--bg:#090807;--bg2:#0f0e0c;--bg3:#171512;--bg4:#1f1c18;--ink:#ede8df;--ink-m:#a09888;--ink-d:#635c52;--gold:#c9a961;--gold-l:#ddc07a;--gold-d:#a88d45;--gold-s:rgba(201,169,97,.12);--line:rgba(201,169,97,.08);--line-l:rgba(201,169,97,.15);--green:#2ecc71;--red:#e74c3c;--blue:#3498db;--r:12px;--fd:'Playfair Display',serif;--fb:'Jost',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--ink);font-family:var(--fb);font-weight:300;line-height:1.7;-webkit-font-smoothing:antialiased}
+::selection{background:var(--gold);color:var(--bg)}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;opacity:.03;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.nav{position:sticky;top:0;z-index:100;padding:16px 48px;display:flex;justify-content:space-between;align-items:center;background:rgba(9,8,7,.92);backdrop-filter:blur(24px);border-bottom:1px solid var(--line)}
+.nav__logo{color:var(--gold);text-decoration:none;letter-spacing:.25em;font-family:var(--fd);font-size:15px;font-weight:500;text-transform:uppercase}
+.nav__right{display:flex;gap:16px;align-items:center}
+.nav__user{color:var(--ink-m);font-size:13px}
+.nav__link{color:var(--ink-d);text-decoration:none;font-size:11px;letter-spacing:.15em;text-transform:uppercase;transition:color .3s}.nav__link:hover{color:var(--gold)}
+.btn{padding:12px 28px;background:var(--gold);color:var(--bg);border:none;font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-family:var(--fb);font-weight:400;cursor:pointer;transition:all .3s;border-radius:4px}.btn:hover{background:var(--gold-d)}
+.btn--outline{background:transparent;border:1px solid var(--gold-d);color:var(--gold)}.btn--outline:hover{background:var(--gold);color:var(--bg)}
+.btn--danger{background:transparent;border:1px solid var(--red);color:var(--red)}.btn--danger:hover{background:var(--red);color:#fff}
+.btn--sm{padding:8px 16px;font-size:10px}
+.container{max-width:1200px;margin:0 auto;padding:40px 48px}
+/* Auth */
+.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.auth-box{background:var(--bg2);border:1px solid var(--line-l);padding:48px;width:420px;max-width:90vw;border-radius:var(--r)}
+.auth-box h1{font-family:var(--fd);font-size:28px;font-weight:400;margin-bottom:8px}
+.auth-box p{color:var(--ink-d);font-size:13px;margin-bottom:32px}
+.auth-tabs{display:flex;gap:0;margin-bottom:28px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.auth-tab{flex:1;padding:10px;text-align:center;background:transparent;border:none;color:var(--ink-d);font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-family:var(--fb);transition:all .3s}
+.auth-tab.active{background:var(--gold-s);color:var(--gold)}
+label{display:block;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-d);margin-bottom:6px;margin-top:18px;font-weight:400}
+input,textarea{width:100%;padding:13px 16px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:var(--fb);outline:none;border-radius:6px;font-weight:300;transition:border-color .3s}
+input:focus,textarea:focus{border-color:var(--gold-d)}
+.error{color:var(--red);font-size:12px;margin-top:12px}
+/* Dashboard layout */
+.dash{display:grid;grid-template-columns:240px 1fr;gap:0;min-height:calc(100vh - 65px)}
+.sidebar{background:var(--bg2);border-right:1px solid var(--line);padding:32px 0}
+.sidebar a{display:flex;align-items:center;gap:12px;padding:12px 24px;color:var(--ink-m);text-decoration:none;font-size:13px;transition:all .3s;border-left:3px solid transparent}
+.sidebar a:hover{color:var(--ink);background:var(--bg3)}
+.sidebar a.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold-s)}
+.sidebar a .icon{width:20px;text-align:center;font-size:16px}
+.main{padding:40px}
+.main h1{font-family:var(--fd);font-size:28px;font-weight:400;margin-bottom:8px}
+.main .subtitle{color:var(--ink-d);font-size:14px;margin-bottom:32px}
+/* Booking cards */
+.booking-list{display:flex;flex-direction:column;gap:16px}
+.booking-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;transition:border-color .3s}
+.booking-card:hover{border-color:var(--line-l)}
+.booking-card-inner{display:grid;grid-template-columns:200px 1fr auto;gap:0}
+.booking-card-img{aspect-ratio:1;background:var(--bg3);overflow:hidden}
+.booking-card-img img{width:100%;height:100%;object-fit:cover}
+.booking-card-info{padding:24px}
+.booking-card-title{font-family:var(--fd);font-size:20px;font-weight:400;margin-bottom:4px}
+.booking-card-sub{font-size:12px;color:var(--ink-d);margin-bottom:12px;letter-spacing:.05em}
+.booking-card-dates{display:flex;gap:24px;margin-bottom:12px}
+.booking-card-date{display:flex;flex-direction:column}.booking-card-date .label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-d)}.booking-card-date .value{font-size:15px;font-weight:400}
+.booking-card-actions{padding:24px;display:flex;flex-direction:column;gap:8px;justify-content:center;border-left:1px solid var(--line)}
+.status{padding:4px 12px;border-radius:4px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;display:inline-block}
+.status--confirmed{background:rgba(46,204,113,.12);color:var(--green)}
+.status--pending{background:var(--gold-s);color:var(--gold)}
+.status--cancelled{background:rgba(231,76,60,.12);color:var(--red)}
+.status--completed{background:rgba(52,152,219,.12);color:var(--blue)}
+/* Profile */
+.profile-form{max-width:500px}
+.profile-form .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* Chat */
+.chat-container{display:flex;flex-direction:column;height:calc(100vh - 200px);max-height:600px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.chat-header{padding:16px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.chat-header h3{font-family:var(--fd);font-size:18px;font-weight:400}
+.chat-messages{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px}
+.chat-input-bar{padding:16px;border-top:1px solid var(--line);display:flex;gap:8px}
+.chat-input-bar input{flex:1;border-radius:24px;padding:12px 20px}
+.chat-send{width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;color:var(--bg);font-size:18px;display:flex;align-items:center;justify-content:center;transition:background .3s}.chat-send:hover{background:var(--gold-d)}
+.msg{display:flex}.msg--me{justify-content:flex-end}.msg--them{justify-content:flex-start}
+.msg-bubble{max-width:75%;padding:12px 16px;border-radius:16px;font-size:13px;line-height:1.6}
+.msg--me .msg-bubble{background:var(--gold);color:var(--bg);border-bottom-right-radius:4px}
+.msg--them .msg-bubble{background:var(--bg3);border-bottom-left-radius:4px}
+.msg-time{font-size:10px;opacity:.5;margin-top:4px;text-align:right}
+/* Empty state */
+.empty{text-align:center;padding:80px 40px;color:var(--ink-d)}
+.empty h3{font-family:var(--fd);font-size:24px;color:var(--ink-m);margin-bottom:12px;font-weight:400}
+.empty p{font-size:14px;margin-bottom:24px}
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal-box{background:var(--bg2);border:1px solid var(--line-l);border-radius:var(--r);padding:36px;width:480px;max-width:90vw}
+.modal-box h2{font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:20px}
+@media(max-width:768px){.dash{grid-template-columns:1fr}.sidebar{display:none}.container{padding:20px}.booking-card-inner{grid-template-columns:1fr}.booking-card-img{aspect-ratio:16/9}.booking-card-actions{flex-direction:row;border-left:none;border-top:1px solid var(--line);padding:16px 24px}.nav{padding:12px 20px}.main{padding:20px}}
+</style>
+</head>
+<body>
+<!-- AUTH PAGE -->
+<div id="authPage" class="auth-page">
+<div class="auth-box">
+<h1>Urban Luxe</h1>
+<p>Личный кабинет гостя</p>
+<div class="auth-tabs">
+<button class="auth-tab active" onclick="showTab('login')">Вход</button>
+<button class="auth-tab" onclick="showTab('register')">Регистрация</button>
+</div>
+<div id="loginForm">
+<label>Email</label><input type="email" id="authEmail" placeholder="email@example.com">
+<label>Пароль</label><input type="password" id="authPass" placeholder="Пароль">
+<button class="btn" style="width:100%;margin-top:20px" onclick="doLogin()">Войти</button>
+</div>
+<div id="registerForm" style="display:none">
+<label>Имя</label><input type="text" id="regName" placeholder="Ваше имя">
+<label>Телефон</label><input type="text" id="regPhone" placeholder="+998 ...">
+<label>Email</label><input type="email" id="regEmail" placeholder="email@example.com">
+<label>Пароль</label><input type="password" id="regPass" placeholder="Минимум 6 символов">
+<button class="btn" style="width:100%;margin-top:20px" onclick="doRegister()">Зарегистрироваться</button>
+</div>
+<div id="authError" class="error" style="display:none"></div>
+<div style="text-align:center;margin-top:24px"><a href="/" class="nav__link">← На главную</a></div>
+</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashPage" style="display:none">
+<nav class="nav">
+<a href="/" class="nav__logo">Urban Luxe</a>
+<div class="nav__right">
+<span class="nav__user" id="userName"></span>
+<a href="/" class="nav__link">На сайт</a>
+<button class="btn btn--sm btn--outline" onclick="doLogout()">Выйти</button>
+</div>
+</nav>
+<div class="dash">
+<div class="sidebar">
+<a href="#" class="active" onclick="showSection('bookings',this)" id="navBookings"><span class="icon">📋</span> Мои бронирования</a>
+<a href="#" onclick="showSection('chat',this)" id="navChat"><span class="icon">💬</span> Чат с поддержкой</a>
+<a href="#" onclick="showSection('profile',this)" id="navProfile"><span class="icon">👤</span> Профиль</a>
+</div>
+<div class="main">
+<!-- BOOKINGS SECTION -->
+<div id="secBookings">
+<h1>Мои бронирования</h1>
+<div class="subtitle" id="bookingsSubtitle">Загрузка...</div>
+<div id="bookingsList" class="booking-list"></div>
+</div>
+<!-- CHAT SECTION -->
+<div id="secChat" style="display:none">
+<h1>Чат с поддержкой</h1>
+<div class="subtitle">Обычно отвечаем за 5 минут</div>
+<div class="chat-container">
+<div class="chat-messages" id="chatMsgs"></div>
+<div class="chat-input-bar">
+<input type="text" id="chatInput" placeholder="Написать сообщение..." onkeydown="if(event.key==='Enter')sendMsg()">
+<button class="chat-send" onclick="sendMsg()">&#10148;</button>
+</div>
+</div>
+</div>
+<!-- PROFILE SECTION -->
+<div id="secProfile" style="display:none">
+<h1>Мой профиль</h1>
+<div class="subtitle">Управление учётной записью</div>
+<div class="profile-form">
+<div class="row"><div><label>Имя</label><input type="text" id="profName"></div><div><label>Телефон</label><input type="text" id="profPhone"></div></div>
+<label>Email</label><input type="email" id="profEmail" disabled>
+<button class="btn" style="margin-top:24px" onclick="saveProfile()">Сохранить</button>
+<div id="profStatus" style="margin-top:12px;font-size:13px"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- MODIFY BOOKING MODAL -->
+<div class="modal-bg" id="modifyModal">
+<div class="modal-box">
+<h2>Изменить даты</h2>
+<label>Новая дата заезда</label><input type="text" id="modCheckIn" readonly>
+<label>Новая дата выезда</label><input type="text" id="modCheckOut" readonly>
+<div id="modStatus" style="margin-top:12px;font-size:13px"></div>
+<div style="display:flex;gap:12px;margin-top:24px;justify-content:flex-end">
+<button class="btn btn--outline" onclick="closeModify()">Отмена</button>
+<button class="btn" onclick="submitModify()">Сохранить</button>
+</div>
+</div>
+</div>
+
+<!-- CANCEL BOOKING MODAL -->
+<div class="modal-bg" id="cancelModal">
+<div class="modal-box">
+<h2>Отменить бронирование</h2>
+<p style="color:var(--ink-m);margin-bottom:20px" id="cancelText"></p>
+<div style="display:flex;gap:12px;justify-content:flex-end">
+<button class="btn btn--outline" onclick="closeCancelModal()">Нет, оставить</button>
+<button class="btn btn--danger" onclick="confirmCancel()">Да, отменить</button>
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+<script>
+const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+let user=null,profile=null,bookings=[],apts={},modBookingId=null,cancelBookingId=null,chatSub=null;
+
+function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fmtDisplay(s){if(!s)return'—';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'})}
+function fmtPrice(n){return'$'+Math.round(n).toLocaleString()}
+
+// Auth
+function showTab(t){
+  document.getElementById('loginForm').style.display=t==='login'?'block':'none';
+  document.getElementById('registerForm').style.display=t==='register'?'block':'none';
+  document.querySelectorAll('.auth-tab').forEach((b,i)=>b.className='auth-tab'+((t==='login'&&i===0)||(t==='register'&&i===1)?' active':''));
+}
+
+async function doLogin(){
+  const email=document.getElementById('authEmail').value,pass=document.getElementById('authPass').value,err=document.getElementById('authError');
+  err.style.display='none';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  init(data.user);
+}
+
+async function doRegister(){
+  const name=document.getElementById('regName').value.trim(),phone=document.getElementById('regPhone').value.trim(),email=document.getElementById('regEmail').value,pass=document.getElementById('regPass').value,err=document.getElementById('authError');
+  err.style.display='none';
+  if(!name){err.textContent='Введите имя';err.style.display='block';return}
+  const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name}}});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  if(data.user){
+    await sb.from('guest_profiles').insert({user_id:data.user.id,name,phone});
+    init(data.user);
+  }
+}
+
+async function doLogout(){if(chatSub)chatSub.unsubscribe();await sb.auth.signOut();user=null;document.getElementById('authPage').style.display='flex';document.getElementById('dashPage').style.display='none'}
+
+async function init(u){
+  user=u;document.getElementById('authPage').style.display='none';document.getElementById('dashPage').style.display='block';
+  document.getElementById('userName').textContent=u.user_metadata?.name||u.email;
+  // Load profile
+  const{data:prof}=await sb.from('guest_profiles').select('*').eq('user_id',u.id).single();
+  profile=prof;
+  if(profile){
+    document.getElementById('profName').value=profile.name||'';
+    document.getElementById('profPhone').value=profile.phone||'';
+  }
+  document.getElementById('profEmail').value=u.email;
+  // Load apartments for reference
+  const{data:aptData}=await sb.from('apartments').select('id,name,complex,floor,photo_url,style');
+  (aptData||[]).forEach(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}a._cover=ph[0]||'';apts[a.id]=a});
+  loadBookings();
+  loadChat();
+}
+
+// Bookings
+async function loadBookings(){
+  const{data}=await sb.from('bookings').select('*').or(`guest_email.eq.${user.email},guest_phone.eq.${profile?.phone||'__none__'}`).order('created_at',{ascending:false});
+  bookings=data||[];
+  renderBookings();
+}
+
+function renderBookings(){
+  const el=document.getElementById('bookingsList');
+  const sub=document.getElementById('bookingsSubtitle');
+  if(!bookings.length){
+    sub.textContent='';
+    el.innerHTML='<div class="empty"><h3>Нет бронирований</h3><p>Забронируйте апартамент на нашем сайте</p><a href="/#booking" class="btn">Забронировать</a></div>';
+    return;
+  }
+  const active=bookings.filter(b=>b.status!=='cancelled');
+  sub.textContent=`${active.length} активных · ${bookings.length} всего`;
+  el.innerHTML=bookings.map(b=>{
+    const apt=apts[b.apartment_id]||{};
+    const statusCls=b.status==='confirmed'?'confirmed':b.status==='cancelled'?'cancelled':b.status==='completed'?'completed':'pending';
+    const statusText=b.status==='confirmed'?'Подтверждено':b.status==='cancelled'?'Отменено':b.status==='completed'?'Завершено':'Ожидает';
+    const isPast=new Date(b.check_out)<new Date();
+    const canModify=!isPast&&b.status!=='cancelled';
+    return`<div class="booking-card"><div class="booking-card-inner">
+      <div class="booking-card-img">${apt._cover?`<img src="${apt._cover}" alt="${apt.name||b.apartment_id}">`:''}</div>
+      <div class="booking-card-info">
+        <div class="booking-card-title">${apt.name||b.apartment_id}</div>
+        <div class="booking-card-sub">${apt.complex||''} ${apt.floor?'· Этаж '+apt.floor:''} · <span class="status status--${statusCls}">${statusText}</span></div>
+        <div class="booking-card-dates">
+          <div class="booking-card-date"><span class="label">Заезд</span><span class="value">${fmtDisplay(b.check_in)}</span></div>
+          <div class="booking-card-date"><span class="label">Выезд</span><span class="value">${fmtDisplay(b.check_out)}</span></div>
+          <div class="booking-card-date"><span class="label">Ночей</span><span class="value">${b.nights||'—'}</span></div>
+          <div class="booking-card-date"><span class="label">Сумма</span><span class="value" style="color:var(--gold)">${fmtPrice(b.total_price||0)}</span></div>
+        </div>
+        <div style="font-size:12px;color:var(--ink-d)">${b.guest_name} · ${b.guest_phone} · ${b.created_at?new Date(b.created_at).toLocaleDateString('ru'):''}</div>
+      </div>
+      <div class="booking-card-actions">
+        ${canModify?`<button class="btn btn--sm btn--outline" onclick="openModify('${b.id}','${b.check_in}','${b.check_out}')">Изменить даты</button><button class="btn btn--sm btn--danger" onclick="openCancel('${b.id}','${apt.name||b.apartment_id}')">Отменить</button>`:''}
+        ${isPast&&b.status!=='cancelled'?'<span style="font-size:11px;color:var(--ink-d)">Завершено</span>':''}
+      </div>
+    </div></div>`;
+  }).join('');
+}
+
+// Modify booking
+let fpModIn,fpModOut;
+function openModify(id,ci,co){
+  modBookingId=id;document.getElementById('modifyModal').classList.add('show');document.getElementById('modStatus').textContent='';
+  if(fpModIn)fpModIn.destroy();if(fpModOut)fpModOut.destroy();
+  fpModIn=flatpickr('#modCheckIn',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',defaultDate:ci,onChange(d){if(d[0]){const n=new Date(d[0]);n.setDate(n.getDate()+1);fpModOut.set('minDate',n)}}});
+  fpModOut=flatpickr('#modCheckOut',{locale:'ru',minDate:new Date(ci),dateFormat:'d.m.Y',defaultDate:co});
+}
+function closeModify(){document.getElementById('modifyModal').classList.remove('show');modBookingId=null}
+async function submitModify(){
+  if(!modBookingId)return;
+  const ci=fpModIn.selectedDates[0],co=fpModOut.selectedDates[0];
+  if(!ci||!co){document.getElementById('modStatus').innerHTML='<span style="color:var(--red)">Выберите обе даты</span>';return}
+  const ciStr=fmtD(ci),coStr=fmtD(co),nights=Math.round((co-ci)/864e5);
+  const{error}=await sb.from('bookings').update({check_in:ciStr,check_out:coStr,nights,status:'pending',updated_at:new Date().toISOString()}).eq('id',modBookingId);
+  if(error){document.getElementById('modStatus').innerHTML='<span style="color:var(--red)">'+error.message+'</span>';return}
+  closeModify();loadBookings();
+}
+
+// Cancel booking
+function openCancel(id,name){cancelBookingId=id;document.getElementById('cancelText').textContent='Вы уверены, что хотите отменить бронирование «'+name+'»? Это действие нельзя отменить.';document.getElementById('cancelModal').classList.add('show')}
+function closeCancelModal(){document.getElementById('cancelModal').classList.remove('show');cancelBookingId=null}
+async function confirmCancel(){
+  if(!cancelBookingId)return;
+  await sb.from('bookings').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',cancelBookingId);
+  closeCancelModal();loadBookings();
+}
+
+// Chat
+async function loadChat(){
+  if(!user)return;
+  const{data}=await sb.from('messages').select('*').eq('conversation_id',user.id).order('created_at',{ascending:true});
+  renderChat(data||[]);
+  // Subscribe
+  if(chatSub)chatSub.unsubscribe();
+  chatSub=sb.channel('guest-chat-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+user.id},()=>loadChat()).subscribe();
+}
+function renderChat(msgs){
+  const el=document.getElementById('chatMsgs');
+  if(!msgs.length){el.innerHTML='<div class="empty" style="padding:40px"><h3>Начните диалог</h3><p>Напишите нам — мы ответим в ближайшее время</p></div>';return}
+  el.innerHTML=msgs.map(m=>{
+    const isMe=m.sender_role==='guest';
+    const time=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    return`<div class="msg msg--${isMe?'me':'them'}"><div class="msg-bubble"><div>${m.content}</div><div class="msg-time">${time}</div></div></div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+async function sendMsg(){
+  if(!user)return;
+  const inp=document.getElementById('chatInput'),text=inp.value.trim();if(!text)return;inp.value='';
+  await sb.from('messages').insert({conversation_id:user.id,sender_id:user.id,sender_role:'guest',content:text});
+  loadChat();
+}
+
+// Profile
+async function saveProfile(){
+  const name=document.getElementById('profName').value.trim(),phone=document.getElementById('profPhone').value.trim();
+  const st=document.getElementById('profStatus');
+  if(!profile){
+    await sb.from('guest_profiles').insert({user_id:user.id,name,phone});
+  }else{
+    await sb.from('guest_profiles').update({name,phone}).eq('user_id',user.id);
+  }
+  st.innerHTML='<span style="color:var(--green)">✓ Сохранено</span>';
+  document.getElementById('userName').textContent=name||user.email;
+  setTimeout(()=>st.textContent='',3000);
+}
+
+// Navigation
+function showSection(s,el){
+  document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('secBookings').style.display=s==='bookings'?'block':'none';
+  document.getElementById('secChat').style.display=s==='chat'?'block':'none';
+  document.getElementById('secProfile').style.display=s==='profile'?'block':'none';
+  if(s==='chat')loadChat();
+  if(s==='bookings')loadBookings();
+}
+
+// Init
+(async function(){
+  const{data:{user:u}}=await sb.auth.getUser();
+  if(u)init(u);
+})();
+</script>
+</body>
+</html>
