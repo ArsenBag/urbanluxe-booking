@@ -97,8 +97,14 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="form-row"><div><label>Тип (комнаты)</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div>
 <label style="margin-top:16px">Описание</label>
 <textarea id="amDesc" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;height:100px;resize:vertical" placeholder="Уютная студия с панорамным видом на город..."></textarea>
-<label style="margin-top:16px">Фото (URL через запятую или по одному на строку)</label>
-<textarea id="amPhotos" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:inherit;height:80px;resize:vertical" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"></textarea>
+<label style="margin-top:16px">Фото — загрузить файлы</label>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+<input type="file" id="amPhotoFile" accept="image/*" multiple style="font-size:12px;color:var(--ink-m)">
+<button type="button" class="btn btn-sm" onclick="uploadPhotos()" id="amUploadBtn">Загрузить</button>
+<span id="amUploadStatus" style="font-size:11px;color:var(--ink-d)"></span>
+</div>
+<label>или URL фото (по одному на строку)</label>
+<textarea id="amPhotos" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:inherit;height:60px;resize:vertical" placeholder="https://example.com/photo1.jpg"></textarea>
 <div id="amPhotoPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
 <div class="form-row"><div><label>Видео (YouTube URL)</label><input type="text" id="amVideo" placeholder="https://youtube.com/watch?v=..."></div><div><label>Главное фото (URL)</label><input type="text" id="amMainPhoto" placeholder="URL обложки карточки"></div></div>
 <label style="margin-top:16px">Удобства</label>
@@ -116,7 +122,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="iron"> Утюг</label>
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="hairdryer"> Фен</label>
 </div>
-<label style="margin-top:16px">iCal URL</label><input type="text" id="amU">
+<div class="form-row" style="margin-top:16px"><div><label>iCal Export URL (RealtyCalendar)</label><input type="text" id="amU" placeholder="https://realtycalendar.ru/apartments/export.ics?q=..."></div><div><label>iCal Import URL</label><input type="text" id="amUI" placeholder="URL для импорта в RealtyCalendar"></div></div>
 <div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div>
 <div id="amErr" class="error" style="display:none"></div>
 <div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
@@ -944,6 +950,7 @@ function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td
 async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
+document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
 if(a){
   // Parse description — extract video URL if embedded
   let desc=a.description||'';let video='';
@@ -971,6 +978,35 @@ document.getElementById('amPhotoPreview').innerHTML=all.slice(0,6).map(u=>`<img 
 document.getElementById('amPhotos')?.addEventListener('input',updatePhotoPreview);
 document.getElementById('amMainPhoto')?.addEventListener('input',updatePhotoPreview);
 function closeAM(){document.getElementById('aptM').classList.remove('show')}
+
+async function uploadPhotos(){
+  const fileInput=document.getElementById('amPhotoFile');
+  const statusEl=document.getElementById('amUploadStatus');
+  const btn=document.getElementById('amUploadBtn');
+  const aptId=document.getElementById('amI').value.trim()||'temp_'+Date.now();
+  if(!fileInput.files.length){statusEl.textContent='Выберите файлы';return}
+  btn.disabled=true;statusEl.textContent='Загрузка...';
+  const urls=[];
+  for(const file of fileInput.files){
+    const ext=file.name.split('.').pop().toLowerCase();
+    const fileName=`${aptId}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+    try{
+      const{data,error}=await sb.storage.from('apartments').upload(fileName,file,{cacheControl:'3600',upsert:false});
+      if(error){statusEl.textContent='Ошибка: '+error.message;btn.disabled=false;return}
+      const{data:urlData}=sb.storage.from('apartments').getPublicUrl(fileName);
+      urls.push(urlData.publicUrl);
+    }catch(e){statusEl.textContent='Ошибка: '+e.message;btn.disabled=false;return}
+  }
+  // Add to photos textarea
+  const textarea=document.getElementById('amPhotos');
+  const existing=textarea.value.trim();
+  textarea.value=existing?(existing+'\n'+urls.join('\n')):urls.join('\n');
+  // Set first as main photo if empty
+  if(!document.getElementById('amMainPhoto').value&&urls[0])document.getElementById('amMainPhoto').value=urls[0];
+  updatePhotoPreview();
+  statusEl.textContent=`✓ ${urls.length} фото загружено`;
+  btn.disabled=false;fileInput.value='';
+}
 async function edA(id){const{data}=await sb.from('apartments').select('*').eq('id',id).single();if(data)openAM(data)}
 async function saveA(){const ei=document.getElementById('amE').value,er=document.getElementById('amErr');
 const amenities=[];document.querySelectorAll('#amAmenities input[type=checkbox]:checked').forEach(cb=>amenities.push(cb.value));
@@ -982,7 +1018,7 @@ const photoData=mainPhoto||photos[0]||'';
 const desc=document.getElementById('amDesc').value.trim();
 // Compose description with video marker if present
 const fullDesc=videoUrl?desc+'\n[VIDEO:'+videoUrl+']':desc;
-const a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),max_guests:parseInt(document.getElementById('amG').value)||3,is_active:document.getElementById('amA').value==='true',description:fullDesc,photo_url:photos.length>1?JSON.stringify(photos):photoData,amenities:amenities,updated_at:new Date().toISOString()};
+const a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),ical_import_url:document.getElementById('amUI').value.trim(),max_guests:parseInt(document.getElementById('amG').value)||3,is_active:document.getElementById('amA').value==='true',description:fullDesc,photo_url:photos.length>1?JSON.stringify(photos):photoData,amenities:amenities,updated_at:new Date().toISOString()};
 if(!a.id||!a.name||!a.weekday_price){er.textContent='Заполните обязательные поля';er.style.display='block';return}
 let r;if(ei){const{id,...u}=a;r=await sb.from('apartments').update(u).eq('id',ei)}else{r=await sb.from('apartments').insert(a)}
 if(r.error){er.textContent=r.error.message;er.style.display='block';return}closeAM();loadAll()}
