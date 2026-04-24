@@ -90,7 +90,36 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb" onclick="setP('day',this)">По дням</button><button class="pb" onclick="setP('week',this)">По неделям</button><button class="pb active" onclick="setP('month',this)">По месяцам</button><button class="pb" onclick="setP('pnl',this)">P&L отчёт</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
 <div class="section" id="tab-staff"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Сотрудники</h2><div class="stats"><div class="stat"><div class="stat-label">Всего</div><div class="stat-value">1</div></div><div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value">—</div></div><div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value">—</div></div></div><div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Контакт</th><th>Статус</th></tr></thead><tbody><tr><td>Арсен</td><td>Менеджер</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr></tbody></table></div></div>
 </div></div>
-<div class="modal-overlay" id="aptM"><div class="modal"><h2 id="amT">Добавить</h2><input type="hidden" id="amE"><div class="form-row"><div><label>ID</label><input type="text" id="amI"></div><div><label>Название</label><input type="text" id="amN"></div></div><div class="form-row"><div><label>Комплекс</label><select id="amC"><option>Nest One</option><option>U-Tower</option><option>U-Tower 2</option><option>Mirabad</option><option>Kislorod</option></select></div><div><label>Этаж</label><input type="number" id="amF"></div></div><div class="form-row"><div><label>Цена Пн-Чт</label><input type="number" id="amW"></div><div><label>Цена Пт-Вс</label><input type="number" id="amWe"></div></div><div class="form-row"><div><label>Тип</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div><label>iCal URL</label><input type="text" id="amU"><div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div><div id="amErr" class="error" style="display:none"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
+<div class="modal-overlay" id="aptM"><div class="modal" style="width:700px"><h2 id="amT">Добавить</h2><input type="hidden" id="amE">
+<div class="form-row"><div><label>ID</label><input type="text" id="amI"></div><div><label>Название</label><input type="text" id="amN"></div></div>
+<div class="form-row"><div><label>Комплекс</label><select id="amC"><option>Nest One</option><option>U-Tower</option><option>U-Tower 2</option><option>Mirabad</option><option>Kislorod</option></select></div><div><label>Этаж</label><input type="number" id="amF"></div></div>
+<div class="form-row"><div><label>Цена Пн-Чт ($)</label><input type="number" id="amW"></div><div><label>Цена Пт-Вс ($)</label><input type="number" id="amWe"></div></div>
+<div class="form-row"><div><label>Тип (комнаты)</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div>
+<label style="margin-top:16px">Описание</label>
+<textarea id="amDesc" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;height:100px;resize:vertical" placeholder="Уютная студия с панорамным видом на город..."></textarea>
+<label style="margin-top:16px">Фото (URL через запятую или по одному на строку)</label>
+<textarea id="amPhotos" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:inherit;height:80px;resize:vertical" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"></textarea>
+<div id="amPhotoPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+<div class="form-row"><div><label>Видео (YouTube URL)</label><input type="text" id="amVideo" placeholder="https://youtube.com/watch?v=..."></div><div><label>Главное фото (URL)</label><input type="text" id="amMainPhoto" placeholder="URL обложки карточки"></div></div>
+<label style="margin-top:16px">Удобства</label>
+<div id="amAmenities" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="wifi"> Wi-Fi</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="ac"> Кондиционер</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="kitchen"> Кухня</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="washer"> Стиральная машина</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="tv"> Smart TV</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="parking"> Парковка</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="balcony"> Балкон</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="view"> Панорамный вид</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="gym"> Спортзал</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="pool"> Бассейн</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="iron"> Утюг</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="hairdryer"> Фен</label>
+</div>
+<label style="margin-top:16px">iCal URL</label><input type="text" id="amU">
+<div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div>
+<div id="amErr" class="error" style="display:none"></div>
+<div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
 <script>
 const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 const sb=supabase.createClient(SB_URL,SB_KEY);
@@ -902,15 +931,61 @@ function rStaff(){
 }
 
 // ============ APARTMENTS & BOOKINGS (Supabase) ============
-function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>`<tr><td style="font-family:monospace;font-size:12px;color:var(--ink-d)">${a.id}</td><td><strong>${a.name}</strong></td><td>${a.complex}</td><td>${a.floor}</td><td>${a.rooms||'—'}</td><td>$${a.weekday_price}</td><td>$${a.weekend_price}</td><td><span class="badge ${a.is_active?'badge-active':'badge-inactive'}">${a.is_active?'Активен':'Выкл'}</span></td><td><button class="btn btn-sm btn-outline" onclick="edA('${a.id}')" style="margin-right:4px">✎</button><button class="btn btn-sm btn-danger" onclick="delA('${a.id}')">✗</button></td></tr>`).join('')}
+function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
+  let thumb='';
+  try{const p=JSON.parse(a.photo_url);if(Array.isArray(p)&&p[0])thumb=p[0]}catch(e){thumb=a.photo_url||''}
+  const hasDesc=a.description&&a.description.length>5;
+  const hasAmen=a.amenities&&a.amenities.length>0;
+  const photoEl=thumb?`<img src="${thumb}" style="width:40px;height:30px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:8px" onerror="this.style.display='none'">`:'';
+  return`<tr><td style="font-family:monospace;font-size:12px;color:var(--ink-d)">${a.id}</td><td>${photoEl}<strong>${a.name}</strong>${hasDesc?' 📝':''}</td><td>${a.complex}</td><td>${a.floor}</td><td>${a.rooms||'—'}</td><td>$${a.weekday_price}</td><td>$${a.weekend_price}</td><td><span class="badge ${a.is_active?'badge-active':'badge-inactive'}">${a.is_active?'Активен':'Выкл'}</span>${hasAmen?' <span style="font-size:10px;color:var(--ink-d)">'+a.amenities.length+' удобств</span>':''}</td><td><button class="btn btn-sm btn-outline" onclick="edA('${a.id}')" style="margin-right:4px">✎</button><button class="btn btn-sm btn-danger" onclick="delA('${a.id}')">✗</button></td></tr>`}).join('')}
 
 function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="9" class="loading">Нет бронирований</td></tr>';return}document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':'badge-pending',st=b.status==='confirmed'?'Подтверждён':b.status==='cancelled'?'Отменён':'Ожидает';return`<tr><td>${b.apartment_id}</td><td><strong>${b.guest_name}</strong></td><td>${b.guest_phone}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td>$${b.total_price||'—'}</td><td><span class="badge ${sc}">${st}</span></td><td><button class="btn btn-sm btn-outline" onclick="ubS('${b.id}','confirmed')" style="margin:2px">✓</button><button class="btn btn-sm btn-danger" onclick="ubS('${b.id}','cancelled')" style="margin:2px">✗</button></td></tr>`}).join('')}
 
 async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
-function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amErr').style.display='none'}
+function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';
+document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
+if(a){
+  // Parse description — extract video URL if embedded
+  let desc=a.description||'';let video='';
+  const vidMatch=desc.match(/\[VIDEO:(.*?)\]/);
+  if(vidMatch){video=vidMatch[1];desc=desc.replace(/\n?\[VIDEO:.*?\]/,'')}
+  document.getElementById('amDesc').value=desc;
+  document.getElementById('amVideo').value=video;
+  // Parse photos from photo_url (could be JSON array or single URL)
+  let photos=[],mainPhoto='';
+  try{const parsed=JSON.parse(a.photo_url);if(Array.isArray(parsed)){photos=parsed;mainPhoto=parsed[0]||''}}catch(e){mainPhoto=a.photo_url||'';photos=mainPhoto?[mainPhoto]:[]}
+  document.getElementById('amPhotos').value=photos.length>1?photos.join('\n'):'';
+  document.getElementById('amMainPhoto').value=mainPhoto;
+}else{document.getElementById('amPhotos').value='';document.getElementById('amMainPhoto').value=''}// Set amenities checkboxes
+const amenities=a&&a.amenities?a.amenities:[];
+document.querySelectorAll('#amAmenities input[type=checkbox]').forEach(cb=>{cb.checked=amenities.includes(cb.value)});
+// Photo preview
+updatePhotoPreview();
+document.getElementById('amErr').style.display='none'}
+
+function updatePhotoPreview(){
+const urls=document.getElementById('amPhotos').value.split(/[\n,]/).map(u=>u.trim()).filter(u=>u);
+const mainUrl=document.getElementById('amMainPhoto').value.trim();
+const all=mainUrl?[mainUrl,...urls.filter(u=>u!==mainUrl)]:urls;
+document.getElementById('amPhotoPreview').innerHTML=all.slice(0,6).map(u=>`<img src="${u}" style="width:80px;height:60px;object-fit:cover;border:1px solid var(--line);border-radius:4px" onerror="this.style.display='none'">`).join('')}
+document.getElementById('amPhotos')?.addEventListener('input',updatePhotoPreview);
+document.getElementById('amMainPhoto')?.addEventListener('input',updatePhotoPreview);
 function closeAM(){document.getElementById('aptM').classList.remove('show')}
 async function edA(id){const{data}=await sb.from('apartments').select('*').eq('id',id).single();if(data)openAM(data)}
-async function saveA(){const ei=document.getElementById('amE').value,er=document.getElementById('amErr'),a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),max_guests:parseInt(document.getElementById('amG').value)||3,is_active:document.getElementById('amA').value==='true',updated_at:new Date().toISOString()};if(!a.id||!a.name||!a.weekday_price){er.textContent='Заполните поля';er.style.display='block';return}let r;if(ei){const{id,...u}=a;r=await sb.from('apartments').update(u).eq('id',ei)}else{r=await sb.from('apartments').insert(a)}if(r.error){er.textContent=r.error.message;er.style.display='block';return}closeAM();loadAll()}
+async function saveA(){const ei=document.getElementById('amE').value,er=document.getElementById('amErr');
+const amenities=[];document.querySelectorAll('#amAmenities input[type=checkbox]:checked').forEach(cb=>amenities.push(cb.value));
+const photos=document.getElementById('amPhotos').value.split(/[\n,]/).map(u=>u.trim()).filter(u=>u);
+const mainPhoto=document.getElementById('amMainPhoto').value.trim();
+const videoUrl=document.getElementById('amVideo').value.trim();
+// Сохраняем фото как JSON в photo_url (main + gallery), видео в description suffix
+const photoData=mainPhoto||photos[0]||'';
+const desc=document.getElementById('amDesc').value.trim();
+// Compose description with video marker if present
+const fullDesc=videoUrl?desc+'\n[VIDEO:'+videoUrl+']':desc;
+const a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),max_guests:parseInt(document.getElementById('amG').value)||3,is_active:document.getElementById('amA').value==='true',description:fullDesc,photo_url:photos.length>1?JSON.stringify(photos):photoData,amenities:amenities,updated_at:new Date().toISOString()};
+if(!a.id||!a.name||!a.weekday_price){er.textContent='Заполните обязательные поля';er.style.display='block';return}
+let r;if(ei){const{id,...u}=a;r=await sb.from('apartments').update(u).eq('id',ei)}else{r=await sb.from('apartments').insert(a)}
+if(r.error){er.textContent=r.error.message;er.style.display='block';return}closeAM();loadAll()}
 async function delA(id){if(!confirm('Удалить '+id+'?'))return;await sb.from('apartments').delete().eq('id',id);loadAll()}
 checkAuth();
 </script>
