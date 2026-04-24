@@ -365,7 +365,8 @@ document.addEventListener('keydown',e=>{if(!document.getElementById('modalOverla
 async function searchAvailability(){
   const ci=fpIn.selectedDates[0],co=fpOut.selectedDates[0];
   if(!ci||!co){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Выберите даты заезда и выезда</span>';return}
-  const cs=ci.toISOString().split('T')[0],ce=co.toISOString().split('T')[0];
+  const cs=ci.getFullYear()+'-'+String(ci.getMonth()+1).padStart(2,'0')+'-'+String(ci.getDate()).padStart(2,'0');
+  const ce=co.getFullYear()+'-'+String(co.getMonth()+1).padStart(2,'0')+'-'+String(co.getDate()).padStart(2,'0');
   document.getElementById('searchStatus').textContent='Поиск свободных апартаментов...';document.getElementById('resultsList').innerHTML='';
   try{const r=await fetch(API+'/availability?check_in='+cs+'&check_out='+ce);const d=await r.json();
     const nn=Math.round((co-ci)/864e5);
@@ -376,7 +377,8 @@ async function searchAvailability(){
       return`<div class="card${cover?'':' card--nophoto'}" onclick="selectForBooking('${apt.id}',${apt.total},${nn})"><div class="card__img">${cover?`<img src="${cover}" alt="${apt.name}" loading="lazy">`:''}<div class="card__badge">${apt.complex} &middot; Этаж ${apt.floor}</div></div><div class="card__info"><h3 class="card__title">${apt.name}</h3><p class="card__sub">${style}</p><div class="card__price"><span style="font-size:22px;font-family:var(--fd);color:var(--gold-l)">$${apt.total}</span><span>за ${nn} ноч. &middot; от $${apt.weekday}/ночь</span></div></div></div>`}).join('')}
   catch(e){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Ошибка поиска. Попробуйте снова.</span>'}}
 
-function selectForBooking(id,total,nights){selectedApt={id,total,nights,check_in:fpIn.selectedDates[0].toISOString().split('T')[0],check_out:fpOut.selectedDates[0].toISOString().split('T')[0]};
+function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function selectForBooking(id,total,nights){selectedApt={id,total,nights,check_in:fmtD(fpIn.selectedDates[0]),check_out:fmtD(fpOut.selectedDates[0])};
   const a=allApts.find(x=>x.id===id);document.getElementById('bookingTitle').textContent='Бронирование — '+(a?a.name:id)+' · $'+total+' за '+nights+' ноч.';
   document.getElementById('bookingForm').style.display='block';document.getElementById('bookingForm').scrollIntoView({behavior:'smooth'})}
 
