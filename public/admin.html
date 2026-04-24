@@ -122,7 +122,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="iron"> Утюг</label>
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-m);cursor:pointer;text-transform:none;letter-spacing:0"><input type="checkbox" value="hairdryer"> Фен</label>
 </div>
-<div class="form-row" style="margin-top:16px"><div><label>iCal Export URL (RealtyCalendar)</label><input type="text" id="amU" placeholder="https://realtycalendar.ru/apartments/export.ics?q=..."></div><div><label>iCal Import URL</label><input type="text" id="amUI" placeholder="URL для импорта в RealtyCalendar"></div></div>
+<div class="form-row" style="margin-top:16px"><div><label>iCal Export URL (из RealtyCalendar)</label><input type="text" id="amU" placeholder="https://realtycalendar.ru/apartments/export.ics?q=..."></div><div><label>iCal Import URL (для RealtyCalendar) <button type="button" onclick="copyIcalImport()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:11px">📋 Копировать</button></label><input type="text" id="amUI" readonly style="color:var(--ink-d);background:var(--bg3)" placeholder="Сохраните апартамент, чтобы сгенерировать URL"></div></div>
 <div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div>
 <div id="amErr" class="error" style="display:none"></div>
 <div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
@@ -951,6 +951,12 @@ async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
 document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
+// Auto-generate iCal Import URL
+const aptId=a?a.id:document.getElementById('amI').value.trim();
+if(aptId){
+  const baseUrl=window.location.origin+'/.netlify/functions/calendar?apt='+aptId;
+  document.getElementById('amUI').value=baseUrl;
+}
 if(a){
   // Parse description — extract video URL if embedded
   let desc=a.description||'';let video='';
@@ -978,6 +984,28 @@ document.getElementById('amPhotoPreview').innerHTML=all.slice(0,6).map(u=>`<img 
 document.getElementById('amPhotos')?.addEventListener('input',updatePhotoPreview);
 document.getElementById('amMainPhoto')?.addEventListener('input',updatePhotoPreview);
 function closeAM(){document.getElementById('aptM').classList.remove('show')}
+
+function copyIcalImport(){
+  const url=document.getElementById('amUI').value;
+  if(!url){alert('Сначала введите ID апартамента');return}
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=event.target;btn.textContent='✓ Скопировано!';setTimeout(()=>{btn.textContent='📋 Копировать'},2000);
+  }).catch(()=>{
+    // Fallback
+    const inp=document.getElementById('amUI');inp.select();document.execCommand('copy');
+    alert('Скопировано: '+url);
+  });
+}
+
+// Auto-update Import URL when ID changes
+document.getElementById('amI')?.addEventListener('input',function(){
+  const id=this.value.trim();
+  if(id){
+    document.getElementById('amUI').value=window.location.origin+'/.netlify/functions/calendar?apt='+id;
+  }else{
+    document.getElementById('amUI').value='';
+  }
+});
 
 async function uploadPhotos(){
   const fileInput=document.getElementById('amPhotoFile');
