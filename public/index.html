@@ -442,3 +442,137 @@ loadApartments();
 </script>
 </body>
 </html>
+
+<!-- Chat Widget -->
+<div id="chatWidget" style="position:fixed;bottom:24px;right:24px;z-index:9000">
+<button id="chatBtn" onclick="toggleChat()" style="width:60px;height:60px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(201,169,97,.4);display:flex;align-items:center;justify-content:center;transition:transform .3s,box-shadow .3s;font-size:24px" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">💬</button>
+<div id="chatUnread" style="display:none;position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:#e74c3c;border-radius:50%;font-size:11px;color:#fff;display:none;align-items:center;justify-content:center"></div>
+</div>
+
+<div id="chatPanel" style="display:none;position:fixed;bottom:100px;right:24px;width:380px;max-height:520px;background:var(--bg2);border:1px solid var(--line-l);border-radius:16px;z-index:9000;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);flex-direction:column">
+<!-- Auth view -->
+<div id="chatAuth" style="padding:32px">
+<h3 style="font-family:var(--fd);font-size:22px;font-weight:400;margin-bottom:8px">Войти в чат</h3>
+<p style="color:var(--ink-d);font-size:13px;margin-bottom:24px">Авторизуйтесь чтобы связаться с нами</p>
+<div id="chatAuthTabs" style="display:flex;gap:8px;margin-bottom:20px">
+<button onclick="showAuthTab('login')" class="chatTabBtn active" style="flex:1;padding:8px;background:var(--gold-s);border:1px solid var(--gold-d);color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Вход</button>
+<button onclick="showAuthTab('register')" class="chatTabBtn" style="flex:1;padding:8px;background:transparent;border:1px solid var(--line);color:var(--ink-d);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Регистрация</button>
+</div>
+<div id="chatLogin">
+<input type="email" id="chatEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="password" id="chatPassword" placeholder="Пароль" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
+<button onclick="chatLogin()" class="btn" style="width:100%;padding:12px">Войти</button>
+</div>
+<div id="chatRegister" style="display:none">
+<input type="text" id="chatRegName" placeholder="Ваше имя" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="email" id="chatRegEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="password" id="chatRegPassword" placeholder="Пароль (мин. 6 символов)" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
+<button onclick="chatRegister()" class="btn" style="width:100%;padding:12px">Зарегистрироваться</button>
+</div>
+<div id="chatAuthError" style="color:#e74c3c;font-size:12px;margin-top:12px;display:none"></div>
+</div>
+<!-- Chat view -->
+<div id="chatView" style="display:none;flex-direction:column;height:480px">
+<div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-family:var(--fd);font-size:16px">Urban Luxe</div><div style="font-size:11px;color:var(--ink-d)">Обычно отвечаем за 5 минут</div></div>
+<button onclick="chatLogout()" style="background:none;border:none;color:var(--ink-d);cursor:pointer;font-size:12px">Выйти</button>
+</div>
+<div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px"></div>
+<div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px">
+<input type="text" id="chatInput" placeholder="Написать сообщение..." style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:20px;font-family:var(--fb);outline:none" onkeydown="if(event.key==='Enter')sendMessage()">
+<button onclick="sendMessage()" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;color:var(--bg);font-size:16px;display:flex;align-items:center;justify-content:center">&#10148;</button>
+</div>
+</div>
+</div>
+
+<script>
+// Chat functionality
+let chatUser=null,chatSub=null;
+
+function toggleChat(){
+  const p=document.getElementById('chatPanel');
+  if(p.style.display==='none'||!p.style.display){p.style.display='flex';checkChatAuth()}
+  else p.style.display='none';
+}
+
+async function checkChatAuth(){
+  const{data:{user}}=await sb.auth.getUser();
+  if(user){chatUser=user;showChatView()}
+  else showChatAuth();
+}
+
+function showChatAuth(){document.getElementById('chatAuth').style.display='block';document.getElementById('chatView').style.display='none'}
+function showChatView(){document.getElementById('chatAuth').style.display='none';document.getElementById('chatView').style.display='flex';loadMessages();subscribeMessages()}
+
+function showAuthTab(tab){
+  document.getElementById('chatLogin').style.display=tab==='login'?'block':'none';
+  document.getElementById('chatRegister').style.display=tab==='register'?'block':'none';
+  document.querySelectorAll('.chatTabBtn').forEach((b,i)=>{
+    b.style.background=((tab==='login'&&i===0)||(tab==='register'&&i===1))?'var(--gold-s)':'transparent';
+    b.style.borderColor=((tab==='login'&&i===0)||(tab==='register'&&i===1))?'var(--gold-d)':'var(--line)';
+    b.style.color=((tab==='login'&&i===0)||(tab==='register'&&i===1))?'var(--gold)':'var(--ink-d)';
+  });
+}
+
+async function chatLogin(){
+  const email=document.getElementById('chatEmail').value,pass=document.getElementById('chatPassword').value,err=document.getElementById('chatAuthError');
+  err.style.display='none';
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  chatUser=data.user;showChatView();
+}
+
+async function chatRegister(){
+  const name=document.getElementById('chatRegName').value.trim(),email=document.getElementById('chatRegEmail').value,pass=document.getElementById('chatRegPassword').value,err=document.getElementById('chatAuthError');
+  err.style.display='none';
+  if(!name){err.textContent='Введите имя';err.style.display='block';return}
+  const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name}}});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  if(data.user){
+    chatUser=data.user;
+    await sb.from('guest_profiles').insert({user_id:data.user.id,name});
+    showChatView();
+  }
+}
+
+async function chatLogout(){
+  if(chatSub)chatSub.unsubscribe();
+  await sb.auth.signOut();chatUser=null;showChatAuth();
+}
+
+async function loadMessages(){
+  if(!chatUser)return;
+  const{data}=await sb.from('messages').select('*').eq('conversation_id',chatUser.id).order('created_at',{ascending:true});
+  renderMessages(data||[]);
+  // Mark as read
+  await sb.from('messages').update({is_read:true}).eq('conversation_id',chatUser.id).eq('sender_role','admin').eq('is_read',false);
+}
+
+function renderMessages(msgs){
+  const c=document.getElementById('chatMessages');
+  if(!msgs.length){c.innerHTML='<div style="text-align:center;color:var(--ink-d);padding:40px 20px;font-size:13px">Напишите нам — мы ответим в ближайшее время!</div>';return}
+  c.innerHTML=msgs.map(m=>{
+    const isMe=m.sender_role==='guest';
+    const time=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    return`<div style="display:flex;justify-content:${isMe?'flex-end':'flex-start'}"><div style="max-width:80%;padding:10px 14px;border-radius:${isMe?'14px 14px 4px 14px':'14px 14px 14px 4px'};background:${isMe?'var(--gold)':'var(--bg3)'};color:${isMe?'var(--bg)':'var(--ink)'};font-size:13px;line-height:1.5"><div>${m.content}</div><div style="font-size:10px;opacity:.6;margin-top:4px;text-align:right">${time}</div></div></div>`;
+  }).join('');
+  c.scrollTop=c.scrollHeight;
+}
+
+async function sendMessage(){
+  if(!chatUser)return;
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();if(!text)return;
+  input.value='';
+  await sb.from('messages').insert({conversation_id:chatUser.id,sender_id:chatUser.id,sender_role:'guest',content:text});
+  loadMessages();
+}
+
+function subscribeMessages(){
+  if(chatSub)chatSub.unsubscribe();
+  chatSub=sb.channel('chat-'+chatUser.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+chatUser.id},()=>{loadMessages()}).subscribe();
+}
+
+// Check if user is already logged in
+(async function(){const{data:{user}}=await sb.auth.getUser();if(user)chatUser=user})();
+</script>

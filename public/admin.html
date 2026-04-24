@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('staff',this)">Сотрудники</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('staff',this)">Сотрудники</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <div id="notifBar" style="background:var(--bg2);border:1px solid var(--line);padding:12px 24px;margin-bottom:24px;display:none;flex-wrap:wrap;gap:8px;align-items:center"></div>
@@ -94,6 +94,21 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="section" id="tab-apartments"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Апартаменты</h2><button class="btn btn-sm" onclick="openAM()">+ Добавить</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Название</th><th>Комплекс</th><th>Этаж</th><th>Тип</th><th>Пн-Чт</th><th>Пт-Вс</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="aT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
 <div class="section" id="tab-bookings"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:400">Бронирования</h2><button class="btn btn-sm btn-outline" onclick="loadAll()">Обновить</button></div><div class="table-wrap"><table><thead><tr><th>Апартамент</th><th>Гость</th><th>Телефон</th><th>Заезд</th><th>Выезд</th><th>Ночей</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="bT"><tr><td colspan="9" class="loading">Загрузка...</td></tr></tbody></table></div></div>
 <div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb" onclick="setP('day',this)">По дням</button><button class="pb" onclick="setP('week',this)">По неделям</button><button class="pb active" onclick="setP('month',this)">По месяцам</button><button class="pb" onclick="setP('pnl',this)">P&L отчёт</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
+<!-- CHAT -->
+<div class="section" id="tab-chat">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Чат с гостями</h2>
+<div style="display:grid;grid-template-columns:300px 1fr;gap:16px;height:600px">
+<div style="background:var(--bg2);border:1px solid var(--line);overflow-y:auto" id="chatConvList"><div class="loading">Загрузка...</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);display:flex;flex-direction:column">
+<div style="padding:16px;border-bottom:1px solid var(--line);font-weight:500" id="chatConvTitle">Выберите диалог</div>
+<div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px" id="adminChatMessages"></div>
+<div style="padding:12px;border-top:1px solid var(--line);display:flex;gap:8px" id="chatReplyBar">
+<input type="text" id="adminChatInput" placeholder="Написать ответ..." style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter')adminSendMsg()">
+<button class="btn btn-sm" onclick="adminSendMsg()">Отправить</button>
+</div>
+</div>
+</div>
+</div>
 <div class="section" id="tab-staff"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Сотрудники</h2><div class="stats"><div class="stat"><div class="stat-label">Всего</div><div class="stat-value">1</div></div><div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value">—</div></div><div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value">—</div></div></div><div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Контакт</th><th>Статус</th></tr></thead><tbody><tr><td>Арсен</td><td>Менеджер</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr></tbody></table></div></div>
 </div></div>
 <div class="modal-overlay" id="aptM"><div class="modal" style="width:700px"><h2 id="amT">Добавить</h2><input type="hidden" id="amE">
@@ -1065,6 +1080,86 @@ if(!a.id||!a.name||!a.weekday_price){er.textContent='Заполните обяз
 let r;if(ei){const{id,...u}=a;r=await sb.from('apartments').update(u).eq('id',ei)}else{r=await sb.from('apartments').insert(a)}
 if(r.error){er.textContent=r.error.message;er.style.display='block';return}closeAM();loadAll()}
 async function delA(id){if(!confirm('Удалить '+id+'?'))return;await sb.from('apartments').delete().eq('id',id);loadAll()}
+// ============ ADMIN CHAT ============
+let currentConvId=null,adminChatSub=null;
+
+async function loadConversations(){
+  const{data}=await sb.from('messages').select('conversation_id,content,sender_role,is_read,created_at').order('created_at',{ascending:false});
+  if(!data)return;
+  // Group by conversation_id, get latest message
+  const convs={};
+  data.forEach(m=>{
+    if(!convs[m.conversation_id]){convs[m.conversation_id]={id:m.conversation_id,lastMsg:m.content,lastRole:m.sender_role,lastTime:m.created_at,unread:0}}
+    if(m.sender_role==='guest'&&!m.is_read)convs[m.conversation_id].unread++;
+  });
+  const list=Object.values(convs).sort((a,b)=>new Date(b.lastTime)-new Date(a.lastTime));
+  
+  // Get guest names
+  const ids=list.map(c=>c.id);
+  const{data:profiles}=await sb.from('guest_profiles').select('user_id,name').in('user_id',ids);
+  const nameMap={};(profiles||[]).forEach(p=>nameMap[p.user_id]=p.name);
+  
+  const el=document.getElementById('chatConvList');
+  let totalUnread=0;
+  el.innerHTML=list.map(c=>{
+    const name=nameMap[c.id]||c.id.substring(0,8);
+    const time=new Date(c.lastTime).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const preview=c.lastMsg.substring(0,40)+(c.lastMsg.length>40?'...':'');
+    totalUnread+=c.unread;
+    return`<div style="padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;${currentConvId===c.id?'background:var(--bg3);border-left:3px solid var(--gold)':''}" onclick="openConversation('${c.id}')"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong style="font-size:13px">${name}</strong><span style="font-size:10px;color:var(--ink-d)">${time}</span></div><div style="font-size:12px;color:var(--ink-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.lastRole==='guest'?'':'Вы: '}${preview}</div>${c.unread?`<span style="background:var(--red);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-top:4px;display:inline-block">${c.unread} новых</span>`:''}</div>`;
+  }).join('')||'<div style="padding:40px;text-align:center;color:var(--ink-d);font-size:13px">Нет диалогов</div>';
+  
+  // Update badge
+  const badge=document.getElementById('chatBadge');
+  if(totalUnread>0){badge.style.display='inline-flex';badge.textContent=totalUnread}
+  else badge.style.display='none';
+}
+
+async function openConversation(convId){
+  currentConvId=convId;
+  // Get guest name
+  const{data:profile}=await sb.from('guest_profiles').select('name').eq('user_id',convId).single();
+  document.getElementById('chatConvTitle').textContent='Диалог с '+(profile?.name||convId.substring(0,8));
+  
+  const{data}=await sb.from('messages').select('*').eq('conversation_id',convId).order('created_at',{ascending:true});
+  const el=document.getElementById('adminChatMessages');
+  el.innerHTML=(data||[]).map(m=>{
+    const isAdmin=m.sender_role==='admin';
+    const time=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    return`<div style="display:flex;justify-content:${isAdmin?'flex-end':'flex-start'}"><div style="max-width:70%;padding:10px 14px;border-radius:${isAdmin?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${isAdmin?'var(--gold-s)':'var(--bg3)'};font-size:13px"><div>${m.content}</div><div style="font-size:10px;color:var(--ink-d);margin-top:4px;text-align:right">${time}</div></div></div>`;
+  }).join('')||'<div style="color:var(--ink-d);text-align:center;padding:40px">Нет сообщений</div>';
+  el.scrollTop=el.scrollHeight;
+  
+  // Mark as read
+  await sb.from('messages').update({is_read:true}).eq('conversation_id',convId).eq('sender_role','guest').eq('is_read',false);
+  loadConversations();
+  
+  // Subscribe to new messages
+  if(adminChatSub)adminChatSub.unsubscribe();
+  adminChatSub=sb.channel('admin-chat-'+convId).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+convId},()=>{openConversation(convId)}).subscribe();
+}
+
+async function adminSendMsg(){
+  if(!currentConvId)return;
+  const input=document.getElementById('adminChatInput');
+  const text=input.value.trim();if(!text)return;
+  input.value='';
+  const{data:{user}}=await sb.auth.getUser();
+  await sb.from('messages').insert({conversation_id:currentConvId,sender_id:user.id,sender_role:'admin',content:text});
+  openConversation(currentConvId);
+}
+
+// Load chat when switching to chat tab
+const _origSwitch2=switchTab;
+switchTab=function(t,el){_origSwitch2(t,el);if(t==='chat')loadConversations()};
+
+// Check for unread messages periodically
+setInterval(async()=>{
+  const{data}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('sender_role','guest').eq('is_read',false);
+  const badge=document.getElementById('chatBadge');
+  if(data&&data.length>0){badge.style.display='inline-flex';badge.textContent=data.length}
+},30000);
+
 checkAuth();
 </script>
 </body>
