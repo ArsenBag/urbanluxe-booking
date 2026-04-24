@@ -73,13 +73,10 @@ function parseIcalDates(icalData) {
   const lines = icalData.split(/\r?\n/);
   let inEvent = false;
   let start = null, end = null;
-
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') { inEvent = true; start = null; end = null; }
     if (line === 'END:VEVENT' && inEvent) {
-      if (start && end) {
-        events.push({ start, end });
-      }
+      if (start && end) events.push({ start, end });
       inEvent = false;
     }
     if (inEvent) {
@@ -97,13 +94,10 @@ function parseIcalDates(icalData) {
 function isAvailable(events, checkIn, checkOut) {
   const reqStart = new Date(checkIn);
   const reqEnd = new Date(checkOut);
-
   for (const ev of events) {
     const evStart = new Date(ev.start);
     const evEnd = new Date(ev.end);
-    if (reqStart < evEnd && reqEnd > evStart) {
-      return false;
-    }
+    if (reqStart < evEnd && reqEnd > evStart) return false;
   }
   return true;
 }
@@ -119,6 +113,42 @@ function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
     current.setDate(current.getDate() + 1);
   }
   return { total, nights };
+}
+
+// Fetch photo_url and description from Supabase
+function fetchAptPhotos() {
+  return new Promise((resolve) => {
+    const sbUrl = process.env.SUPABASE_URL;
+    const sbKey = process.env.SUPABASE_SERVICE_KEY;
+    if (!sbUrl || !sbKey) { resolve({}); return; }
+    const url = sbUrl + '/rest/v1/apartments?select=id,photo_url,description,amenities';
+    const urlObj = new URL(url);
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const map = {};
+          if (Array.isArray(parsed)) {
+            parsed.forEach(a => {
+              let photos = [];
+              try { const p = JSON.parse(a.photo_url); if (Array.isArray(p)) photos = p; } catch(e) { if (a.photo_url) photos = [a.photo_url]; }
+              map[a.id] = { photo_url: photos[0] || '', photos, description: a.description || '', amenities: a.amenities || [] };
+            });
+          }
+          resolve(map);
+        } catch(e) { resolve({}); }
+      });
+    });
+    req.on('error', () => resolve({}));
+    req.end();
+  });
 }
 
 exports.handler = async (event) => {
@@ -142,20 +172,18 @@ exports.handler = async (event) => {
   if (aptId && !checkIn) {
     const url = ICAL_URLS[aptId];
     if (!url) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Apartment not found' }) };
-
     const icalData = await fetchIcal(url);
     const events = parseIcalDates(icalData);
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ apartment: aptId, booked_dates: events }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ apartment: aptId, booked_dates: events }) };
   }
 
   // Mode 2: Search available apartments for given dates
   if (checkIn && checkOut) {
     const results = [];
+    
+    // Fetch photos from Supabase in parallel with iCal
+    const [photoMap] = await Promise.all([fetchAptPhotos()]);
+    
     const fetchPromises = Object.entries(ICAL_URLS).map(async ([id, url]) => {
       try {
         const icalData = await fetchIcal(url);
@@ -163,6 +191,7 @@ exports.handler = async (event) => {
         const available = isAvailable(events, checkIn, checkOut);
         const apt = APARTMENTS[id];
         const { total, nights } = calculateTotal(checkIn, checkOut, apt.weekday, apt.weekend);
+        const photos = photoMap[id] || {};
         
         results.push({
           id,
@@ -172,11 +201,16 @@ exports.handler = async (event) => {
           nights,
           check_in: checkIn,
           check_out: checkOut,
+          photo_url: photos.photo_url || '',
+          photos: photos.photos || [],
+          description: photos.description || '',
+          amenities: photos.amenities || [],
         });
       } catch (e) {
         const apt = APARTMENTS[id];
         const { total, nights } = calculateTotal(checkIn, checkOut, apt.weekday, apt.weekend);
-        results.push({ id, ...apt, available: true, total, nights, check_in: checkIn, check_out: checkOut, error: true });
+        const photos = photoMap[id] || {};
+        results.push({ id, ...apt, available: true, total, nights, check_in: checkIn, check_out: checkOut, error: true, photo_url: photos.photo_url || '', photos: photos.photos || [] });
       }
     });
 
