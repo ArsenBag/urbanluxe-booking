@@ -76,10 +76,13 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- TODAY WIDGET -->
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
-<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128197; Заезды сегодня</h4><div id="todayCheckins" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
-<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128198; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
-<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128172; Непрочитанные сообщения</h4><div id="todayMessages" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="margin-bottom:24px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:12px">&#9992; Заезды сегодня</h4><div id="todayCheckins" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:12px">&#128682; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(201,169,97,.08),rgba(201,169,97,.02));border:1px solid rgba(201,169,97,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128172; Сообщения &amp; Статистика</h4><div id="todayMessages" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+</div>
+<div id="todaySourceBar" style="display:none;background:var(--bg2);border:1px solid var(--line);padding:12px 20px;border-radius:8px;font-size:12px;color:var(--ink-m)"></div>
 </div>
 <div id="notifBar" style="background:var(--bg2);border:1px solid var(--line);padding:12px 24px;margin-bottom:24px;display:none;flex-wrap:wrap;gap:8px;align-items:center"></div>
 <div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
@@ -1256,58 +1259,63 @@ setInterval(async()=>{
 },30000);
 
 // ============ TODAY WIDGET ============
+const COMPLEX_MAP={nest:'Nest One',utower:'U-Tower',utower2:'U-Tower',mirabad:'Mirabad',kislorod:'Kislorod'};
+const COMPLEX_COLORS={nest:'#2ecc71',utower:'#3498db',utower2:'#3498db',mirabad:'#e67e22',kislorod:'#e74c3c'};
+function getComplex(aptId){const p=aptId.split('_')[0];return{name:COMPLEX_MAP[p]||p,color:COMPLEX_COLORS[p]||'#888'}}
+
+function renderTodayList(items,el){
+  if(!items||!items.length){el.textContent='Нет на сегодня';return}
+  // Group by complex
+  const groups={};
+  items.forEach(b=>{
+    const apt=window._allApts?.find(a=>a.id===b.apartment_id);
+    const cx=getComplex(b.apartment_id);
+    if(!groups[cx.name])groups[cx.name]={color:cx.color,items:[]};
+    groups[cx.name].items.push({name:apt?.name||b.apartment_id,source:b.source,summary:b.summary,nights:b.nights});
+  });
+  el.innerHTML=Object.entries(groups).map(([name,g])=>{
+    const items=g.items.map(i=>{
+      const srcIcons={airbnb:'🏠',booking:'📘',website:'🌐',telegram:'📱','101hotels':'🏨',other:'📋',blocked:'🔒'};
+      return`<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="font-size:14px">${srcIcons[i.source]||'📋'}</span><strong style="font-size:12px">${i.name}</strong><span style="font-size:10px;color:var(--ink-d)">${i.nights?i.nights+' ноч.':''}</span></div>`;
+    }).join('');
+    return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:${g.color}">${name} (${g.items.length})</span></div>${items}</div>`;
+  }).join('');
+}
+
 async function loadTodayWidget(){
-  // Load from iCal sync (real data from all platforms)
   try{
     const r=await fetch('/.netlify/functions/sync-ical');
     const d=await r.json();
     
-    // Check-ins today
-    const ciEl=document.getElementById('todayCheckins');
-    if(d.checkins&&d.checkins.length){
-      ciEl.innerHTML=d.checkins.map(b=>{
-        const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;
-        const srcIcons={airbnb:'🏠',booking:'📘',website:'🌐',telegram:'📱',other:'📋',blocked:'🔒'};
-        return`<div style="margin-bottom:6px">${srcIcons[b.source]||'📋'} <strong>${aptName}</strong><br><span style="font-size:11px;color:var(--ink-d)">${b.summary||b.source} · ${b.nights} ноч.</span></div>`;
-      }).join('');
-    } else ciEl.textContent='Нет заездов';
+    renderTodayList(d.checkins,document.getElementById('todayCheckins'));
+    renderTodayList(d.checkouts,document.getElementById('todayCheckouts'));
     
-    // Check-outs today  
-    const coEl=document.getElementById('todayCheckouts');
-    if(d.checkouts&&d.checkouts.length){
-      coEl.innerHTML=d.checkouts.map(b=>{
-        const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;
-        const srcIcons={airbnb:'🏠',booking:'📘',website:'🌐',telegram:'📱',other:'📋',blocked:'🔒'};
-        return`<div style="margin-bottom:6px">${srcIcons[b.source]||'📋'} <strong>${aptName}</strong><br><span style="font-size:11px;color:var(--ink-d)">${b.summary||b.source}</span></div>`;
-      }).join('');
-    } else coEl.textContent='Нет выездов';
-    
-    // Unread messages (from Supabase)
+    // Messages + stats
     const{data:msgs}=await sb.from('messages').select('conversation_id').eq('sender_role','guest').eq('is_read',false);
     const msgEl=document.getElementById('todayMessages');
-    msgEl.innerHTML=msgs&&msgs.length?`<strong style="color:var(--gold);font-size:20px">${msgs.length}</strong> непрочитанных`:'Все прочитано &#10003;';
+    let html=msgs&&msgs.length?`<div style="margin-bottom:8px"><strong style="color:var(--gold);font-size:24px">${msgs.length}</strong> <span style="font-size:12px">непрочитанных</span></div>`:'<div style="margin-bottom:8px;color:var(--green)">&#10003; Все прочитано</div>';
+    html+=`<div style="font-size:11px;color:var(--ink-d);border-top:1px solid var(--line);padding-top:8px;margin-top:8px">Активных броней: <strong style="color:var(--ink)">${d.total_bookings}</strong><br>Заездов: <strong style="color:var(--green)">${d.today_checkins}</strong> · Выездов: <strong style="color:var(--red)">${d.today_checkouts}</strong></div>`;
+    msgEl.innerHTML=html;
     
-    // Source stats badge
+    // Source stats bar
     if(d.source_stats){
-      const srcIcons={airbnb:'🏠 Airbnb',booking:'📘 Booking',website:'🌐 Сайт',telegram:'📱 Telegram',other:'📋 Другое',blocked:'🔒 Заблок.'};
-      const statsHtml=Object.entries(d.source_stats).map(([k,v])=>`${srcIcons[k]||k}: <strong>${v}</strong>`).join(' · ');
-      const bar=document.getElementById('notifBar');
-      if(bar){bar.style.display='flex';bar.innerHTML=`<span style="font-size:12px;color:var(--ink-m)">📊 Активные брони: ${d.total_bookings} · ${statsHtml}</span>`}
+      const srcNames={airbnb:'🏠 Airbnb',booking:'📘 Booking',website:'🌐 Сайт',telegram:'📱 Telegram','101hotels':'🏨 101Hotels',other:'📋 RealtyCalendar',blocked:'🔒 Блок'};
+      const bar=document.getElementById('todaySourceBar');
+      const total=Object.values(d.source_stats).reduce((s,v)=>s+v,0);
+      // Visual bar
+      let barParts='';
+      const colors={airbnb:'#FF5A5F',booking:'#003580',website:'var(--gold)','101hotels':'#ff6600',other:'#666',blocked:'#333'};
+      Object.entries(d.source_stats).forEach(([k,v])=>{
+        const pct=Math.round(v/total*100);
+        barParts+=`<div style="flex:${v};height:6px;background:${colors[k]||'#555'};border-radius:3px" title="${srcNames[k]||k}: ${v}"></div>`;
+      });
+      let labels=Object.entries(d.source_stats).map(([k,v])=>`<span>${srcNames[k]||k}: <strong>${v}</strong></span>`).join(' · ');
+      bar.innerHTML=`<div style="display:flex;gap:2px;margin-bottom:8px;border-radius:3px;overflow:hidden">${barParts}</div><div style="display:flex;gap:12px;flex-wrap:wrap">${labels}</div>`;
+      bar.style.display='block';
     }
   }catch(e){
-    // Fallback to Supabase only
-    const today=new Date();const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    const{data:cins}=await sb.from('bookings').select('guest_name,apartment_id').eq('check_in',todayStr).neq('status','cancelled');
-    const ciEl=document.getElementById('todayCheckins');
-    if(cins&&cins.length)ciEl.innerHTML=cins.map(b=>`<div>&#128100; <strong>${b.guest_name}</strong></div>`).join('');
-    else ciEl.textContent='Нет заездов';
-    const{data:couts}=await sb.from('bookings').select('guest_name,apartment_id').eq('check_out',todayStr).neq('status','cancelled');
-    const coEl=document.getElementById('todayCheckouts');
-    if(couts&&couts.length)coEl.innerHTML=couts.map(b=>`<div>&#128100; <strong>${b.guest_name}</strong></div>`).join('');
-    else coEl.textContent='Нет выездов';
-    const{data:msgs}=await sb.from('messages').select('conversation_id').eq('sender_role','guest').eq('is_read',false);
-    const msgEl=document.getElementById('todayMessages');
-    msgEl.innerHTML=msgs&&msgs.length?`<strong style="color:var(--gold);font-size:20px">${msgs.length}</strong> непрочитанных`:'Все прочитано &#10003;';
+    document.getElementById('todayCheckins').textContent='Ошибка загрузки';
+    document.getElementById('todayCheckouts').textContent='Ошибка загрузки';
   }
 }
 
