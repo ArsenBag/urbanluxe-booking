@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Urban Luxe — Премиальные апартаменты в Ташкенте</title>
 <meta name="description" content="Частные резиденции в лучших комплексах Ташкента. Nest One, U-Tower, Mirabad, Kislorod. Бронируйте онлайн.">
+<meta property="og:title" content="Urban Luxe — Премиальные апартаменты в Ташкенте">
+<meta property="og:description" content="22 частных резиденции в лучших комплексах Ташкента. Заезд 24/7, консьерж, полная кухня.">
+<meta property="og:image" content="https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg">
+<meta property="og:url" content="https://urbanluxe.cc">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -167,7 +174,8 @@ section{padding:140px 80px}
 /* Scrollbar */
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--gold-d)}
 
-@media(max-width:900px){.hero{padding:0 32px 60px}.hero__stats{position:static;margin-top:40px;justify-content:flex-start;gap:32px}section{padding:80px 24px}.sh{flex-direction:column;align-items:flex-start;gap:16px}.grid{grid-template-columns:1fr}.philosophy{grid-template-columns:1fr;gap:40px}.booking-grid{grid-template-columns:1fr;gap:40px}.footer{grid-template-columns:1fr 1fr;gap:32px}.nav{padding:16px 24px}.nav__menu{display:none}#resultsList{grid-template-columns:1fr}.modal{width:95%}.modal-body{padding:24px}.divider{margin:0 24px}.hero__btns{flex-direction:column;align-items:flex-start;gap:12px}.steps{grid-template-columns:1fr}.reviews{grid-template-columns:1fr}}
+.hamburger{display:none;background:none;border:none;color:var(--gold);font-size:24px;cursor:pointer}
+@media(max-width:900px){.hero{padding:0 32px 60px}.hero__stats{position:static;margin-top:40px;justify-content:flex-start;gap:32px}section{padding:80px 24px}.sh{flex-direction:column;align-items:flex-start;gap:16px}.grid{grid-template-columns:1fr}.philosophy{grid-template-columns:1fr;gap:40px}.booking-grid{grid-template-columns:1fr;gap:40px}.footer{grid-template-columns:1fr 1fr;gap:32px}.nav{padding:16px 24px}.nav__menu{display:none;position:absolute;top:100%;left:0;right:0;background:rgba(9,8,7,.95);backdrop-filter:blur(24px);flex-direction:column;padding:20px 24px;gap:16px;border-bottom:1px solid var(--line)}.nav__menu.open{display:flex}.hamburger{display:block}#resultsList{grid-template-columns:1fr}.modal{width:95%}.modal-body{padding:24px}.divider{margin:0 24px}.hero__btns{flex-direction:column;align-items:flex-start;gap:12px}.steps{grid-template-columns:1fr}.reviews{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -181,6 +189,7 @@ section{padding:140px 80px}
 </ul>
 <a href="#booking" class="nav__cta">Забронировать</a>
 <a href="/guest.html" style="color:var(--ink-m);text-decoration:none;font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-left:12px;transition:color .3s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--ink-m)'">Личный кабинет</a>
+<button class="hamburger" onclick="document.querySelector('.nav__menu').classList.toggle('open')">&#9776;</button>
 </nav>
 
 <section class="hero">
@@ -281,7 +290,7 @@ section{padding:140px 80px}
 <h2 class="sh__title">Что говорят <em>гости</em>.</h2>
 </div>
 </div>
-<div class="reviews reveal">
+<div class="reviews reveal" id="reviewsGrid">
 <div class="review"><div class="review__stars">&starf;&starf;&starf;&starf;&starf;</div><p>&laquo;Потрясающий вид на город, чистота идеальная, всё продумано до мелочей. Лучший выбор в Ташкенте!&raquo;</p><div class="review__author">Дмитрий К. &middot; Москва</div></div>
 <div class="review"><div class="review__stars">&starf;&starf;&starf;&starf;&starf;</div><p>&laquo;Как дома, только лучше. Кухня, стиральная машина, шикарный телевизор. Консьерж отвечает мгновенно.&raquo;</p><div class="review__author">Анна М. &middot; Санкт-Петербург</div></div>
 <div class="review"><div class="review__stars">&starf;&starf;&starf;&starf;&starf;</div><p>&laquo;Бронировали на неделю, остались на месяц. U-Tower &mdash; это другой уровень комфорта. Рекомендую всем!&raquo;</p><div class="review__author">Алексей Б. &middot; Алматы</div></div>
@@ -360,16 +369,30 @@ async function loadApartments(){
 }
 
 function renderAptGrid(apts){
+  const favs=JSON.parse(localStorage.getItem('ul_favs')||'[]');
   const g=document.getElementById('aptGrid');
   g.innerHTML=apts.map((a,i)=>{
     const cx=a.complex==='U-Tower 2'?'U-Tower':a.complex;
     const delay=Math.min(i*50,400);
+    const isFav=favs.includes(a.id);
+    const photoCount=a._photos.length;
+    const heartBtn=`<button onclick="event.stopPropagation();toggleFav('${a.id}')" style="position:absolute;top:14px;right:14px;z-index:5;background:rgba(0,0,0,.4);border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .3s" id="fav-${a.id}">${isFav?'&#10084;&#65039;':'&#9825;'}</button>`;
+    const photoTag=photoCount>1?`<div style="position:absolute;bottom:14px;right:14px;z-index:5;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:10px;color:#fff;letter-spacing:.05em">&#128247; ${photoCount}</div>`:'';
     if(a._cover){
-      return`<div class="card reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><img src="${a._cover}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div></div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
+      return`<div class="card reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><img src="${a._cover}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
     }
-    return`<div class="card card--nophoto reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div></div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
+    return`<div class="card card--nophoto reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
   }).join('');
   document.querySelectorAll('#aptGrid .reveal').forEach(el=>revealObs.observe(el));
+}
+
+function toggleFav(id){
+  let favs=JSON.parse(localStorage.getItem('ul_favs')||'[]');
+  const idx=favs.indexOf(id);
+  if(idx>=0)favs.splice(idx,1);else favs.push(id);
+  localStorage.setItem('ul_favs',JSON.stringify(favs));
+  const btn=document.getElementById('fav-'+id);
+  if(btn)btn.innerHTML=favs.includes(id)?'&#10084;&#65039;':'&#9825;';
 }
 
 function filterApts(c){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');
@@ -539,6 +562,9 @@ async function modalBook(){
       st.innerHTML='<span style="color:var(--green)">&#10003; Бронирование создано!</span>';
       btn.textContent='&#10003; Забронировано';
       btn.style.background='var(--green)';
+      // Telegram notification
+      const aptInfo=allApts.find(x=>x.id===modalBookData.aptId);
+      fetch(API+'/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'new_booking',apartment:aptInfo?.name||modalBookData.aptId,guest_name:guestName,guest_phone:guestPhone,check_in:modalBookData.checkIn,check_out:modalBookData.checkOut,nights:modalBookData.nights,total:modalBookData.total})}).catch(()=>{});
       if(user){
         st.innerHTML+='<br><a href="/guest.html" style="color:var(--gold);font-size:12px">Перейти в личный кабинет →</a>';
       }else{
@@ -590,6 +616,19 @@ async function submitBooking(){if(!selectedApt)return;
   btn.disabled=false;btn.textContent='Отправить заявку'}
 
 loadApartments();
+
+// Load real reviews from bookings
+(async function(){
+  const{data}=await sb.from('bookings').select('guest_name,apartment_id,review_rating,review_text').not('review_rating','is',null).order('updated_at',{ascending:false}).limit(6);
+  if(data&&data.length>=2){
+    const grid=document.getElementById('reviewsGrid');
+    if(grid)grid.innerHTML=data.map(r=>{
+      const stars='&#9733;'.repeat(r.review_rating)+'&#9734;'.repeat(5-r.review_rating);
+      const name=r.guest_name?r.guest_name.split(' ')[0]+' '+r.guest_name.split(' ').slice(1).map(s=>s[0]+'.').join(' '):'Гость';
+      return`<div class="review"><div class="review__stars">${stars}</div><p>&laquo;${r.review_text||'Отличный апартамент!'}&raquo;</p><div class="review__author">${name}</div></div>`;
+    }).join('');
+  }
+})();
 </script>
 </body>
 </html>

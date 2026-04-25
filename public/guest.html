@@ -241,7 +241,9 @@ async function loadMsgs(bid){
   await sb.from('messages').update({is_read:true}).eq('conversation_id',bid).eq('sender_role','admin').eq('is_read',false)}
 
 async function sendMsg(bid){const inp=document.getElementById('inp-'+bid);const t=inp.value.trim();if(!t||!user)return;inp.value='';
-  await sb.from('messages').insert({conversation_id:bid,sender_id:user.id,sender_role:'guest',content:t});loadMsgs(bid)}
+  await sb.from('messages').insert({conversation_id:bid,sender_id:user.id,sender_role:'guest',content:t});loadMsgs(bid);
+  const bk=bookings.find(b=>b.id===bid);const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'message',guest_name:profile?.name||user.email,apartment:a.name||'',message:t})}).catch(()=>{})}
 
 function subscribeMsgs(bid){if(chatSubs[bid])return;
   chatSubs[bid]=sb.channel('chat-'+bid).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+bid},()=>loadMsgs(bid)).subscribe()}
@@ -257,12 +259,17 @@ async function submitMod(){if(!modBId)return;const ci=fpMI.selectedDates[0],co=f
   if(!ci||!co){document.getElementById('mSt').innerHTML='<span style="color:var(--red)">Выберите обе даты</span>';return}
   const{error}=await sb.from('bookings').update({check_in:fmtD(ci),check_out:fmtD(co),nights:Math.round((co-ci)/864e5),status:'pending',updated_at:new Date().toISOString()}).eq('id',modBId);
   if(error){document.getElementById('mSt').innerHTML='<span style="color:var(--red)">'+error.message+'</span>';return}
+  const bk=bookings.find(b=>b.id===modBId);const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'modify',guest_name:profile?.name||'',apartment:a.name||'',check_in:fmtD(ci),check_out:fmtD(co)})}).catch(()=>{});
   closeMod();loadBookings()}
 
 // Cancel
 function openCan(id,name){canBId=id;document.getElementById('canTxt').textContent='Вы уверены, что хотите отменить бронирование «'+name+'»?';document.getElementById('canM').classList.add('show')}
 function closeCan(){document.getElementById('canM').classList.remove('show');canBId=null}
-async function confirmCan(){if(!canBId)return;await sb.from('bookings').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',canBId);closeCan();loadBookings()}
+async function confirmCan(){if(!canBId)return;await sb.from('bookings').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',canBId);
+  const bk=bookings.find(b=>b.id===canBId);const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'cancel',guest_name:bk?.guest_name||profile?.name||'',apartment:a.name||'',check_in:bk?.check_in,check_out:bk?.check_out})}).catch(()=>{});
+  closeCan();loadBookings()}
 
 // Review
 function openRev(bid,name){revBId=bid;revRating=5;document.getElementById('revApt').textContent=name;setRating(5);document.getElementById('revText').value='';document.getElementById('revM').classList.add('show')}
@@ -270,6 +277,8 @@ function closeRev(){document.getElementById('revM').classList.remove('show');rev
 function setRating(n){revRating=n;document.querySelectorAll('#revStars span').forEach((s,i)=>s.className=i<n?'on':'')}
 async function submitRev(){if(!revBId)return;const text=document.getElementById('revText').value.trim();
   await sb.from('bookings').update({review_rating:revRating,review_text:text,updated_at:new Date().toISOString()}).eq('id',revBId);
+  const bk=bookings.find(b=>b.id===revBId);const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'review',guest_name:profile?.name||'',apartment:a.name||'',rating:revRating,message:text})}).catch(()=>{});
   closeRev();loadBookings()}
 
 // Favorites
