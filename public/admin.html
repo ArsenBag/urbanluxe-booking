@@ -125,28 +125,35 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="section" id="tab-staff">
 <h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Персонал и табель</h2>
 <div class="stats">
-<div class="stat"><div class="stat-label">Сотрудников</div><div class="stat-value" id="stTotal">4</div></div>
-<div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value" id="stSalary">—</div></div>
-<div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value" id="stCleaning">—</div></div>
-<div class="stat"><div class="stat-label">Выплачено в этом мес.</div><div class="stat-value" id="stPaid">—</div></div>
+<div class="stat"><div class="stat-label">Сотрудников</div><div class="stat-value" id="stTotal">—</div></div>
+<div class="stat"><div class="stat-label">Отработано дней (мес)</div><div class="stat-value" id="stWorkedDays">—</div></div>
+<div class="stat"><div class="stat-label">Начислено (мес)</div><div class="stat-value" id="stEarned">—</div></div>
+<div class="stat"><div class="stat-label">Выплачено (мес)</div><div class="stat-value" id="stPaid">—</div></div>
+<div class="stat"><div class="stat-label">К выплате</div><div class="stat-value" id="stOwed">—</div></div>
 </div>
 <!-- Staff list -->
 <h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Список персонала</h3>
-<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Ставка/день</th><th>Контакт</th><th>Статус</th></tr></thead><tbody>
-<tr><td>Арсен</td><td>Менеджер</td><td>—</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr>
-<tr><td>Хакима</td><td>Клининг</td><td>200 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
-<tr><td>Хамида</td><td>Клининг</td><td>200 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
-<tr><td>Хилола</td><td>Клининг</td><td>180 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
-<tr><td>Лобар</td><td>Клининг</td><td>180 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
-</tbody></table></div>
-<!-- Timesheet from Google Sheets -->
-<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Табель за текущий месяц <span class="data-src data-src-sheets">Google Sheets</span></h3>
+<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Ставка/день</th><th>Статус</th></tr></thead><tbody id="staffList"><tr><td colspan="4" class="loading">Загрузка...</td></tr></tbody></table></div>
+<!-- Timesheet -->
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Табель · <span id="tsMonthLabel"></span></h3>
+<div style="display:flex;gap:8px;margin-bottom:16px">
+<button class="btn btn-sm btn-outline" onclick="tsChangeMonth(-1)">← Пред. месяц</button>
+<button class="btn btn-sm btn-outline" onclick="tsChangeMonth(1)">След. месяц →</button>
+</div>
 <div id="timesheetGrid" style="overflow-x:auto"><div class="loading">Загрузка табеля...</div></div>
+<!-- Salary summary -->
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Зарплата за месяц</h3>
+<div class="table-wrap"><table><thead><tr><th>ФИО</th><th>Ставка</th><th>Дней</th><th>Начислено</th><th>Выплачено</th><th>К выплате</th></tr></thead><tbody id="salaryTable"><tr><td colspan="6" class="loading">Загрузка...</td></tr></tbody></table></div>
 <!-- Payments -->
-<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Зарплата и выплаты</h3>
-<div class="table-wrap"><table><thead><tr><th>ФИО</th><th>Ставка</th><th>Отработано дней</th><th>Заработано</th><th>Выдано авансов</th><th>К выплате</th></tr></thead><tbody id="salaryTable"><tr><td colspan="6" class="loading">Загрузка...</td></tr></tbody></table></div>
-<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">История выплат</h3>
-<div class="table-wrap"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Сумма</th></tr></thead><tbody id="paymentsTable"><tr><td colspan="3" class="loading">Загрузка...</td></tr></tbody></table></div>
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Выплаты</h3>
+<div style="display:flex;gap:8px;margin-bottom:16px;align-items:end;flex-wrap:wrap">
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Сотрудник</label><select id="payStaff" style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;border-radius:4px"></select></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Сумма (сум)</label><input type="number" id="payAmount" placeholder="500000" style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;width:150px;border-radius:4px"></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Дата</label><input type="date" id="payDate" style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:4px"></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Заметка</label><input type="text" id="payNote" placeholder="Аванс, зарплата..." style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;width:150px;border-radius:4px"></div>
+<button class="btn btn-sm" onclick="addPayment()">+ Добавить выплату</button>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Сумма</th><th>Заметка</th><th>Действие</th></tr></thead><tbody id="paymentsTable"><tr><td colspan="5" class="loading">Загрузка...</td></tr></tbody></table></div>
 </div>
 </div></div>
 <div class="modal-overlay" id="aptM"><div class="modal" style="width:700px"><h2 id="amT">Добавить</h2><input type="hidden" id="amE">
@@ -1275,59 +1282,120 @@ async function setBookingStatus(id,status){
   loadAll();
 }
 
-// ============ TIMESHEET (Google Sheets) ============
-const TIMESHEET_SHEET_ID='1Qw_X-cakSS8et0oH_2GjQ6aQfPxDtHicDD2IU7Z0O5U';
+// ============ TIMESHEET (Supabase) ============
+let tsYear,tsMonth,staffList=[];
+function tsInit(){const d=new Date();tsYear=d.getFullYear();tsMonth=d.getMonth()}
+function tsChangeMonth(dir){tsMonth+=dir;if(tsMonth<0){tsMonth=11;tsYear--}if(tsMonth>11){tsMonth=0;tsYear++}loadTimesheet()}
+tsInit();
+
 async function loadTimesheet(){
-  try{
-    // Load timesheet data directly from Google Sheets
-    const r=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=A1:E32`);
-    const csv=await r.text();
-    const rows=csv.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
-    if(!rows.length)return;
+  // Load staff
+  const{data:st}=await sb.from('staff').select('*').eq('is_active',true).order('name');
+  staffList=st||[];
+  document.getElementById('stTotal').textContent=staffList.length;
+  
+  // Render staff list
+  document.getElementById('staffList').innerHTML=staffList.map(s=>
+    `<tr><td><strong>${s.name}</strong></td><td>${s.role==='cleaning'?'Клининг':'Менеджер'}</td><td>${s.daily_rate?.toLocaleString()||'—'} сум</td><td><span class="badge badge-active">Активен</span></td></tr>`
+  ).join('');
+  
+  // Populate payment dropdown
+  document.getElementById('payStaff').innerHTML=staffList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('payDate').value=new Date().toISOString().split('T')[0];
+  
+  // Month label
+  const months=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  document.getElementById('tsMonthLabel').textContent=months[tsMonth]+' '+tsYear;
+  
+  // Load attendance for this month
+  const firstDay=tsYear+'-'+String(tsMonth+1).padStart(2,'0')+'-01';
+  const daysInMonth=new Date(tsYear,tsMonth+1,0).getDate();
+  const lastDay=tsYear+'-'+String(tsMonth+1).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+  
+  const{data:att}=await sb.from('staff_attendance').select('*').gte('work_date',firstDay).lte('work_date',lastDay);
+  const attMap={};(att||[]).forEach(a=>{attMap[a.staff_id+'_'+a.work_date]=a});
+  
+  // Build editable grid
+  const today=new Date();
+  let html='<table style="font-size:11px;border-collapse:collapse;width:100%"><thead><tr><th style="padding:6px 4px;text-align:left;border-bottom:1px solid var(--line);position:sticky;left:0;background:var(--bg);z-index:1">День</th>';
+  staffList.forEach(s=>html+=`<th style="padding:6px 4px;text-align:center;border-bottom:1px solid var(--line);min-width:70px">${s.name}</th>`);
+  html+='</tr></thead><tbody>';
+  
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr=tsYear+'-'+String(tsMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const dow=new Date(tsYear,tsMonth,d).getDay();
+    const isWeekend=dow===0||dow===6;
+    const isPast=new Date(tsYear,tsMonth,d)<today;
+    const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
     
-    const staff=rows[0].slice(1).filter(s=>s);
-    let html='<table style="font-size:12px;width:100%;border-collapse:collapse"><thead><tr><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">Дата</th>';
-    staff.forEach(s=>html+=`<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--line)">${s}</th>`);
-    html+='</tr></thead><tbody>';
-    for(let i=1;i<rows.length-1&&i<32;i++){
-      const row=rows[i];if(!row[0])continue;
-      html+=`<tr style="border-bottom:1px solid var(--line)"><td style="padding:4px 8px;color:var(--ink-m)">${row[0]}</td>`;
-      for(let j=1;j<row.length&&j<=staff.length;j++){
-        const checked=row[j]==='TRUE';
-        html+=`<td style="padding:4px 8px;text-align:center">${checked?'<span style="color:var(--green);font-size:16px">&#10003;</span>':'<span style="color:var(--ink-d)">—</span>'}</td>`;
-      }
-      html+='</tr>';
-    }
-    html+='</tbody></table>';
-    document.getElementById('timesheetGrid').innerHTML=html;
+    html+=`<tr style="border-bottom:1px solid var(--line);${isWeekend?'background:rgba(201,169,97,.03)':''}">`;
+    html+=`<td style="padding:4px 6px;position:sticky;left:0;background:${isWeekend?'var(--bg3)':'var(--bg)'};z-index:1;white-space:nowrap;color:${isWeekend?'var(--gold)':'var(--ink-m)'}">${d} ${dayNames[dow]}</td>`;
+    
+    staffList.forEach(s=>{
+      const key=s.id+'_'+dateStr;
+      const rec=attMap[key];
+      const checked=rec?.present||false;
+      html+=`<td style="padding:2px;text-align:center"><button onclick="toggleAttendance('${s.id}','${dateStr}',${!checked})" style="width:32px;height:28px;border:1px solid ${checked?'var(--green)':'var(--line)'};background:${checked?'rgba(46,204,113,.15)':'transparent'};color:${checked?'var(--green)':'var(--ink-d)'};cursor:pointer;border-radius:4px;font-size:14px">${checked?'✓':'—'}</button></td>`;
+    });
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  document.getElementById('timesheetGrid').innerHTML=html;
+  
+  // Salary summary
+  const salaryData=staffList.map(s=>{
+    const days=(att||[]).filter(a=>a.staff_id===s.id&&a.present).length;
+    const earned=days*s.daily_rate;
+    return{...s,days,earned};
+  });
+  
+  // Load payments for this month
+  const{data:payments}=await sb.from('staff_payments').select('*').gte('payment_date',firstDay).lte('payment_date',lastDay).order('payment_date',{ascending:false});
+  
+  const totalEarned=salaryData.reduce((s,x)=>s+x.earned,0);
+  const totalPaid=(payments||[]).reduce((s,p)=>s+p.amount,0);
+  document.getElementById('stWorkedDays').textContent=salaryData.reduce((s,x)=>s+x.days,0);
+  document.getElementById('stEarned').textContent=totalEarned.toLocaleString()+' сум';
+  document.getElementById('stPaid').textContent=totalPaid.toLocaleString()+' сум';
+  document.getElementById('stOwed').textContent=(totalEarned-totalPaid).toLocaleString()+' сум';
+  document.getElementById('stOwed').style.color=totalEarned-totalPaid>0?'var(--gold)':'var(--green)';
+  
+  // Salary table
+  document.getElementById('salaryTable').innerHTML=salaryData.map(s=>{
+    const paid=(payments||[]).filter(p=>p.staff_id===s.id).reduce((sum,p)=>sum+p.amount,0);
+    const owed=s.earned-paid;
+    return`<tr><td><strong>${s.name}</strong></td><td>${s.daily_rate.toLocaleString()}</td><td>${s.days}</td><td>${s.earned.toLocaleString()}</td><td>${paid.toLocaleString()}</td><td style="color:${owed>0?'var(--gold)':'var(--green)'}"><strong>${owed.toLocaleString()}</strong></td></tr>`;
+  }).join('');
+  
+  // Payments table
+  document.getElementById('paymentsTable').innerHTML=(payments||[]).map(p=>{
+    const staff=staffList.find(s=>s.id===p.staff_id);
+    return`<tr><td>${p.payment_date}</td><td>${staff?.name||'—'}</td><td style="color:var(--gold)">${p.amount.toLocaleString()} сум</td><td style="color:var(--ink-d)">${p.notes||''}</td><td><button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')" style="padding:2px 8px;font-size:9px">✗</button></td></tr>`;
+  }).join('')||'<tr><td colspan="5" style="color:var(--ink-d)">Нет выплат за этот месяц</td></tr>';
+}
 
-    // Salary summary (I-M)
-    const r2=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=I1:M5`);
-    const csv2=await r2.text();
-    const salRows=csv2.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
-    if(salRows.length>1){
-      document.getElementById('salaryTable').innerHTML=salRows.slice(1).filter(r=>r[0]).map(r=>{
-        const rate=r[1]||'—';const earned=r[2]||'0';const paid=r[3]||'0';const owed=r[4]||'0';
-        const owedNum=parseFloat(owed.replace(/\s/g,''))||0;
-        return`<tr><td><strong>${r[0]}</strong></td><td>${rate}</td><td>—</td><td>${earned}</td><td>${paid}</td><td style="color:${owedNum>0?'var(--gold)':'var(--green)'}"><strong>${owed}</strong></td></tr>`
-      }).join('');
-      // Total salary
-      const totalSal=salRows.slice(1).reduce((s,r)=>s+parseFloat((r[1]||'0').replace(/\s/g,''))||0,0);
-      document.getElementById('stSalary').textContent=totalSal.toLocaleString()+' сум/день';
-    }
+async function toggleAttendance(staffId,date,present){
+  // Upsert attendance record
+  const{error}=await sb.from('staff_attendance').upsert({staff_id:staffId,work_date:date,present},{onConflict:'staff_id,work_date'});
+  if(error)console.error('Attendance error:',error);
+  loadTimesheet();
+}
 
-    // Payments (O-Q)
-    const r3=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=O1:Q20`);
-    const csv3=await r3.text();
-    const payRows=csv3.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
-    if(payRows.length>1){
-      document.getElementById('paymentsTable').innerHTML=payRows.slice(1).filter(r=>r[0]).map(r=>
-        `<tr><td>${r[0]}</td><td>${r[2]||'—'}</td><td style="color:var(--gold)">${r[1]||'—'}</td></tr>`
-      ).join('')||'<tr><td colspan="3">Нет выплат</td></tr>';
-      const totalPaid=payRows.slice(1).filter(r=>r[0]).reduce((s,r)=>s+(parseFloat((r[1]||'0').replace(/\s/g,''))||0),0);
-      document.getElementById('stPaid').textContent=totalPaid.toLocaleString()+' сум';
-    }
-  }catch(e){console.error('Timesheet error:',e);document.getElementById('timesheetGrid').innerHTML='<div style="color:var(--red)">Ошибка загрузки табеля</div>'}
+async function addPayment(){
+  const staffId=document.getElementById('payStaff').value;
+  const amount=parseInt(document.getElementById('payAmount').value);
+  const date=document.getElementById('payDate').value;
+  const notes=document.getElementById('payNote').value;
+  if(!staffId||!amount||!date){alert('Заполните все поля');return}
+  await sb.from('staff_payments').insert({staff_id:staffId,amount,payment_date:date,notes});
+  document.getElementById('payAmount').value='';document.getElementById('payNote').value='';
+  loadTimesheet();
+}
+
+async function deletePayment(id){
+  if(!confirm('Удалить выплату?'))return;
+  await sb.from('staff_payments').delete().eq('id',id);
+  loadTimesheet();
 }
 
 // ============ ENHANCED SWITCH TAB ============
