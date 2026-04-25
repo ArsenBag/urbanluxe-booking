@@ -293,7 +293,7 @@ section{padding:140px 80px}
 <div class="reveal">
 <div class="sh__label">Бронирование</div>
 <h2 class="sh__title">Найдите <em>свободную</em><br>резиденцию.</h2>
-<p style="color:var(--ink-d);margin-top:20px;font-size:14px;line-height:1.8">Выберите даты &mdash; мы покажем свободные апартаменты с точной стоимостью за ваш период.</p>
+<p style="color:var(--ink-d);margin-top:20px;font-size:14px;line-height:1.8">Выберите даты &mdash; мы покажем свободные апартаменты. Нажмите на понравившийся для просмотра деталей и бронирования.</p>
 </div>
 <div class="reveal reveal-d2">
 <div class="search-form">
@@ -308,15 +308,9 @@ section{padding:140px 80px}
 </div>
 </div>
 <div id="searchResults"><div id="resultsList"></div></div>
-<div id="bookingForm">
+<div id="bookingForm" style="display:none">
 <h3 id="bookingTitle">Бронирование</h3>
-<label>Имя</label><input type="text" id="bName" placeholder="Ваше имя">
-<label>Телефон</label><input type="text" id="bPhone" placeholder="+998 ...">
-<label>Email</label><input type="email" id="bEmail" placeholder="email@example.com">
-<label>Количество гостей</label><input type="number" id="bGuests" value="2" min="1" max="6">
-<label>Комментарий</label><textarea id="bNotes" placeholder="Пожелания, время заезда..."></textarea>
-<button class="btn" style="width:100%;margin-top:24px" onclick="submitBooking()">Отправить заявку</button>
-<div id="bookingStatus" style="margin-top:14px;font-size:13px"></div>
+<p style="color:var(--ink-m);font-size:14px;margin-bottom:20px">Нажмите на апартамент выше, чтобы открыть его карточку и забронировать.</p>
 </div>
 </section>
 
@@ -381,16 +375,19 @@ function renderAptGrid(apts){
 function filterApts(c){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');
   renderAptGrid(c==='all'?allApts:allApts.filter(a=>(a.complex==='U-Tower 2'?'U-Tower':a.complex)===c))}
 
-// Modal
-function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;gPh=a._photos;gIdx=0;
+// Modal with inline booking (Airbnb-style)
+let modalAptId=null;
+function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptId=id;gPh=a._photos;gIdx=0;
   let h='<button class="modal-close" onclick="closeModal()">&#10005;</button>';
   if(gPh.length){h+=`<div class="gallery"><img src="${gPh[0]}" id="gImg">`;
     if(gPh.length>1){h+=`<button class="gallery-nav prev" onclick="gNav(-1)">&#10094;</button><button class="gallery-nav next" onclick="gNav(1)">&#10095;</button><div class="gallery-dots" id="gDots">`;
       for(let i=0;i<gPh.length;i++)h+=`<span${i===0?' class="active"':''} onclick="gGo(${i})"></span>`;h+='</div>'}h+='</div>';
   }else{h+='<div class="gallery" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg3),var(--bg4))"><span style="color:var(--ink-d);font-size:14px;letter-spacing:.1em">Фото скоро будут добавлены</span></div>'}
-  h+=`<div class="modal-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px"><div><div class="modal-title">${a.name}</div>`;
+  h+=`<div class="modal-body"><div style="display:grid;grid-template-columns:1fr 320px;gap:32px">`;
+  // Left: details
+  h+=`<div><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px"><div><div class="modal-title">${a.name}</div>`;
   if(a.style)h+=`<div class="modal-style">${a.style}</div>`;
-  h+=`</div><div style="text-align:right"><div class="modal-price">от $${a.weekday_price}</div><div style="font-size:11px;color:var(--ink-d);margin-top:2px">за ночь</div></div></div>`;
+  h+=`</div></div>`;
   h+=`<div class="modal-meta"><span>${a.complex==='U-Tower 2'?'U-Tower':a.complex}</span><span>Этаж ${a.floor}</span>`;
   if(a.rooms)h+=`<span>${a.rooms}</span>`;if(a.max_guests)h+=`<span>До ${a.max_guests} гостей</span>`;h+='</div>';
   if(a._desc)h+=`<div class="modal-desc">${a._desc.replace(/\n/g,'<br>')}</div>`;
@@ -398,8 +395,161 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;gPh=a._ph
     am.forEach(x=>h+=`<div class="modal-amenity">${AL[x]||x}</div>`);h+='</div>'}
   if(a._video){const yt=a._video.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
     if(yt)h+=`<iframe width="100%" height="315" src="https://www.youtube.com/embed/${yt[1]}" frameborder="0" allowfullscreen style="border-radius:var(--r);margin-bottom:28px"></iframe>`}
-  h+='</div><div class="modal-book"><div class="info">Выберите даты в форме бронирования для проверки доступности и расчёта стоимости</div><button class="btn" onclick="closeModal();document.getElementById(\'booking\').scrollIntoView({behavior:\'smooth\'})">Забронировать</button></div>';
-  document.getElementById('modalContent').innerHTML=h;document.getElementById('modalOverlay').classList.add('active');document.body.style.overflow='hidden'}
+  h+=`</div>`;
+  // Right: booking panel (sticky)
+  h+=`<div style="position:sticky;top:20px">
+    <div style="background:var(--bg3);border:1px solid var(--line-l);border-radius:var(--r);padding:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div class="modal-price">от $${a.weekday_price}</div><div style="font-size:11px;color:var(--ink-d)">за ночь</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:16px">
+        <div style="padding:10px 14px;border-right:1px solid var(--line)"><div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-d);margin-bottom:4px">Заезд</div><input type="text" id="modalCheckIn" placeholder="Дата" readonly style="width:100%;padding:0;border:none;background:transparent;color:var(--ink);font-size:14px;font-family:var(--fb);cursor:pointer"></div>
+        <div style="padding:10px 14px"><div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-d);margin-bottom:4px">Выезд</div><input type="text" id="modalCheckOut" placeholder="Дата" readonly style="width:100%;padding:0;border:none;background:transparent;color:var(--ink);font-size:14px;font-family:var(--fb);cursor:pointer"></div>
+      </div>
+      <div id="modalPriceCalc" style="display:none;padding:16px 0;border-bottom:1px solid var(--line);margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px"><span id="modalNightsLabel">0 ночей</span><span id="modalTotalPrice" style="color:var(--gold);font-weight:400">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-d)"><span>Ср. за ночь</span><span id="modalAvgPrice">$0</span></div>
+      </div>
+      <div id="modalGuestFields" style="display:none;margin-bottom:16px">
+        <input type="text" id="modalGuestName" placeholder="Ваше имя" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
+        <input type="text" id="modalGuestPhone" placeholder="Телефон" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
+      </div>
+      <button class="btn" style="width:100%;padding:14px" id="modalBookBtn" onclick="modalBook()">Проверить доступность</button>
+      <div id="modalBookStatus" style="margin-top:12px;font-size:12px;text-align:center"></div>
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--ink-d)">Бесплатная отмена &middot; Подтверждение за 15 мин</div>
+    </div>
+    <div style="margin-top:16px;padding:16px;background:var(--bg3);border:1px solid var(--line);border-radius:var(--r)">
+      <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-d);margin-bottom:8px">Доступность</div>
+      <div id="modalAvailCal" style="font-size:12px;color:var(--ink-d)">Загрузка календаря...</div>
+    </div>
+  </div>`;
+  h+=`</div></div>`;
+  document.getElementById('modalContent').innerHTML=h;document.getElementById('modalOverlay').classList.add('active');document.body.style.overflow='hidden';
+  // Init flatpickr in modal
+  initModalDates(id,a);
+}
+
+let mfpIn,mfpOut,modalBookData=null;
+async function initModalDates(aptId,apt){
+  // Load booked dates for this apartment
+  let disabledDates=[];
+  try{
+    const r=await fetch(API+'/availability?apt='+aptId);
+    const d=await r.json();
+    if(d.booked_dates){
+      d.booked_dates.forEach(ev=>{
+        let cur=new Date(ev.start+'T12:00:00');const end=new Date(ev.end+'T12:00:00');
+        while(cur<end){disabledDates.push(fmtD(cur));cur.setDate(cur.getDate()+1)}
+      });
+    }
+  }catch(e){}
+  
+  // Show mini calendar
+  const calEl=document.getElementById('modalAvailCal');
+  if(calEl){
+    const now=new Date(),y=now.getFullYear(),m=now.getMonth(),dm=new Date(y,m+1,0).getDate();
+    let calH=`<div style="display:flex;justify-content:center;margin-bottom:6px;font-weight:400;color:var(--ink-m)">${['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][m]} ${y}</div>`;
+    calH+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">';
+    ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d=>calH+=`<div style="font-size:9px;color:var(--ink-d);padding:2px">${d}</div>`);
+    const firstDay=(new Date(y,m,1).getDay()+6)%7;
+    for(let i=0;i<firstDay;i++)calH+='<div></div>';
+    for(let d=1;d<=dm;d++){
+      const ds=fmtD(new Date(y,m,d));
+      const booked=disabledDates.includes(ds);
+      const past=new Date(y,m,d)<new Date(now.getFullYear(),now.getMonth(),now.getDate());
+      const isToday=d===now.getDate();
+      const bg=booked?'rgba(231,76,60,.15)':past?'transparent':'rgba(46,204,113,.1)';
+      const clr=booked?'var(--red)':past?'var(--ink-d)':isToday?'var(--gold)':'var(--green)';
+      calH+=`<div style="padding:4px;font-size:11px;color:${clr};background:${bg};border-radius:3px${isToday?';font-weight:500':''}">${d}</div>`;
+    }
+    calH+='</div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px"><span style="color:var(--green)">● Свободно</span><span style="color:var(--red)">● Занято</span></div>';
+    calEl.innerHTML=calH;
+  }
+  
+  // Init flatpickrs
+  if(mfpIn)mfpIn.destroy();if(mfpOut)mfpOut.destroy();
+  mfpIn=flatpickr('#modalCheckIn',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',disable:disabledDates.map(d=>new Date(d+'T12:00:00')),onChange(dates){
+    if(dates[0]){const n=new Date(dates[0]);n.setDate(n.getDate()+1);mfpOut.set('minDate',n);if(!mfpOut.selectedDates.length)mfpOut.open();calcModalPrice(apt)}
+  }});
+  mfpOut=flatpickr('#modalCheckOut',{locale:'ru',minDate:new Date(new Date().getTime()+864e5),dateFormat:'d.m.Y',disable:disabledDates.map(d=>new Date(d+'T12:00:00')),onChange(){calcModalPrice(apt)}});
+}
+
+function calcModalPrice(apt){
+  const ci=mfpIn?.selectedDates[0],co=mfpOut?.selectedDates[0];
+  if(!ci||!co)return;
+  const nights=Math.round((co-ci)/864e5);
+  let total=0;const cur=new Date(ci);
+  while(cur<co){const dow=cur.getDay();total+=(dow===5||dow===6)?apt.weekend_price:apt.weekday_price;cur.setDate(cur.getDate()+1)}
+  document.getElementById('modalPriceCalc').style.display='block';
+  document.getElementById('modalNightsLabel').textContent=`$${apt.weekday_price} x ${nights} ноч.`;
+  document.getElementById('modalTotalPrice').textContent='$'+total;
+  document.getElementById('modalAvgPrice').textContent='$'+Math.round(total/nights);
+  document.getElementById('modalBookBtn').textContent='Забронировать за $'+total;
+  modalBookData={aptId:modalAptId,total,nights,checkIn:fmtD(ci),checkOut:fmtD(co)};
+  // Show guest fields if not logged in
+  checkModalAuth();
+}
+
+async function checkModalAuth(){
+  const{data:{user}}=await sb.auth.getUser();
+  if(user){
+    // Auto-fill from profile
+    document.getElementById('modalGuestFields').style.display='none';
+    const{data:prof}=await sb.from('guest_profiles').select('name,phone').eq('user_id',user.id).single();
+    modalBookData.guestName=prof?.name||user.user_metadata?.name||'';
+    modalBookData.guestPhone=prof?.phone||'';
+    modalBookData.guestEmail=user.email;
+    modalBookData.userId=user.id;
+  }else{
+    document.getElementById('modalGuestFields').style.display='block';
+  }
+}
+
+async function modalBook(){
+  if(!modalBookData||!modalBookData.checkIn){
+    // No dates selected — just check availability
+    const ci=mfpIn?.selectedDates[0],co=mfpOut?.selectedDates[0];
+    if(!ci||!co){document.getElementById('modalBookStatus').innerHTML='<span style="color:var(--red)">Выберите даты заезда и выезда</span>';return}
+    return;
+  }
+  const st=document.getElementById('modalBookStatus');
+  const btn=document.getElementById('modalBookBtn');
+  
+  // Check if logged in
+  const{data:{user}}=await sb.auth.getUser();
+  let guestName,guestPhone,guestEmail;
+  
+  if(user){
+    guestName=modalBookData.guestName;
+    guestPhone=modalBookData.guestPhone;
+    guestEmail=modalBookData.guestEmail;
+  }else{
+    guestName=document.getElementById('modalGuestName')?.value?.trim();
+    guestPhone=document.getElementById('modalGuestPhone')?.value?.trim();
+    if(!guestName||!guestPhone){st.innerHTML='<span style="color:var(--red)">Введите имя и телефон</span>';return}
+    guestEmail='';
+  }
+  
+  btn.disabled=true;btn.textContent='Бронирование...';
+  try{
+    const r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      apartment_id:modalBookData.aptId,guest_name:guestName,guest_phone:guestPhone,guest_email:guestEmail,
+      check_in:modalBookData.checkIn,check_out:modalBookData.checkOut,nights:modalBookData.nights,total_price:modalBookData.total,guests:2
+    })});
+    const d=await r.json();
+    if(d.success||d.id){
+      st.innerHTML='<span style="color:var(--green)">&#10003; Бронирование создано!</span>';
+      btn.textContent='&#10003; Забронировано';
+      btn.style.background='var(--green)';
+      if(user){
+        st.innerHTML+='<br><a href="/guest.html" style="color:var(--gold);font-size:12px">Перейти в личный кабинет →</a>';
+      }else{
+        st.innerHTML+='<br><span style="color:var(--ink-d);font-size:11px">Мы свяжемся с вами для подтверждения</span>';
+      }
+    }else{
+      st.innerHTML='<span style="color:var(--red)">'+(d.error||'Ошибка. Попробуйте снова')+'</span>';
+      btn.disabled=false;btn.textContent='Попробовать снова';
+    }
+  }catch(e){st.innerHTML='<span style="color:var(--red)">Ошибка сети</span>';btn.disabled=false;btn.textContent='Попробовать снова'}
+}
 function closeModal(){document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''}
 function gNav(d){gIdx=(gIdx+d+gPh.length)%gPh.length;uG()}
 function gGo(i){gIdx=i;uG()}
@@ -420,7 +570,7 @@ async function searchAvailability(){
     const list=document.getElementById('resultsList');
     if(!d.available||!d.available.length){list.innerHTML='<div style="text-align:center;padding:60px;color:var(--ink-d);grid-column:1/-1;font-size:14px">К сожалению, на эти даты нет свободных апартаментов</div>';return}
     list.innerHTML=d.available.map(apt=>{const sa=allApts.find(a=>a.id===apt.id);const cover=sa?sa._cover:'';const style=sa?(sa.style||apt.style||''):(apt.style||'');
-      return`<div class="card${cover?'':' card--nophoto'}" onclick="selectForBooking('${apt.id}',${apt.total},${nn})"><div class="card__img">${cover?`<img src="${cover}" alt="${apt.name}" loading="lazy">`:''}<div class="card__badge">${apt.complex} &middot; Этаж ${apt.floor}</div></div><div class="card__info"><h3 class="card__title">${apt.name}</h3><p class="card__sub">${style}</p><div class="card__price"><span style="font-size:22px;font-family:var(--fd);color:var(--gold-l)">$${apt.total}</span><span>за ${nn} ноч. &middot; от $${apt.weekday}/ночь</span></div></div></div>`}).join('')}
+      return`<div class="card${cover?'':' card--nophoto'}" onclick="openModal('${apt.id}')"><div class="card__img">${cover?`<img src="${cover}" alt="${apt.name}" loading="lazy">`:''}<div class="card__badge">${apt.complex} &middot; Этаж ${apt.floor}</div></div><div class="card__info"><h3 class="card__title">${apt.name}</h3><p class="card__sub">${style}</p><div class="card__price"><span style="font-size:22px;font-family:var(--fd);color:var(--gold-l)">$${apt.total}</span><span>за ${nn} ноч. &middot; от $${apt.weekday}/ночь</span></div></div></div>`}).join('')}
   catch(e){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Ошибка поиска. Попробуйте снова.</span>'}}
 
 function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
