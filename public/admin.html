@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('calendar',this)">Календарь</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- TODAY WIDGET -->
@@ -1328,7 +1328,24 @@ loadAll=async function(){await _origLoadAll();
 };
 
 const _origSwitch2=switchTab;
-switchTab=function(t,el){_origSwitch2(t,el);if(t==='chat')loadConversations()};
+switchTab=function(t,btn){_origSwitch2(t,btn);
+  if(t==='chat')loadConversations();
+  if(t==='analytics'){
+    rAnalytics();
+    // Wait for Google Sheets revenue data then load biz analytics
+    var waitCount=0;
+    var waitFn=function(){
+      var revEl=document.getElementById('dR');
+      if(revEl&&revEl.textContent!=='—'){loadBizAnalytics()}
+      else if(waitCount<15){waitCount++;setTimeout(waitFn,1000)}
+    };
+    waitFn();
+  }
+  if(t==='expenses')loadExpenses();
+  if(t==='guests')loadGuests();
+  if(t==='staff')loadTimesheet();
+  if(t==='dash')loadTodayWidget();
+};
 
 setInterval(async()=>{
   const{data}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('sender_role','guest').eq('is_read',false);
@@ -1778,19 +1795,6 @@ async function loadBizAnalytics(){
 }
 
 // Update switchTab
-const _origSwitch5=switchTab;
-switchTab=function(t,el){_origSwitch5(t,el);
-  if(t==='analytics'){
-    // Wait for Google Sheets data to load first (dR element)
-    const waitForSheets=()=>{
-      const el=document.getElementById('dR');
-      if(el&&el.textContent!=='—'){loadBizAnalytics();rAnalytics()}
-      else setTimeout(waitForSheets,1000);
-    };
-    rAnalytics();waitForSheets();
-  }
-};
-
 // ============ NOTIFICATION SOUND ============
 let lastBookingCount=0;
 async function checkNewBookings(){
