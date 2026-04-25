@@ -103,7 +103,7 @@ section{padding:140px 80px}
 .card__price span:last-child{font-size:10.5px;color:var(--ink-d);font-weight:300}
 .card--nophoto .card__img{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg3),var(--bg4));aspect-ratio:3/2}
 .card--nophoto .card__img::before{content:'';width:48px;height:48px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23635c52' stroke-width='1'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z'/%3E%3Cpath d='M9 22V12h6v10'/%3E%3C/svg%3E") center/contain no-repeat;opacity:.4;z-index:2}
-.card--nophoto .card__img::after{content:'Фото скоро';position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--ink-d);font-size:10px;letter-spacing:.15em;text-transform:uppercase;z-index:2}
+.card--nophoto .card__img::after{content:attr(data-nophoto);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--ink-d);font-size:10px;letter-spacing:.15em;text-transform:uppercase;z-index:2}
 
 /* Amenities */
 .amen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
@@ -384,9 +384,9 @@ function renderAptGrid(apts){
     const heartBtn=`<button onclick="event.stopPropagation();toggleFav('${a.id}')" style="position:absolute;top:14px;right:14px;z-index:5;background:rgba(0,0,0,.4);border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .3s" id="fav-${a.id}">${isFav?'&#10084;&#65039;':'&#9825;'}</button>`;
     const photoTag=photoCount>1?`<div style="position:absolute;bottom:14px;right:14px;z-index:5;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:10px;color:#fff;letter-spacing:.05em">&#128247; ${photoCount}</div>`:'';
     if(a._cover){
-      return`<div class="card reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><img src="${a._cover}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
+      return`<div class="card reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><img src="${a._cover}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
     }
-    return`<div class="card card--nophoto reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><div class="card__badge">${cx} &middot; Этаж ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Студия'}</p><div class="card__price"><span>от $${a.weekday_price}/ночь</span><span>${a.rooms||'Студия'}</span></div></div></div>`;
+    return`<div class="card card--nophoto reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img" data-nophoto="${t('apt_nophoto')}"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
   }).join('');
   document.querySelectorAll('#aptGrid .reveal').forEach(el=>revealObs.observe(el));
 }
@@ -410,13 +410,13 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
   if(gPh.length){h+=`<div class="gallery"><img src="${gPh[0]}" id="gImg">`;
     if(gPh.length>1){h+=`<button class="gallery-nav prev" onclick="gNav(-1)">&#10094;</button><button class="gallery-nav next" onclick="gNav(1)">&#10095;</button><div class="gallery-dots" id="gDots">`;
       for(let i=0;i<gPh.length;i++)h+=`<span${i===0?' class="active"':''} onclick="gGo(${i})"></span>`;h+='</div>'}h+='</div>';
-  }else{h+='<div class="gallery" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg3),var(--bg4))"><span style="color:var(--ink-d);font-size:14px;letter-spacing:.1em">Фото скоро будут добавлены</span></div>'}
+  }else{h+='<div class="gallery" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg3),var(--bg4))"><span style="color:var(--ink-d);font-size:14px;letter-spacing:.1em">'+t('apt_nophoto')+'</span></div>'}
   h+=`<div class="modal-body"><div style="display:grid;grid-template-columns:1fr 320px;gap:32px">`;
   // Left: details
   h+=`<div><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px"><div><div class="modal-title">${a.name}</div>`;
   if(a.style)h+=`<div class="modal-style">${a.style}</div>`;
   h+=`</div></div>`;
-  h+=`<div class="modal-meta"><span>${a.complex==='U-Tower 2'?'U-Tower':a.complex}</span><span>Этаж ${a.floor}</span>`;
+  h+=`<div class="modal-meta"><span>${a.complex==='U-Tower 2'?'U-Tower':a.complex}</span><span>${t('m_floor')} ${a.floor}</span>`;
   if(a.rooms)h+=`<span>${a.rooms}</span>`;if(a.max_guests)h+=`<span>До ${a.max_guests} гостей</span>`;h+='</div>';
   if(a._desc)h+=`<div class="modal-desc">${a._desc.replace(/\n/g,'<br>')}</div>`;
   const am=a.amenities||[];if(am.length){h+='<h3 style="color:var(--ink);font-family:var(--fd);font-size:18px;font-weight:400;margin-bottom:14px">Удобства</h3><div class="modal-amenities">';
@@ -596,14 +596,14 @@ async function searchAvailability(){
   if(!ci||!co){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Выберите даты заезда и выезда</span>';return}
   const cs=ci.getFullYear()+'-'+String(ci.getMonth()+1).padStart(2,'0')+'-'+String(ci.getDate()).padStart(2,'0');
   const ce=co.getFullYear()+'-'+String(co.getMonth()+1).padStart(2,'0')+'-'+String(co.getDate()).padStart(2,'0');
-  document.getElementById('searchStatus').textContent='Поиск свободных апартаментов...';document.getElementById('resultsList').innerHTML='';
+  document.getElementById('searchStatus').textContent=t('loading');document.getElementById('resultsList').innerHTML='';
   try{const r=await fetch(API+'/availability?check_in='+cs+'&check_out='+ce);const d=await r.json();
     const nn=Math.round((co-ci)/864e5);
-    document.getElementById('searchStatus').innerHTML=`Найдено <strong style="color:var(--gold)">${d.available_count}</strong> свободных апартаментов из ${d.total_apartments} на <strong>${nn}</strong> ноч.`;
+    document.getElementById('searchStatus').innerHTML=`${t('sr_found')} <strong style="color:var(--gold)">${d.available_count}</strong> ${t('sr_of')} ${d.total_apartments} ${t('sr_for')} <strong>${nn}</strong> ${t('m_nights')}`;
     const list=document.getElementById('resultsList');
-    if(!d.available||!d.available.length){list.innerHTML='<div style="text-align:center;padding:60px;color:var(--ink-d);grid-column:1/-1;font-size:14px">К сожалению, на эти даты нет свободных апартаментов</div>';return}
+    if(!d.available||!d.available.length){list.innerHTML='<div style="text-align:center;padding:60px;color:var(--ink-d);grid-column:1/-1;font-size:14px">'+t('sr_none')+'</div>';return}
     list.innerHTML=d.available.map(apt=>{const sa=allApts.find(a=>a.id===apt.id);const cover=sa?sa._cover:'';const style=sa?(sa.style||apt.style||''):(apt.style||'');
-      return`<div class="card${cover?'':' card--nophoto'}" onclick="openModal('${apt.id}')"><div class="card__img">${cover?`<img src="${cover}" alt="${apt.name}" loading="lazy">`:''}<div class="card__badge">${apt.complex} &middot; Этаж ${apt.floor}</div></div><div class="card__info"><h3 class="card__title">${apt.name}</h3><p class="card__sub">${style}</p><div class="card__price"><span style="font-size:22px;font-family:var(--fd);color:var(--gold-l)">$${apt.total}</span><span>за ${nn} ноч. &middot; от $${apt.weekday}/ночь</span></div></div></div>`}).join('')}
+      return`<div class="card${cover?'':' card--nophoto'}" onclick="openModal('${apt.id}')"><div class="card__img">${cover?`<img src="${cover}" alt="${apt.name}" loading="lazy">`:''}<div class="card__badge">${apt.complex} · ${t('apt_floor')} ${apt.floor}</div></div><div class="card__info"><h3 class="card__title">${apt.name}</h3><p class="card__sub">${style}</p><div class="card__price"><span style="font-size:22px;font-family:var(--fd);color:var(--gold-l)">$${apt.total}</span><span>${nn} ${t('m_nights')} · $${apt.weekday}${t('apt_per_night')}</span></div></div></div>`}).join('')}
   catch(e){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Ошибка поиска. Попробуйте снова.</span>'}}
 
 function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
