@@ -1,6 +1,6 @@
 const https = require('https');
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN || ''; 
-const TG_CHAT_ID = process.env.TG_CHAT_ID || '8194250618';
+const TG_CHAT_ID = process.env.TG_CHAT_ID || process.env.TELEGRAM_CHAT_ID || '';
 
 function sendTelegram(text) {
   return new Promise((resolve) => {
