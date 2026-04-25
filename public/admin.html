@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('calendar',this)">Календарь</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('calendar',this)">Календарь</div><div class="tab" onclick="switchTab('biz',this)">Бизнес</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- TODAY WIDGET -->
@@ -130,6 +130,50 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <button class="btn btn-sm" onclick="addExpense()">+ Добавить</button>
 </div>
 <div class="table-wrap"><table><thead><tr><th>Дата</th><th>Апартамент</th><th>Категория</th><th>Сумма</th><th>Описание</th><th>Действие</th></tr></thead><tbody id="expTable"><tr><td colspan="6" class="loading">Загрузка...</td></tr></tbody></table></div>
+</div>
+<!-- BUSINESS ANALYTICS -->
+<div class="section" id="tab-biz">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Бизнес-аналитика <span class="data-src data-src-ical">iCal</span> <span class="data-src data-src-supabase">Supabase</span></h2>
+<!-- Hotel KPIs -->
+<div class="stats" id="bizKPI">
+<div class="stat"><div class="stat-label">RevPAR<br><span style="font-size:9px;color:var(--ink-d)">Доход на доступный номер</span></div><div class="stat-value" id="bizRevPAR">—</div></div>
+<div class="stat"><div class="stat-label">ADR<br><span style="font-size:9px;color:var(--ink-d)">Средний тариф за ночь</span></div><div class="stat-value" id="bizADR">—</div></div>
+<div class="stat"><div class="stat-label">Occupancy<br><span style="font-size:9px;color:var(--ink-d)">Загрузка</span></div><div class="stat-value" id="bizOcc">—</div></div>
+<div class="stat"><div class="stat-label">Ср. срок<br><span style="font-size:9px;color:var(--ink-d)">Дней проживания</span></div><div class="stat-value" id="bizAvgStay">—</div></div>
+<div class="stat"><div class="stat-label">Прогноз<br><span style="font-size:9px;color:var(--ink-d)">Доход след. месяц</span></div><div class="stat-value" id="bizForecast">—</div></div>
+</div>
+<!-- Source breakdown -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0">
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px">Источники бронирований</h3>
+<div id="bizSources"></div>
+</div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px">Загрузка по комплексам</h3>
+<div id="bizComplexLoad"></div>
+</div>
+</div>
+<!-- Top/Bottom apartments -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px;color:var(--green)">&#9650; Топ-5 по загрузке</h3>
+<div id="bizTop5"></div>
+</div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px;color:var(--red)">&#9660; Наименее загруженные</h3>
+<div id="bizBottom5"></div>
+</div>
+</div>
+<!-- Weekly heatmap -->
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px;margin-bottom:24px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px">Тепловая карта по дням недели</h3>
+<div id="bizWeekHeat" style="display:flex;gap:4px;height:60px;align-items:flex-end"></div>
+</div>
+<!-- Monthly trend -->
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px">
+<h3 style="font-size:14px;font-weight:400;margin-bottom:16px">Тренды (месяц к месяцу)</h3>
+<div id="bizTrend"></div>
+</div>
 </div>
 <!-- ANALYTICS TAB -->
 <div class="section" id="tab-analytics">
@@ -1630,14 +1674,116 @@ async function deleteExpense(id){
   loadExpenses();
 }
 
+// ============ BUSINESS ANALYTICS ============
+async function loadBizAnalytics(){
+  let icalData=[];
+  try{const r=await fetch('/.netlify/functions/sync-ical');const d=await r.json();icalData=d.all_bookings||[]}catch(e){}
+  
+  const now=new Date();const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const daysPassed=now.getDate();
+  const totalRooms=22;
+  const monthStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  
+  // Filter current month bookings
+  const monthBookings=icalData.filter(b=>b.check_in.startsWith(monthStr)||b.check_out.startsWith(monthStr));
+  
+  // Calculate occupied room-nights this month
+  let occupiedNights=0;
+  const aptOccupancy={};
+  const dayOccupancy=Array(7).fill(0);
+  const dayTotal=Array(7).fill(0);
+  
+  for(let d=1;d<=daysPassed;d++){
+    const dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const dow=new Date(now.getFullYear(),now.getMonth(),d).getDay();
+    dayTotal[dow]++;
+    
+    (window._allApts||[]).forEach(apt=>{
+      const booked=icalData.some(b=>b.apartment_id===apt.id&&b.check_in<=dateStr&&b.check_out>dateStr);
+      if(booked){
+        occupiedNights++;
+        aptOccupancy[apt.id]=(aptOccupancy[apt.id]||0)+1;
+        dayOccupancy[dow]++;
+      }
+    });
+  }
+  
+  const totalAvailableNights=totalRooms*daysPassed;
+  const occRate=totalAvailableNights>0?Math.round(occupiedNights/totalAvailableNights*100):0;
+  
+  // Load revenue from bookings in Supabase
+  const{data:sbBookings}=await sb.from('bookings').select('total_price,nights,check_in,source').neq('status','cancelled');
+  const monthRevenue=(sbBookings||[]).filter(b=>b.check_in&&b.check_in.startsWith(monthStr)).reduce((s,b)=>s+(b.total_price||0),0);
+  const totalNights=(sbBookings||[]).filter(b=>b.check_in&&b.check_in.startsWith(monthStr)).reduce((s,b)=>s+(b.nights||0),0);
+  
+  // KPIs
+  const adr=totalNights>0?Math.round(monthRevenue/totalNights):0;
+  const revpar=daysPassed>0?Math.round(monthRevenue/(totalRooms*daysPassed)):0;
+  const avgStay=monthBookings.length>0?(monthBookings.reduce((s,b)=>s+(b.nights||1),0)/monthBookings.length).toFixed(1):'—';
+  
+  // Forecast
+  const dailyRate=daysPassed>0?monthRevenue/daysPassed:0;
+  const forecast=Math.round(dailyRate*daysInMonth);
+  
+  document.getElementById('bizRevPAR').innerHTML='$'+revpar;
+  document.getElementById('bizADR').innerHTML='$'+adr;
+  document.getElementById('bizOcc').innerHTML=occRate+'%';
+  document.getElementById('bizAvgStay').innerHTML=avgStay;
+  document.getElementById('bizForecast').innerHTML='$'+forecast.toLocaleString();
+  
+  // Source breakdown
+  const sources={};
+  icalData.forEach(b=>{sources[b.source]=(sources[b.source]||0)+1});
+  const srcNames={airbnb:'Airbnb',booking:'Booking',website:'Сайт',telegram:'Telegram','101hotels':'101Hotels',other:'RealtyCalendar',blocked:'Заблокировано'};
+  const srcColors={airbnb:'#FF5A5F',booking:'#003580',website:'var(--gold)','101hotels':'#ff6600',other:'#888',blocked:'#333'};
+  const totalSrc=Object.values(sources).reduce((s,v)=>s+v,0)||1;
+  
+  document.getElementById('bizSources').innerHTML=Object.entries(sources).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
+    const pct=Math.round(v/totalSrc*100);
+    return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span>${srcNames[k]||k}</span><span><strong>${v}</strong> (${pct}%)</span></div><div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${srcColors[k]||'#888'};border-radius:3px"></div></div></div>`;
+  }).join('');
+  
+  // Complex load
+  const complexData={};
+  (window._allApts||[]).forEach(apt=>{
+    const cx=apt.complex==='U-Tower 2'?'U-Tower':apt.complex;
+    if(!complexData[cx])complexData[cx]={total:0,occupied:0,count:0};
+    complexData[cx].count++;
+    complexData[cx].total+=daysPassed;
+    complexData[cx].occupied+=(aptOccupancy[apt.id]||0);
+  });
+  const cxColors={'Nest One':'#2ecc71','U-Tower':'#3498db','Mirabad':'#e67e22','Kislorod':'#e74c3c'};
+  document.getElementById('bizComplexLoad').innerHTML=Object.entries(complexData).map(([cx,d])=>{
+    const pct=d.total>0?Math.round(d.occupied/d.total*100):0;
+    return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="color:${cxColors[cx]||'#888'}">${cx} (${d.count} апт.)</span><span><strong>${pct}%</strong></span></div><div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cxColors[cx]||'#888'};border-radius:3px"></div></div></div>`;
+  }).join('');
+  
+  // Top 5 / Bottom 5
+  const aptStats=(window._allApts||[]).map(a=>{
+    const occ=aptOccupancy[a.id]||0;
+    const pct=daysPassed>0?Math.round(occ/daysPassed*100):0;
+    return{name:a.name,complex:a.complex==='U-Tower 2'?'U-Tower':a.complex,pct,days:occ};
+  }).sort((a,b)=>b.pct-a.pct);
+  
+  document.getElementById('bizTop5').innerHTML=aptStats.slice(0,5).map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span style="color:var(--green)">${a.pct}% (${a.days}д)</span></div>`).join('');
+  
+  document.getElementById('bizBottom5').innerHTML=aptStats.slice(-5).reverse().map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span style="color:var(--red)">${a.pct}% (${a.days}д)</span></div>`).join('');
+  
+  // Weekly heatmap
+  const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const maxDay=Math.max(...dayOccupancy);
+  document.getElementById('bizWeekHeat').innerHTML=dayOccupancy.map((v,i)=>{
+    const pct=maxDay>0?Math.round(v/maxDay*100):0;
+    const avgPct=dayTotal[i]>0?Math.round(v/(dayTotal[i]*totalRooms)*100):0;
+    const hue=avgPct>80?120:avgPct>60?60:avgPct>40?30:0;
+    return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:${Math.max(pct,5)}%;background:hsl(${hue},70%,45%);border-radius:4px 4px 0 0;min-height:4px;transition:height .3s"></div><span style="font-size:10px;color:${i===0||i===6?'var(--gold)':'var(--ink-d)'}">${dayNames[i]}</span><span style="font-size:10px;color:var(--ink-d)">${avgPct}%</span></div>`;
+  }).join('');
+}
+
 // Update switchTab
-const _origSwitch4=switchTab;
-switchTab=function(t,el){_origSwitch4(t,el);
-  if(t==='calendar')loadCalendar();
-  if(t==='expenses')loadExpenses();
-  if(t==='guests')loadGuests();
-  if(t==='staff')loadTimesheet();
-  if(t==='dash')loadTodayWidget();
+const _origSwitch5=switchTab;
+switchTab=function(t,el){_origSwitch5(t,el);
+  if(t==='biz')loadBizAnalytics();
 };
 
 // ============ NOTIFICATION SOUND ============
