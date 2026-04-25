@@ -1722,7 +1722,11 @@ async function loadBizAnalytics(){
   // Use Google Sheets revenue if available (from dashboard data)
   const monthRevEl=document.getElementById('dR');
   let monthRevenue=0;
-  if(monthRevEl){const t=monthRevEl.textContent.replace(/[^0-9]/g,'');monthRevenue=parseInt(t)||0}
+  if(monthRevEl){
+    // Parse "$51 887" - extract only the dollar amount, stop at non-numeric chars after the number
+    const match=monthRevEl.textContent.match(/\$?([\d\s]+)/);
+    if(match) monthRevenue=parseInt(match[1].replace(/\s/g,''))||0;
+  }
   
   // Fallback to Supabase bookings
   if(!monthRevenue){
@@ -1730,12 +1734,18 @@ async function loadBizAnalytics(){
     monthRevenue=(sbB||[]).filter(b=>b.check_in&&b.check_in.startsWith(monthStr)).reduce((s,b)=>s+(b.total_price||0),0);
   }
   
-  const totalBookedNights=occupiedNights||1;
+  // Get booking count from Google Sheets
+  const bookCountEl=document.getElementById('dB');
+  let monthBookingCount=0;
+  if(bookCountEl){const m=bookCountEl.textContent.match(/(\d+)/);if(m)monthBookingCount=parseInt(m[1])||0}
+  
+  // Filter iCal bookings for current month only
+  const monthIcal=icalData.filter(b=>b.check_in<=monthStr+'-'+String(daysInMonth).padStart(2,'0')&&b.check_out>=monthStr+'-01');
   
   // KPIs
-  const adr=totalBookedNights>0?Math.round(monthRevenue/totalBookedNights):0;
+  const adr=occupiedNights>0?Math.round(monthRevenue/occupiedNights):0;
   const revpar=daysPassed>0?Math.round(monthRevenue/(totalRooms*daysPassed)):0;
-  const avgStay=icalData.length>0?(icalData.reduce((s,b)=>s+(b.nights||1),0)/icalData.length).toFixed(1):'—';
+  const avgStay=monthIcal.length>0?(monthIcal.reduce((s,b)=>s+(b.nights||1),0)/monthIcal.length).toFixed(1):'—';
   const dailyRate=daysPassed>0?monthRevenue/daysPassed:0;
   const forecast=Math.round(dailyRate*daysInMonth);
   
