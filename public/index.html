@@ -42,6 +42,9 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;point
 .nav__menu{display:flex;gap:36px;list-style:none}.nav__menu a{color:var(--ink-m);text-decoration:none;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;transition:color .4s;position:relative}.nav__menu a:hover{color:var(--gold)}
 .nav__menu a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:1px;background:var(--gold);transition:width .4s}.nav__menu a:hover::after{width:100%}
 .nav__cta{padding:12px 32px;border:1px solid var(--gold-d);color:var(--gold);text-decoration:none;font-size:10px;letter-spacing:.22em;text-transform:uppercase;transition:all .4s;font-family:var(--fb)}.nav__cta:hover{background:var(--gold);color:var(--bg);box-shadow:0 0 30px rgba(201,169,97,.3)}
+.lang-switch{display:flex;gap:2px;margin-left:16px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.lang-btn{padding:6px 10px;background:transparent;border:none;color:var(--ink-d);font-size:9px;letter-spacing:.1em;cursor:pointer;font-family:var(--fb);transition:all .3s}.lang-btn.active,.lang-btn:hover{background:var(--gold-s);color:var(--gold)}
+.nav__account{color:var(--ink-m);text-decoration:none;font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-left:12px;transition:color .3s}.nav__account:hover{color:var(--gold)}
 
 /* HERO */
 .hero{min-height:100vh;display:flex;align-items:flex-end;padding:0 80px 100px;position:relative;overflow:hidden}
@@ -182,13 +185,14 @@ section{padding:140px 80px}
 <nav class="nav" id="navbar">
 <a href="#" class="nav__logo">Urban Luxe</a>
 <ul class="nav__menu">
-<li><a href="#apartments">Апартаменты</a></li>
-<li><a href="#amenities">Удобства</a></li>
-<li><a href="#booking">Бронирование</a></li>
-<li><a href="#contacts">Контакты</a></li>
+<li><a href="#apartments" data-i18n="nav_apartments">Апартаменты</a></li>
+<li><a href="#amenities" data-i18n="nav_amenities">Удобства</a></li>
+<li><a href="#booking" data-i18n="nav_booking">Бронирование</a></li>
+<li><a href="#contacts" data-i18n="nav_contacts">Контакты</a></li>
 </ul>
-<a href="#booking" class="nav__cta">Забронировать</a>
-<a href="/guest.html" style="color:var(--ink-m);text-decoration:none;font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-left:12px;transition:color .3s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--ink-m)'">Личный кабинет</a>
+<a href="#booking" class="nav__cta" data-i18n="nav_book">Забронировать</a>
+<div class="lang-switch"><button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button><button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button><button class="lang-btn" data-lang="uz" onclick="setLang('uz')">UZ</button></div>
+<a href="/guest.html" class="nav__account" data-i18n="nav_account">Личный кабинет</a>
 <button class="hamburger" onclick="document.querySelector('.nav__menu').classList.toggle('open')">&#9776;</button>
 </nav>
 
@@ -196,9 +200,9 @@ section{padding:140px 80px}
 <div class="hero__bg"></div>
 <div class="hero__overlay"></div>
 <div class="hero__content">
-<div class="hero__label">Ташкент &middot; 22 резиденции</div>
-<h1 class="hero__title">Город ваш.<br>Дом <em>уже готов</em>.</h1>
-<p class="hero__text">Частные резиденции в лучших комплексах Ташкента. Не отель. Не съёмная квартира. Образ жизни, который подстраивается под вас.</p>
+<div class="hero__label" data-i18n="hero_label">Ташкент &middot; 22 резиденции</div>
+<h1 class="hero__title" data-i18n="hero_title">Город ваш.<br>Дом <em>уже готов</em>.</h1>
+<p class="hero__text" data-i18n="hero_text">Частные резиденции в лучших комплексах Ташкента. Не отель. Не съёмная квартира. Образ жизни, который подстраивается под вас.</p>
 <div class="hero__btns">
 <a href="#apartments" class="btn">Выбрать резиденцию</a>
 <a href="#booking" class="btn btn--ghost">Забронировать &rarr;</a>
@@ -338,6 +342,7 @@ section{padding:140px 80px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+<script src="i18n.js"></script>
 <script>
 const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 const sb=supabase.createClient(SB_URL,SB_KEY),API='/.netlify/functions';
@@ -498,15 +503,17 @@ async function initModalDates(aptId,apt){
 function calcModalPrice(apt){
   const ci=mfpIn?.selectedDates[0],co=mfpOut?.selectedDates[0];
   if(!ci||!co)return;
-  const nights=Math.round((co-ci)/864e5);
-  let total=0;const cur=new Date(ci);
-  while(cur<co){const dow=cur.getDay();total+=(dow===5||dow===6)?apt.weekend_price:apt.weekday_price;cur.setDate(cur.getDate()+1)}
+  const ciStr=fmtD(ci),coStr=fmtD(co);
+  const p=calcDynamicPrice(apt,ciStr,coStr);
   document.getElementById('modalPriceCalc').style.display='block';
-  document.getElementById('modalNightsLabel').textContent=`$${apt.weekday_price} x ${nights} ноч.`;
-  document.getElementById('modalTotalPrice').textContent='$'+total;
-  document.getElementById('modalAvgPrice').textContent='$'+Math.round(total/nights);
-  document.getElementById('modalBookBtn').textContent='Забронировать за $'+total;
-  modalBookData={aptId:modalAptId,total,nights,checkIn:fmtD(ci),checkOut:fmtD(co)};
+  let ph=`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span>$${apt.weekday_price} x ${p.nights} ${t('m_nights')}</span><span>$${p.originalTotal||p.total}</span></div>`;
+  if(p.discount>0)ph+=`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;color:var(--green)"><span>${p.discountLabel}</span><span>-$${p.discountAmount}</span></div>`;
+  ph+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-d);padding-top:8px;border-top:1px solid var(--line)"><span>${t('m_avg')}</span><span>$${p.avgPerNight}</span></div>`;
+  document.getElementById('modalNightsLabel').innerHTML=ph;
+  document.getElementById('modalTotalPrice').textContent='$'+p.total;
+  document.getElementById('modalAvgPrice').textContent='$'+p.avgPerNight;
+  document.getElementById('modalBookBtn').textContent=t('m_book')+' $'+p.total;
+  modalBookData={aptId:modalAptId,total:p.total,nights:p.nights,checkIn:ciStr,checkOut:coStr};
   // Show guest fields if not logged in
   checkModalAuth();
 }
@@ -616,6 +623,9 @@ async function submitBooking(){if(!selectedApt)return;
   btn.disabled=false;btn.textContent='Отправить заявку'}
 
 loadApartments();
+
+// Init language from localStorage
+if(window.UL_LANG && window.UL_LANG !== 'ru') setLang(window.UL_LANG);
 
 // Load real reviews from bookings
 (async function(){
