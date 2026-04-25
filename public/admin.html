@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('calendar',this)">Календарь</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- TODAY WIDGET -->
@@ -90,6 +90,46 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div id="cplxBars" class="cplx"></div>
 <div class="chart-grid"><div class="feed"><h3>Последние бронирования <span class="data-src data-src-supabase">Supabase</span></h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели <span class="data-src data-src-sheets">Sheets</span></h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
 <div class="occ-grid"><h3>Календарь занятости <span class="data-src data-src-ical">RealtyCalendar iCal</span></h3><div id="occCal"><div class="loading pulse">Загрузка данных из RealtyCalendar...</div></div></div>
+</div>
+<!-- CALENDAR GANTT -->
+<div class="section" id="tab-calendar">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+<h2 style="font-size:20px;font-weight:400">Календарь загрузки <span class="data-src data-src-ical">RealtyCalendar</span></h2>
+<div style="display:flex;gap:8px;align-items:center">
+<button class="btn btn-sm btn-outline" onclick="calChangeMonth(-1)">← Пред</button>
+<span id="calMonthLabel" style="font-size:14px;min-width:140px;text-align:center"></span>
+<button class="btn btn-sm btn-outline" onclick="calChangeMonth(1)">След →</button>
+</div>
+</div>
+<div style="display:flex;gap:12px;margin-bottom:16px;font-size:11px;color:var(--ink-d)">
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FF5A5F;border-radius:2px;display:inline-block"></span> Airbnb</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#003580;border-radius:2px;display:inline-block"></span> Booking</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gold);border-radius:2px;display:inline-block"></span> Сайт</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#888;border-radius:2px;display:inline-block"></span> Другое</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#333;border-radius:2px;display:inline-block"></span> Заблокировано</span>
+</div>
+<div id="ganttGrid" style="overflow-x:auto"><div class="loading">Загрузка календаря...</div></div>
+</div>
+<!-- EXPENSES -->
+<div class="section" id="tab-expenses">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Расходы по апартаментам</h2>
+<div class="stats">
+<div class="stat"><div class="stat-label">Расходы за месяц</div><div class="stat-value" id="expTotal">—</div></div>
+<div class="stat"><div class="stat-label">Клининг</div><div class="stat-value" id="expCleaning">—</div></div>
+<div class="stat"><div class="stat-label">Расходники</div><div class="stat-value" id="expSupplies">—</div></div>
+<div class="stat"><div class="stat-label">Ремонт</div><div class="stat-value" id="expRepair">—</div></div>
+<div class="stat"><div class="stat-label">Коммуналка</div><div class="stat-value" id="expUtility">—</div></div>
+</div>
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Добавить расход</h3>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:24px">
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Апартамент</label><select id="exApt" style="padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;border-radius:4px"><option value="">Общий расход</option></select></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Категория</label><select id="exCat" style="padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;border-radius:4px"><option value="cleaning">Клининг</option><option value="supplies">Расходники</option><option value="repair">Ремонт</option><option value="utility">Коммуналка</option><option value="marketing">Маркетинг</option><option value="other">Другое</option></select></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Сумма ($)</label><input type="number" id="exAmount" placeholder="50" style="padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;width:100px;border-radius:4px"></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Описание</label><input type="text" id="exDesc" placeholder="Что закупили..." style="padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;width:180px;border-radius:4px"></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Дата</label><input type="date" id="exDate" style="padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:4px"></div>
+<button class="btn btn-sm" onclick="addExpense()">+ Добавить</button>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Апартамент</th><th>Категория</th><th>Сумма</th><th>Описание</th><th>Действие</th></tr></thead><tbody id="expTable"><tr><td colspan="6" class="loading">Загрузка...</td></tr></tbody></table></div>
 </div>
 <!-- ANALYTICS TAB -->
 <div class="section" id="tab-analytics">
@@ -1464,9 +1504,137 @@ async function deletePayment(id){
   loadTimesheet();
 }
 
-// ============ ENHANCED SWITCH TAB ============
-const _origSwitch3=switchTab;
-switchTab=function(t,el){_origSwitch3(t,el);
+// ============ CALENDAR GANTT ============
+let calYear,calMonth;
+function calInit(){const d=new Date();calYear=d.getFullYear();calMonth=d.getMonth()}
+function calChangeMonth(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--}if(calMonth>11){calMonth=0;calYear++}loadCalendar()}
+calInit();
+
+async function loadCalendar(){
+  const months=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  document.getElementById('calMonthLabel').textContent=months[calMonth]+' '+calYear;
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  
+  // Fetch iCal data
+  let icalData=[];
+  try{
+    const r=await fetch('/.netlify/functions/sync-ical');
+    const d=await r.json();
+    icalData=d.all_bookings||[];
+  }catch(e){}
+  
+  // Group apartments by complex
+  const complexOrder=['Nest One','U-Tower','Mirabad','Kislorod'];
+  const complexColors={'Nest One':'#2ecc71','U-Tower':'#3498db','Mirabad':'#e67e22','Kislorod':'#e74c3c'};
+  const apts=(window._allApts||[]).sort((a,b)=>{
+    const ca=a.complex==='U-Tower 2'?'U-Tower':a.complex;
+    const cb=b.complex==='U-Tower 2'?'U-Tower':b.complex;
+    return complexOrder.indexOf(ca)-complexOrder.indexOf(cb)||a.name.localeCompare(b.name);
+  });
+  
+  const srcColors={airbnb:'#FF5A5F',booking:'#003580',website:'var(--gold)','101hotels':'#ff6600',other:'#888',blocked:'#333'};
+  const today=new Date();
+  
+  let html='<table style="font-size:10px;border-collapse:collapse;width:100%;min-width:'+(200+daysInMonth*28)+'px"><thead><tr><th style="padding:6px 8px;text-align:left;position:sticky;left:0;background:var(--bg);z-index:2;min-width:160px;border-bottom:1px solid var(--line)">Апартамент</th>';
+  for(let d=1;d<=daysInMonth;d++){
+    const date=new Date(calYear,calMonth,d);
+    const dow=date.getDay();
+    const isWeekend=dow===0||dow===6;
+    const isToday=date.toDateString()===today.toDateString();
+    html+=`<th style="padding:4px 2px;text-align:center;min-width:26px;border-bottom:1px solid var(--line);${isWeekend?'color:var(--gold);':'color:var(--ink-d);'}${isToday?'background:rgba(201,169,97,.15);':''}">${d}</th>`;
+  }
+  html+='</tr></thead><tbody>';
+  
+  let lastComplex='';
+  apts.forEach(apt=>{
+    const cx=apt.complex==='U-Tower 2'?'U-Tower':apt.complex;
+    // Complex separator
+    if(cx!==lastComplex){
+      html+=`<tr><td colspan="${daysInMonth+1}" style="padding:6px 8px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:${complexColors[cx]||'#888'};border-bottom:1px solid var(--line);background:rgba(${cx==='Nest One'?'46,204,113':cx==='U-Tower'?'52,152,219':cx==='Mirabad'?'230,126,34':'231,76,60'},.05)">${cx}</td></tr>`;
+      lastComplex=cx;
+    }
+    
+    html+=`<tr style="border-bottom:1px solid var(--line)"><td style="padding:4px 8px;position:sticky;left:0;background:var(--bg);z-index:1;font-size:11px"><strong>${apt.name}</strong></td>`;
+    
+    for(let d=1;d<=daysInMonth;d++){
+      const dateStr=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const date=new Date(calYear,calMonth,d);
+      const isToday=date.toDateString()===today.toDateString();
+      
+      // Check if this date is booked
+      const booking=icalData.find(b=>b.apartment_id===apt.id&&b.check_in<=dateStr&&b.check_out>dateStr);
+      const isCheckin=icalData.find(b=>b.apartment_id===apt.id&&b.check_in===dateStr);
+      const isCheckout=icalData.find(b=>b.apartment_id===apt.id&&b.check_out===dateStr);
+      
+      let bg='transparent',border='';
+      if(booking){
+        bg=srcColors[booking.source]||'#888';
+        if(isCheckin)border='border-left:2px solid #fff;';
+      }
+      
+      html+=`<td style="padding:0;${isToday?'box-shadow:inset 0 0 0 1px var(--gold);':''}"><div style="height:22px;background:${bg};${border}opacity:${booking?'0.8':'0.1'};${!booking?'background:var(--bg3);':''}" title="${booking?booking.summary||booking.source:'Свободно'}"></div></td>`;
+    }
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('ganttGrid').innerHTML=html;
+}
+
+// ============ EXPENSES TRACKER ============
+async function loadExpenses(){
+  // Populate apartment dropdown
+  const sel=document.getElementById('exApt');
+  sel.innerHTML='<option value="">Общий расход</option>'+(window._allApts||[]).map(a=>`<option value="${a.id}">${a.name} (${a.complex})</option>`).join('');
+  document.getElementById('exDate').value=new Date().toISOString().split('T')[0];
+  
+  // Load expenses for current month
+  const now=new Date();
+  const firstDay=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  const lastDay=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(new Date(now.getFullYear(),now.getMonth()+1,0).getDate()).padStart(2,'0');
+  
+  const{data}=await sb.from('expenses').select('*').gte('expense_date',firstDay).lte('expense_date',lastDay).order('expense_date',{ascending:false});
+  const expenses=data||[];
+  
+  // KPI
+  const catMap={cleaning:'Клининг',supplies:'Расходники',repair:'Ремонт',utility:'Коммуналка',marketing:'Маркетинг',other:'Другое'};
+  const totals={};expenses.forEach(e=>{totals[e.category]=(totals[e.category]||0)+e.amount});
+  const total=expenses.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('expTotal').textContent='$'+total.toLocaleString();
+  document.getElementById('expCleaning').textContent='$'+(totals.cleaning||0).toLocaleString();
+  document.getElementById('expSupplies').textContent='$'+(totals.supplies||0).toLocaleString();
+  document.getElementById('expRepair').textContent='$'+(totals.repair||0).toLocaleString();
+  document.getElementById('expUtility').textContent='$'+(totals.utility||0).toLocaleString();
+  
+  // Table
+  document.getElementById('expTable').innerHTML=expenses.map(e=>{
+    const aptName=e.apartment_id?(window._allApts?.find(a=>a.id===e.apartment_id)?.name||e.apartment_id):'Общий';
+    return`<tr><td>${e.expense_date}</td><td>${aptName}</td><td>${catMap[e.category]||e.category}</td><td style="color:var(--red)">$${e.amount}</td><td style="color:var(--ink-d)">${e.description||''}</td><td><button class="btn btn-sm btn-danger" onclick="deleteExpense('${e.id}')" style="padding:2px 8px;font-size:9px">✗</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="color:var(--ink-d)">Нет расходов за этот месяц</td></tr>';
+}
+
+async function addExpense(){
+  const aptId=document.getElementById('exApt').value;
+  const cat=document.getElementById('exCat').value;
+  const amount=parseInt(document.getElementById('exAmount').value);
+  const desc=document.getElementById('exDesc').value;
+  const date=document.getElementById('exDate').value;
+  if(!amount||!date){alert('Укажите сумму и дату');return}
+  await sb.from('expenses').insert({apartment_id:aptId||null,category:cat,amount,description:desc,expense_date:date});
+  document.getElementById('exAmount').value='';document.getElementById('exDesc').value='';
+  loadExpenses();
+}
+
+async function deleteExpense(id){
+  if(!confirm('Удалить расход?'))return;
+  await sb.from('expenses').delete().eq('id',id);
+  loadExpenses();
+}
+
+// Update switchTab
+const _origSwitch4=switchTab;
+switchTab=function(t,el){_origSwitch4(t,el);
+  if(t==='calendar')loadCalendar();
+  if(t==='expenses')loadExpenses();
   if(t==='guests')loadGuests();
   if(t==='staff')loadTimesheet();
   if(t==='dash')loadTodayWidget();
