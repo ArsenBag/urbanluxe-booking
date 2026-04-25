@@ -72,9 +72,15 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('staff',this)">Сотрудники</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
+<!-- TODAY WIDGET -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128197; Заезды сегодня</h4><div id="todayCheckins" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128198; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128172; Непрочитанные сообщения</h4><div id="todayMessages" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+</div>
 <div id="notifBar" style="background:var(--bg2);border:1px solid var(--line);padding:12px 24px;margin-bottom:24px;display:none;flex-wrap:wrap;gap:8px;align-items:center"></div>
 <div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
 <div class="chart-grid"><div class="chart-box"><h3>Доход по месяцам <span class="data-src data-src-sheets">Google Sheets</span></h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
@@ -109,12 +115,49 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 </div>
 </div>
 </div>
-<div class="section" id="tab-staff"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Сотрудники</h2><div class="stats"><div class="stat"><div class="stat-label">Всего</div><div class="stat-value">1</div></div><div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value">—</div></div><div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value">—</div></div></div><div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Контакт</th><th>Статус</th></tr></thead><tbody><tr><td>Арсен</td><td>Менеджер</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr></tbody></table></div></div>
+<!-- GUESTS -->
+<div class="section" id="tab-guests">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Гости</h2>
+<div class="stats" id="guestStats"><div class="stat"><div class="stat-label">Всего гостей</div><div class="stat-value" id="gTotal">—</div></div><div class="stat"><div class="stat-label">Всего бронирований</div><div class="stat-value" id="gBookings">—</div></div><div class="stat"><div class="stat-label">Общая выручка</div><div class="stat-value" id="gRevenue">—</div></div><div class="stat"><div class="stat-label">Ср. чек</div><div class="stat-value" id="gAvgCheck">—</div></div></div>
+<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Телефон</th><th>Email</th><th>Бронирований</th><th>Потрачено</th><th>Последний визит</th><th>Рейтинг</th></tr></thead><tbody id="gT"><tr><td colspan="7" class="loading">Загрузка...</td></tr></tbody></table></div>
+</div>
+<!-- STAFF / TIMESHEET -->
+<div class="section" id="tab-staff">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Персонал и табель</h2>
+<div class="stats">
+<div class="stat"><div class="stat-label">Сотрудников</div><div class="stat-value" id="stTotal">4</div></div>
+<div class="stat"><div class="stat-label">Зарплата/мес</div><div class="stat-value" id="stSalary">—</div></div>
+<div class="stat"><div class="stat-label">Клининг/мес</div><div class="stat-value" id="stCleaning">—</div></div>
+<div class="stat"><div class="stat-label">Выплачено в этом мес.</div><div class="stat-value" id="stPaid">—</div></div>
+</div>
+<!-- Staff list -->
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Список персонала</h3>
+<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Ставка/день</th><th>Контакт</th><th>Статус</th></tr></thead><tbody>
+<tr><td>Арсен</td><td>Менеджер</td><td>—</td><td>@Arsen_bnb</td><td><span class="badge badge-active">Активен</span></td></tr>
+<tr><td>Хакима</td><td>Клининг</td><td>200 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
+<tr><td>Хамида</td><td>Клининг</td><td>200 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
+<tr><td>Хилола</td><td>Клининг</td><td>180 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
+<tr><td>Лобар</td><td>Клининг</td><td>180 000 сум</td><td>—</td><td><span class="badge badge-active">Активен</span></td></tr>
+</tbody></table></div>
+<!-- Timesheet from Google Sheets -->
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Табель за текущий месяц <span class="data-src data-src-sheets">Google Sheets</span></h3>
+<div id="timesheetGrid" style="overflow-x:auto"><div class="loading">Загрузка табеля...</div></div>
+<!-- Payments -->
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">Зарплата и выплаты</h3>
+<div class="table-wrap"><table><thead><tr><th>ФИО</th><th>Ставка</th><th>Отработано дней</th><th>Заработано</th><th>Выдано авансов</th><th>К выплате</th></tr></thead><tbody id="salaryTable"><tr><td colspan="6" class="loading">Загрузка...</td></tr></tbody></table></div>
+<h3 style="font-size:16px;margin:24px 0 16px;font-weight:400">История выплат</h3>
+<div class="table-wrap"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Сумма</th></tr></thead><tbody id="paymentsTable"><tr><td colspan="3" class="loading">Загрузка...</td></tr></tbody></table></div>
+</div>
 </div></div>
 <div class="modal-overlay" id="aptM"><div class="modal" style="width:700px"><h2 id="amT">Добавить</h2><input type="hidden" id="amE">
 <div class="form-row"><div><label>ID</label><input type="text" id="amI"></div><div><label>Название</label><input type="text" id="amN"></div></div>
 <div class="form-row"><div><label>Комплекс</label><select id="amC"><option>Nest One</option><option>U-Tower</option><option>U-Tower 2</option><option>Mirabad</option><option>Kislorod</option></select></div><div><label>Этаж</label><input type="number" id="amF"></div></div>
 <div class="form-row"><div><label>Цена Пн-Чт ($)</label><input type="number" id="amW"></div><div><label>Цена Пт-Вс ($)</label><input type="number" id="amWe"></div></div>
+<div style="background:var(--bg);border:1px solid var(--line);padding:16px;margin-top:12px;border-radius:6px">
+<h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Динамическое ценообразование</h4>
+<div class="form-row"><div><label>Скидка за неделю (7+ ночей) %</label><input type="number" id="amDiscWeek" value="10" min="0" max="50"></div><div><label>Скидка за месяц (30+ ночей) %</label><input type="number" id="amDiscMonth" value="25" min="0" max="60"></div></div>
+<div class="form-row"><div><label>Мин. ночей</label><input type="number" id="amMinNights" value="1" min="1" max="30"></div><div><label>Макс. гостей</label><input type="number" id="amMaxGuests" value="2" min="1" max="10"></div></div>
+</div>
 <div class="form-row"><div><label>Тип (комнаты)</label><input type="text" id="amR" value="Студия"></div><div><label>Стиль</label><input type="text" id="amS"></div></div>
 <label style="margin-top:16px">Описание</label>
 <textarea id="amDesc" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;height:100px;resize:vertical" placeholder="Уютная студия с панорамным видом на город..."></textarea>
@@ -966,10 +1009,10 @@ function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
   const photoEl=thumb?`<img src="${thumb}" style="width:40px;height:30px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:8px" onerror="this.style.display='none'">`:'';
   return`<tr><td style="font-family:monospace;font-size:12px;color:var(--ink-d)">${a.id}</td><td>${photoEl}<strong>${a.name}</strong>${hasDesc?' 📝':''}</td><td>${a.complex}</td><td>${a.floor}</td><td>${a.rooms||'—'}</td><td>$${a.weekday_price}</td><td>$${a.weekend_price}</td><td><span class="badge ${a.is_active?'badge-active':'badge-inactive'}">${a.is_active?'Активен':'Выкл'}</span>${hasAmen?' <span style="font-size:10px;color:var(--ink-d)">'+a.amenities.length+' удобств</span>':''}</td><td><button class="btn btn-sm btn-outline" onclick="edA('${a.id}')" style="margin-right:4px">✎</button><button class="btn btn-sm btn-danger" onclick="delA('${a.id}')">✗</button></td></tr>`}).join('')}
 
-function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="9" class="loading">Нет бронирований</td></tr>';return}document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':'badge-pending',st=b.status==='confirmed'?'Подтверждён':b.status==='cancelled'?'Отменён':'Ожидает';return`<tr><td>${b.apartment_id}</td><td><strong>${b.guest_name}</strong></td><td>${b.guest_phone}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td>$${b.total_price||'—'}</td><td><span class="badge ${sc}">${st}</span></td><td><button class="btn btn-sm btn-outline" onclick="ubS('${b.id}','confirmed')" style="margin:2px">✓</button><button class="btn btn-sm btn-danger" onclick="ubS('${b.id}','cancelled')" style="margin:2px">✗</button></td></tr>`}).join('')}
+function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="9" class="loading">Нет бронирований</td></tr>';return}document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтверждён':b.status==='cancelled'?'Отменён':b.status==='completed'?'Завершён':'Ожидает';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 10px;font-size:9px">&#10003; Подтвердить</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 10px;font-size:9px">&#10005; Отменить</button>`:''}</td></tr>`}).join('')}
 
 async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
-function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';
+function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amDiscWeek').value=a?(a.discount_week||10):10;document.getElementById('amDiscMonth').value=a?(a.discount_month||25):25;document.getElementById('amMinNights').value=a?(a.min_nights||1):1;document.getElementById('amMaxGuests').value=a?(a.max_guests||2):2;
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
 document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
 // Auto-generate iCal Import URL
@@ -1075,7 +1118,7 @@ const photoData=mainPhoto||photos[0]||'';
 const desc=document.getElementById('amDesc').value.trim();
 // Compose description with video marker if present
 const fullDesc=videoUrl?desc+'\n[VIDEO:'+videoUrl+']':desc;
-const a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),ical_import_url:document.getElementById('amUI').value.trim(),max_guests:parseInt(document.getElementById('amG').value)||3,is_active:document.getElementById('amA').value==='true',description:fullDesc,photo_url:photos.length>1?JSON.stringify(photos):photoData,amenities:amenities,updated_at:new Date().toISOString()};
+const a={id:document.getElementById('amI').value.trim(),name:document.getElementById('amN').value.trim(),complex:document.getElementById('amC').value,floor:parseInt(document.getElementById('amF').value)||0,weekday_price:parseInt(document.getElementById('amW').value)||0,weekend_price:parseInt(document.getElementById('amWe').value)||0,rooms:document.getElementById('amR').value.trim(),style:document.getElementById('amS').value.trim(),ical_export_url:document.getElementById('amU').value.trim(),ical_import_url:document.getElementById('amUI').value.trim(),max_guests:parseInt(document.getElementById('amMaxGuests').value)||2,is_active:document.getElementById('amA').value==='true',description:fullDesc,photo_url:photos.length>1?JSON.stringify(photos):photoData,amenities:amenities,discount_week:parseInt(document.getElementById('amDiscWeek').value)||10,discount_month:parseInt(document.getElementById('amDiscMonth').value)||25,min_nights:parseInt(document.getElementById('amMinNights').value)||1,updated_at:new Date().toISOString()};
 if(!a.id||!a.name||!a.weekday_price){er.textContent='Заполните обязательные поля';er.style.display='block';return}
 let r;if(ei){const{id,...u}=a;r=await sb.from('apartments').update(u).eq('id',ei)}else{r=await sb.from('apartments').insert(a)}
 if(r.error){er.textContent=r.error.message;er.style.display='block';return}closeAM();loadAll()}
@@ -1183,6 +1226,131 @@ setInterval(async()=>{
   const badge=document.getElementById('chatBadge');
   if(data&&data.length>0){badge.style.display='inline-flex';badge.textContent=data.length}
 },30000);
+
+// ============ TODAY WIDGET ============
+async function loadTodayWidget(){
+  const today=new Date();const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  // Check-ins today
+  const{data:cins}=await sb.from('bookings').select('guest_name,apartment_id').eq('check_in',todayStr).neq('status','cancelled');
+  const ciEl=document.getElementById('todayCheckins');
+  if(cins&&cins.length){ciEl.innerHTML=cins.map(b=>{const a=window._allApts?.find(x=>x.id===b.apartment_id);return`<div style="margin-bottom:4px">&#128100; <strong>${b.guest_name}</strong> → ${a?.name||b.apartment_id}</div>`}).join('')}
+  else ciEl.textContent='Нет заездов';
+  // Check-outs today
+  const{data:couts}=await sb.from('bookings').select('guest_name,apartment_id').eq('check_out',todayStr).neq('status','cancelled');
+  const coEl=document.getElementById('todayCheckouts');
+  if(couts&&couts.length){coEl.innerHTML=couts.map(b=>{const a=window._allApts?.find(x=>x.id===b.apartment_id);return`<div style="margin-bottom:4px">&#128100; <strong>${b.guest_name}</strong> ← ${a?.name||b.apartment_id}</div>`}).join('')}
+  else coEl.textContent='Нет выездов';
+  // Unread messages
+  const{data:msgs}=await sb.from('messages').select('conversation_id').eq('sender_role','guest').eq('is_read',false);
+  const msgEl=document.getElementById('todayMessages');
+  msgEl.innerHTML=msgs&&msgs.length?`<strong style="color:var(--gold);font-size:20px">${msgs.length}</strong> непрочитанных`:'Все прочитано &#10003;';
+}
+
+// ============ GUESTS TAB ============
+async function loadGuests(){
+  const{data:bookings}=await sb.from('bookings').select('guest_name,guest_phone,guest_email,total_price,check_out,review_rating,status').neq('status','cancelled').order('created_at',{ascending:false});
+  if(!bookings)return;
+  // Group by guest (by phone or email)
+  const guests={};
+  bookings.forEach(b=>{
+    const key=b.guest_email||b.guest_phone||b.guest_name;
+    if(!guests[key])guests[key]={name:b.guest_name,phone:b.guest_phone,email:b.guest_email,bookings:0,spent:0,lastVisit:b.check_out,rating:null};
+    guests[key].bookings++;
+    guests[key].spent+=b.total_price||0;
+    if(b.review_rating)guests[key].rating=b.review_rating;
+    if(b.check_out>guests[key].lastVisit)guests[key].lastVisit=b.check_out;
+  });
+  const list=Object.values(guests).sort((a,b)=>b.spent-a.spent);
+  document.getElementById('gTotal').textContent=list.length;
+  document.getElementById('gBookings').textContent=bookings.length;
+  const totalRev=list.reduce((s,g)=>s+g.spent,0);
+  document.getElementById('gRevenue').textContent='$'+totalRev.toLocaleString();
+  document.getElementById('gAvgCheck').textContent='$'+Math.round(totalRev/bookings.length||0);
+  document.getElementById('gT').innerHTML=list.map(g=>`<tr><td><strong>${g.name||'—'}</strong></td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${g.bookings}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'}</td></tr>`).join('')||'<tr><td colspan="7">Нет данных</td></tr>';
+}
+
+// ============ BOOKING ACTIONS ============
+async function setBookingStatus(id,status){
+  await sb.from('bookings').update({status,updated_at:new Date().toISOString()}).eq('id',id);
+  loadAll();
+}
+
+// ============ TIMESHEET (Google Sheets) ============
+const TIMESHEET_SHEET_ID='1Qw_X-cakSS8et0oH_2GjQ6aQfPxDtHicDD2IU7Z0O5U';
+async function loadTimesheet(){
+  try{
+    // Load timesheet data directly from Google Sheets
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=A1:E32`);
+    const csv=await r.text();
+    const rows=csv.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
+    if(!rows.length)return;
+    
+    const staff=rows[0].slice(1).filter(s=>s);
+    let html='<table style="font-size:12px;width:100%;border-collapse:collapse"><thead><tr><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">Дата</th>';
+    staff.forEach(s=>html+=`<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--line)">${s}</th>`);
+    html+='</tr></thead><tbody>';
+    for(let i=1;i<rows.length-1&&i<32;i++){
+      const row=rows[i];if(!row[0])continue;
+      html+=`<tr style="border-bottom:1px solid var(--line)"><td style="padding:4px 8px;color:var(--ink-m)">${row[0]}</td>`;
+      for(let j=1;j<row.length&&j<=staff.length;j++){
+        const checked=row[j]==='TRUE';
+        html+=`<td style="padding:4px 8px;text-align:center">${checked?'<span style="color:var(--green);font-size:16px">&#10003;</span>':'<span style="color:var(--ink-d)">—</span>'}</td>`;
+      }
+      html+='</tr>';
+    }
+    html+='</tbody></table>';
+    document.getElementById('timesheetGrid').innerHTML=html;
+
+    // Salary summary (I-M)
+    const r2=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=I1:M5`);
+    const csv2=await r2.text();
+    const salRows=csv2.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
+    if(salRows.length>1){
+      document.getElementById('salaryTable').innerHTML=salRows.slice(1).filter(r=>r[0]).map(r=>{
+        const rate=r[1]||'—';const earned=r[2]||'0';const paid=r[3]||'0';const owed=r[4]||'0';
+        const owedNum=parseFloat(owed.replace(/\s/g,''))||0;
+        return`<tr><td><strong>${r[0]}</strong></td><td>${rate}</td><td>—</td><td>${earned}</td><td>${paid}</td><td style="color:${owedNum>0?'var(--gold)':'var(--green)'}"><strong>${owed}</strong></td></tr>`
+      }).join('');
+      // Total salary
+      const totalSal=salRows.slice(1).reduce((s,r)=>s+parseFloat((r[1]||'0').replace(/\s/g,''))||0,0);
+      document.getElementById('stSalary').textContent=totalSal.toLocaleString()+' сум/день';
+    }
+
+    // Payments (O-Q)
+    const r3=await fetch(`https://docs.google.com/spreadsheets/d/${TIMESHEET_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Табель Персонала')}&range=O1:Q20`);
+    const csv3=await r3.text();
+    const payRows=csv3.split('\n').map(r=>r.split(',').map(c=>c.replace(/^"|"$/g,'')));
+    if(payRows.length>1){
+      document.getElementById('paymentsTable').innerHTML=payRows.slice(1).filter(r=>r[0]).map(r=>
+        `<tr><td>${r[0]}</td><td>${r[2]||'—'}</td><td style="color:var(--gold)">${r[1]||'—'}</td></tr>`
+      ).join('')||'<tr><td colspan="3">Нет выплат</td></tr>';
+      const totalPaid=payRows.slice(1).filter(r=>r[0]).reduce((s,r)=>s+(parseFloat((r[1]||'0').replace(/\s/g,''))||0),0);
+      document.getElementById('stPaid').textContent=totalPaid.toLocaleString()+' сум';
+    }
+  }catch(e){console.error('Timesheet error:',e);document.getElementById('timesheetGrid').innerHTML='<div style="color:var(--red)">Ошибка загрузки табеля</div>'}
+}
+
+// ============ ENHANCED SWITCH TAB ============
+const _origSwitch3=switchTab;
+switchTab=function(t,el){_origSwitch3(t,el);
+  if(t==='guests')loadGuests();
+  if(t==='staff')loadTimesheet();
+  if(t==='dash')loadTodayWidget();
+};
+
+// ============ NOTIFICATION SOUND ============
+let lastBookingCount=0;
+async function checkNewBookings(){
+  const{data}=await sb.from('bookings').select('id',{count:'exact',head:true}).eq('status','pending');
+  if(data&&data.length>lastBookingCount&&lastBookingCount>0){
+    try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=800;g.gain.value=0.3;o.start();o.stop(a.currentTime+0.15);setTimeout(()=>{o.frequency.value=1200;const o2=a.createOscillator();const g2=a.createGain();o2.connect(g2);g2.connect(a.destination);o2.frequency.value=1200;g2.gain.value=0.3;o2.start();o2.stop(a.currentTime+0.15)},200)}catch(e){}
+  }
+  if(data)lastBookingCount=data.length;
+}
+setInterval(checkNewBookings,30000);
+
+// Load today widget on dash
+setTimeout(loadTodayWidget,3000);
 
 checkAuth();
 </script>
