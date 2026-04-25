@@ -1086,7 +1086,6 @@ let currentConvId=null,adminChatSub=null;
 async function loadConversations(){
   const{data}=await sb.from('messages').select('conversation_id,content,sender_role,is_read,created_at').order('created_at',{ascending:false});
   if(!data)return;
-  // Group by conversation_id, get latest message
   const convs={};
   data.forEach(m=>{
     if(!convs[m.conversation_id]){convs[m.conversation_id]={id:m.conversation_id,lastMsg:m.content,lastRole:m.sender_role,lastTime:m.created_at,unread:0}}
@@ -1094,22 +1093,39 @@ async function loadConversations(){
   });
   const list=Object.values(convs).sort((a,b)=>new Date(b.lastTime)-new Date(a.lastTime));
   
-  // Get guest names
-  const ids=list.map(c=>c.id);
-  const{data:profiles}=await sb.from('guest_profiles').select('user_id,name').in('user_id',ids);
-  const nameMap={};(profiles||[]).forEach(p=>nameMap[p.user_id]=p.name);
+  // conversation_id = booking_id now, load booking + guest info
+  const bIds=list.map(c=>c.id);
+  const{data:bkgs}=await sb.from('bookings').select('id,apartment_id,guest_name,guest_phone,guest_email,check_in,check_out,status,nights,total_price').in('id',bIds);
+  const bMap={};(bkgs||[]).forEach(b=>bMap[b.id]=b);
+  
+  // Fallback: also try user_id based conversations (old style)
+  const unknownIds=list.filter(c=>!bMap[c.id]).map(c=>c.id);
+  let profileMap={};
+  if(unknownIds.length){
+    const{data:profiles}=await sb.from('guest_profiles').select('user_id,name').in('user_id',unknownIds);
+    (profiles||[]).forEach(p=>profileMap[p.user_id]=p.name);
+  }
   
   const el=document.getElementById('chatConvList');
   let totalUnread=0;
   el.innerHTML=list.map(c=>{
-    const name=nameMap[c.id]||c.id.substring(0,8);
+    const bk=bMap[c.id];
+    const apt=bk?window._allApts?.find(a=>a.id===bk.apartment_id):null;
+    const guestName=bk?bk.guest_name:(profileMap[c.id]||c.id.substring(0,8));
+    const aptName=apt?apt.name:(bk?bk.apartment_id:'');
+    const dates=bk?`${bk.check_in?.substring(5)} → ${bk.check_out?.substring(5)}`:'';
+    const statusBadge=bk?`<span style="font-size:9px;padding:2px 6px;border-radius:4px;${bk.status==='confirmed'?'background:rgba(46,204,113,.15);color:#2ecc71':bk.status==='cancelled'?'background:rgba(231,76,60,.15);color:#e74c3c':'background:var(--gold-s);color:var(--gold)'}">${bk.status==='confirmed'?'Подтв.':bk.status==='cancelled'?'Отмен.':'Ожид.'}</span>`:'';
     const time=new Date(c.lastTime).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const preview=c.lastMsg.substring(0,40)+(c.lastMsg.length>40?'...':'');
+    const preview=c.lastMsg.substring(0,35)+(c.lastMsg.length>35?'...':'');
     totalUnread+=c.unread;
-    return`<div style="padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;${currentConvId===c.id?'background:var(--bg3);border-left:3px solid var(--gold)':''}" onclick="openConversation('${c.id}')"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong style="font-size:13px">${name}</strong><span style="font-size:10px;color:var(--ink-d)">${time}</span></div><div style="font-size:12px;color:var(--ink-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.lastRole==='guest'?'':'Вы: '}${preview}</div>${c.unread?`<span style="background:var(--red);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-top:4px;display:inline-block">${c.unread} новых</span>`:''}</div>`;
+    return`<div style="padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;${currentConvId===c.id?'background:var(--bg3);border-left:3px solid var(--gold)':''}" onclick="openConversation('${c.id}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px"><strong style="font-size:13px">${guestName}</strong><span style="font-size:10px;color:var(--ink-d)">${time}</span></div>
+      ${aptName?`<div style="font-size:11px;color:var(--gold);margin-bottom:2px">${aptName} ${dates?'· '+dates:''} ${statusBadge}</div>`:''}
+      <div style="font-size:11px;color:var(--ink-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.lastRole==='guest'?'':'Вы: '}${preview}</div>
+      ${c.unread?`<span style="background:var(--red);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-top:4px;display:inline-block">${c.unread} новых</span>`:''}
+    </div>`;
   }).join('')||'<div style="padding:40px;text-align:center;color:var(--ink-d);font-size:13px">Нет диалогов</div>';
   
-  // Update badge
   const badge=document.getElementById('chatBadge');
   if(totalUnread>0){badge.style.display='inline-flex';badge.textContent=totalUnread}
   else badge.style.display='none';
@@ -1117,43 +1133,51 @@ async function loadConversations(){
 
 async function openConversation(convId){
   currentConvId=convId;
-  // Get guest name
-  const{data:profile}=await sb.from('guest_profiles').select('name').eq('user_id',convId).single();
-  document.getElementById('chatConvTitle').textContent='Диалог с '+(profile?.name||convId.substring(0,8));
+  // Get booking context
+  const{data:bk}=await sb.from('bookings').select('*').eq('id',convId).single();
+  const apt=bk?window._allApts?.find(a=>a.id===bk.apartment_id):null;
+  const{data:prof}=await sb.from('guest_profiles').select('name').eq('user_id',convId).single();
+  
+  let title='Диалог';
+  if(bk){
+    title=`<div style="font-weight:500">${bk.guest_name||'Гость'}</div>
+      <div style="font-size:11px;color:var(--gold);margin-top:2px">${apt?.name||bk.apartment_id} · ${bk.check_in?.substring(5)} → ${bk.check_out?.substring(5)} · ${bk.nights} ноч. · $${Math.round(bk.total_price||0)}</div>
+      <div style="font-size:10px;color:var(--ink-d);margin-top:2px">${bk.guest_phone||''} · ${bk.guest_email||''} · <span style="${bk.status==='confirmed'?'color:#2ecc71':bk.status==='cancelled'?'color:#e74c3c':'color:var(--gold)'}">${bk.status}</span></div>`;
+  }else{
+    title=prof?.name||convId.substring(0,8);
+  }
+  document.getElementById('chatConvTitle').innerHTML=title;
   
   const{data}=await sb.from('messages').select('*').eq('conversation_id',convId).order('created_at',{ascending:true});
   const el=document.getElementById('adminChatMessages');
-  el.innerHTML=(data||[]).map(m=>{
-    const isAdmin=m.sender_role==='admin';
-    const time=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-    return`<div style="display:flex;justify-content:${isAdmin?'flex-end':'flex-start'}"><div style="max-width:70%;padding:10px 14px;border-radius:${isAdmin?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${isAdmin?'var(--gold-s)':'var(--bg3)'};font-size:13px"><div>${m.content}</div><div style="font-size:10px;color:var(--ink-d);margin-top:4px;text-align:right">${time}</div></div></div>`;
+  el.innerHTML=(data||[]).map(m=>{const isAdmin=m.sender_role==='admin';const time=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    return`<div style="display:flex;justify-content:${isAdmin?'flex-end':'flex-start'}"><div style="max-width:70%;padding:10px 14px;border-radius:${isAdmin?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${isAdmin?'var(--gold-s)':'var(--bg3)'};font-size:13px"><div>${m.content}</div><div style="font-size:10px;color:var(--ink-d);margin-top:4px;text-align:right">${time}</div></div></div>`
   }).join('')||'<div style="color:var(--ink-d);text-align:center;padding:40px">Нет сообщений</div>';
   el.scrollTop=el.scrollHeight;
   
-  // Mark as read
   await sb.from('messages').update({is_read:true}).eq('conversation_id',convId).eq('sender_role','guest').eq('is_read',false);
   loadConversations();
   
-  // Subscribe to new messages
   if(adminChatSub)adminChatSub.unsubscribe();
   adminChatSub=sb.channel('admin-chat-'+convId).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+convId},()=>{openConversation(convId)}).subscribe();
 }
 
-async function adminSendMsg(){
-  if(!currentConvId)return;
-  const input=document.getElementById('adminChatInput');
-  const text=input.value.trim();if(!text)return;
-  input.value='';
+async function adminSendMsg(){if(!currentConvId)return;const input=document.getElementById('adminChatInput');const text=input.value.trim();if(!text)return;input.value='';
   const{data:{user}}=await sb.auth.getUser();
   await sb.from('messages').insert({conversation_id:currentConvId,sender_id:user.id,sender_role:'admin',content:text});
-  openConversation(currentConvId);
-}
+  openConversation(currentConvId)}
 
-// Load chat when switching to chat tab
+// Store apartments list for chat context
+window._allApts=[];
+const _origLoadAll=loadAll;
+loadAll=async function(){await _origLoadAll();
+  const{data}=await sb.from('apartments').select('id,name,complex,floor');
+  window._allApts=data||[];
+};
+
 const _origSwitch2=switchTab;
 switchTab=function(t,el){_origSwitch2(t,el);if(t==='chat')loadConversations()};
 
-// Check for unread messages periodically
 setInterval(async()=>{
   const{data}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('sender_role','guest').eq('is_read',false);
   const badge=document.getElementById('chatBadge');
