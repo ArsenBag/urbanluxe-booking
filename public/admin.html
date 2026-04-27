@@ -1799,17 +1799,32 @@ async function loadBizAnalytics(){
     return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:${cxColors[cx]||'#888'};display:inline-block"></span>${cx} <span style="color:var(--ink-d)">(${d.count} апт.)</span></span><span><strong style="color:${pct>80?'var(--green)':pct>50?'var(--gold)':'var(--red)'}">${pct}%</strong> загрузка</span></div><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cxColors[cx]||'#888'};border-radius:4px;transition:width .5s"></div></div></div>`;
   }).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
   
-  // Top 5 / Bottom 5 — scale with dashboard data
-  const aptStats=(window._allApts||[]).map(a=>{
-    let occ=aptOccupancy[a.id]||0;
-    let pct=daysPassed>0?Math.round(occ/daysPassed*100*scaleFactor):0;
-    if(pct>100)pct=100;
-    return{name:a.name,complex:a.complex==='U-Tower 2'?'U-Tower':a.complex,pct,days:Math.round(occ*scaleFactor)};
-  }).sort((a,b)=>b.pct-a.pct);
-  
-  document.getElementById('bizTop5').innerHTML=aptStats.slice(0,5).map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span><strong style="color:var(--green)">${a.pct}%</strong> <span style="color:var(--ink-d)">(${a.days} дн.)</span></span></div>`).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
-  
-  document.getElementById('bizBottom5').innerHTML=aptStats.slice(-5).reverse().map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span><strong style="color:var(--red)">${a.pct}%</strong> <span style="color:var(--ink-d)">(${a.days} дн.)</span></span></div>`).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
+  // Top 5 / Bottom 5 — use Google Sheets data (aptSheetsData from rAnalytics)
+  if(typeof aptSheetsData!=='undefined'&&aptSheetsData&&aptSheetsData.length>0){
+    try{
+      const cm2=typeof curMonthLabel==='function'?curMonthLabel():'';
+      const aptMap2=[
+        {k:'111',cx:'Mirabad'},{k:'205',cx:'Mirabad'},
+        {k:'15',cx:'Nest One'},{k:'249',cx:'Nest One'},{k:'481',cx:'Nest One'},{k:'233',cx:'Nest One'},{k:'353',cx:'Nest One'},
+        {k:'65',cx:'U-Tower'},{k:'73',cx:'U-Tower'},{k:'171',cx:'U-Tower'},{k:'208',cx:'U-Tower'},{k:'310',cx:'U-Tower'},{k:'410',cx:'U-Tower'},
+        {k:'5',cx:'U-Tower'},{k:'9',cx:'U-Tower'},{k:'207',cx:'U-Tower'},{k:'228',cx:'U-Tower'},{k:'296',cx:'U-Tower'},{k:'92',cx:'U-Tower'},
+        {k:'49',cx:'Kislorod'},{k:'58',cx:'Kislorod'},{k:'128',cx:'Kislorod'}
+      ];
+      const sheetsStats=aptSheetsData.map(apt=>{
+        const mData=apt.monthly[cm2]||{occupancy:0,revenue:0};
+        const allNums=[...apt.name.matchAll(/\b(\d+)\b/g)].map(m=>m[1]);
+        let aptNum=null;
+        for(let ni=allNums.length-1;ni>=0;ni--){if(parseInt(allNums[ni])<500){aptNum=String(allNums[ni]);break}}
+        const mapped=aptNum?aptMap2.find(m=>m.k===aptNum):null;
+        return{name:apt.name.split('-')[0].trim()||apt.name.substring(0,20),complex:mapped?.cx||'',pct:mData.occupancy||0,revenue:mData.revenue||0};
+      }).filter(a=>a.pct>0||a.revenue>0).sort((a,b)=>b.pct-a.pct);
+      
+      if(sheetsStats.length>0){
+        document.getElementById('bizTop5').innerHTML=sheetsStats.slice(0,5).map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span><strong style="color:var(--green)">${a.pct}%</strong></span></div>`).join('');
+        document.getElementById('bizBottom5').innerHTML=sheetsStats.slice(-5).reverse().map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span><strong style="color:var(--red)">${a.pct}%</strong></span></div>`).join('');
+      }
+    }catch(e){console.log('Top5 sheets error:',e)}
+  }
   
   // Weekly heatmap
   const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
