@@ -124,7 +124,7 @@ exports.handler = async (event) => {
     if (sbKey && apartment_id) {
       const sb = createClient(sbUrl, sbKey);
       
-      const { data: inserted, error } = await sb.from('bookings').upsert({
+      const { data: inserted, error } = await sb.from('bookings').insert({
         apartment_id: apartment_id,
         guest_name: booking.guest_name || 'Гость RC',
         guest_phone: booking.guest_phone || '',
@@ -135,8 +135,6 @@ exports.handler = async (event) => {
         source: booking.source,
         status: booking.status === 'cancelled' ? 'cancelled' : 'confirmed',
         admin_notes: `RC#${booking.rc_id || '?'} | ${booking.notes}`.trim(),
-      }, {
-        onConflict: 'apartment_id,check_in'
       });
 
       if (error) {
