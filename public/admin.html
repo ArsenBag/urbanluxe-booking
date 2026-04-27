@@ -2259,7 +2259,10 @@ function renderChessGrid(){
     html+='<tr><td colspan="'+(daysInMonth+1)+'" style="padding:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:'+( cxColors[cx]||'var(--ink-d)')+';border-top:2px solid var(--line);background:var(--bg)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(cxColors[cx]||'#888')+';margin-right:6px"></span>'+cx+' ('+aptList.length+')</td></tr>';
     
     aptList.forEach(apt=>{
-      const aptBookings=[...chessIcalData.filter(b=>b.apartment_id===apt.id)];
+      // Merge iCal bookings with Supabase bookings (remove duplicates by check_in)
+      const icalBookings=chessIcalData.filter(b=>b.apartment_id===apt.id);
+      const dbOnlyBookings=chessDbData.filter(db=>db.apartment_id===apt.id&&!icalBookings.some(ic=>ic.check_in===db.check_in));
+      const aptBookings=[...icalBookings,...dbOnlyBookings.map(db=>({apartment_id:db.apartment_id,check_in:db.check_in,check_out:db.check_out,nights:Math.round((new Date(db.check_out)-new Date(db.check_in))/86400000),source:db.source,summary:'DB'}))];
       
       html+='<tr><td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;white-space:nowrap;border-bottom:1px solid var(--line);font-size:11px"><strong>'+apt.name+'</strong></td>';
       
@@ -2273,26 +2276,31 @@ function renderChessGrid(){
         let cellContent='';
         let title='';
         let cursor='default';
+        let onclick='';
         
         if(booking){
           totalOccupied++;
-          // Try to find DB booking for guest name & price
           const dbMatch=chessDbData.find(db=>db.apartment_id===apt.id&&db.check_in===booking.check_in);
           const src=dbMatch?.source||booking.source||'other';
           cellBg=srcColors[src]||'#666';
           
-          // Show price on first day of booking
           if(dayStr===booking.check_in){
             const price=dbMatch?.total_price;
             const guest=dbMatch?.guest_name;
-            cellContent=price?'<span style="font-size:9px;color:#fff;font-weight:500">'+Math.round(price/booking.nights)+'</span>':'';
+            const initials=guest?guest.split(' ').map(w=>w[0]).join('').substring(0,2):'';
+            cellContent=price?'<span style="font-size:8px;color:#fff;font-weight:500">'+Math.round(price/booking.nights)+'</span>':'<span style="font-size:8px;color:rgba(255,255,255,.6)">'+initials+'</span>';
             title=(guest||'Гость')+' · '+(price?'$'+price:'')+' · '+booking.nights+' ноч. · '+src;
           }
           cursor='pointer';
+          onclick='showBookingDetail(\''+apt.id+'\',\''+booking.check_in+'\',\''+booking.check_out+'\')';
+        }else{
+          cursor='pointer';
+          onclick='chessCreateBooking(\''+apt.id+'\',\''+dayStr+'\')';
+          title='Нажмите чтобы создать бронь';
         }
         
         const isWeekend=new Date(chessYear,chessMonth,d).getDay()%6===0;
-        html+='<td style="padding:0;border-bottom:1px solid var(--line);border-right:1px solid '+(isWeekend?'rgba(231,76,60,.1)':'var(--line)')+';text-align:center;cursor:'+cursor+';'+(isToday&&!booking?'background:rgba(201,169,97,.06);':'')+(booking?'background:'+cellBg+';':'')+ '" title="'+title.replace(/"/g,"&quot;")+'"'+(booking?' onclick="showBookingDetail(\''+apt.id+'\',\''+booking.check_in+'\',\''+booking.check_out+'\')"':'')+'>'+cellContent+'</td>';
+        html+='<td style="padding:0;height:28px;border-bottom:1px solid var(--line);border-right:1px solid '+(isWeekend?'rgba(231,76,60,.08)':'var(--line)')+';text-align:center;cursor:'+cursor+';'+(isToday&&!booking?'background:rgba(201,169,97,.06);':'')+(booking?'background:'+cellBg+';':'')+'" title="'+title.replace(/"/g,'&quot;')+'" onclick="'+onclick+'">'+cellContent+'</td>';
       }
       html+='</tr>';
     });
@@ -2301,9 +2309,23 @@ function renderChessGrid(){
   html+='</tbody></table>';
   el.innerHTML=html;
   
-  // Stats
+  // Stats with complex breakdown
   const occPct=totalCells>0?Math.round(totalOccupied/totalCells*100):0;
-  document.getElementById('chessStats').innerHTML='<span>Загрузка месяца: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong></span><span>Занято: <strong>'+totalOccupied+'</strong> / '+totalCells+' ночей</span><span>Апартаментов: <strong>'+apts.length+'</strong></span>';
+  let complexStats='';
+  Object.entries(groups).forEach(([cx,aptList])=>{
+    const cxTotal=aptList.length*daysInMonth;
+    let cxOcc=0;
+    aptList.forEach(apt=>{
+      const aptBookings=chessIcalData.filter(b=>b.apartment_id===apt.id);
+      for(let d=1;d<=daysInMonth;d++){
+        const ds=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        if(aptBookings.some(b=>ds>=b.check_in&&ds<b.check_out))cxOcc++;
+      }
+    });
+    const cxPct=cxTotal>0?Math.round(cxOcc/cxTotal*100):0;
+    complexStats+='<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:'+(cxColors[cx]||'#888')+'"></span>'+cx+': <strong style="color:'+(cxPct>80?'var(--green)':cxPct>50?'var(--gold)':'var(--red)')+'">'+cxPct+'%</strong></span>';
+  });
+  document.getElementById('chessStats').innerHTML='<span>Общая загрузка: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong></span><span>Занято: <strong>'+totalOccupied+'</strong>/'+totalCells+'</span>'+complexStats;
 }
 
 function showBookingDetail(aptId,checkIn,checkOut){
@@ -2314,18 +2336,107 @@ function showBookingDetail(aptId,checkIn,checkOut){
   const srcNames={airbnb:'Airbnb',booking:'Booking.com',ostrovok:'Ostrovok',sutochno:'Sutochno',yandex:'Яндекс',website:'Сайт',other:'RealtyCalendar'};
   const srcIcons={airbnb:'🏠',booking:'📘',ostrovok:'🟢',sutochno:'🔵',yandex:'🟡',website:'🌐',other:'📋'};
   
+  const nights=icalB?.nights||Math.round((new Date(checkOut)-new Date(checkIn))/(86400000))||1;
+  const pricePerNight=dbB?.total_price?Math.round(dbB.total_price/nights):0;
+  
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
   modal.onclick=(e)=>{if(e.target===modal)modal.remove()};
-  modal.innerHTML='<div style="background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px;min-width:360px;max-width:500px"><h3 style="font-size:16px;font-weight:400;margin-bottom:16px">'+(srcIcons[src]||'📋')+' '+(apt?.name||aptId)+'</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">'
-  +'<div><span style="color:var(--ink-d)">Площадка:</span><br><strong>'+(srcNames[src]||src)+'</strong></div>'
-  +'<div><span style="color:var(--ink-d)">Гость:</span><br><strong>'+(dbB?.guest_name||'—')+'</strong></div>'
-  +'<div><span style="color:var(--ink-d)">Цена:</span><br><strong style="color:var(--gold)">'+(dbB?.total_price?'$'+dbB.total_price:'—')+'</strong></div>'
-  +'<div><span style="color:var(--ink-d)">Ночей:</span><br><strong>'+(icalB?.nights||'—')+'</strong></div>'
-  +'<div><span style="color:var(--ink-d)">Заезд:</span><br><strong>'+checkIn+'</strong></div>'
-  +'<div><span style="color:var(--ink-d)">Выезд:</span><br><strong>'+checkOut+'</strong></div>'
-  +'</div><div style="margin-top:16px;text-align:right"><button class="btn btn-outline" onclick="this.closest(\'div[style]\').parentElement.remove()">Закрыть</button></div></div>';
+  modal.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px;min-width:400px;max-width:520px">
+    <h3 style="font-size:16px;font-weight:400;margin-bottom:16px">${srcIcons[src]||'📋'} ${apt?.name||aptId} <span style="font-size:11px;color:var(--ink-d)">${apt?.complex||''}</span></h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:13px;margin-bottom:16px">
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ПЛОЩАДКА</div><div style="font-size:14px;margin-top:2px">${srcIcons[src]||'📋'} ${srcNames[src]||src}</div></div>
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ЦЕНА</div><div style="font-size:14px;color:var(--gold);margin-top:2px">${dbB?.total_price?'$'+dbB.total_price:'—'}</div></div>
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ЗА НОЧЬ</div><div style="font-size:14px;color:var(--gold);margin-top:2px">${pricePerNight?'$'+pricePerNight:'—'}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+      <div><span style="color:var(--ink-d)">Гость:</span><br><strong>${dbB?.guest_name||'—'}</strong></div>
+      <div><span style="color:var(--ink-d)">Ночей:</span><br><strong>${nights}</strong></div>
+      <div><span style="color:var(--ink-d)">Заезд:</span><br><strong style="color:var(--green)">${checkIn}</strong></div>
+      <div><span style="color:var(--ink-d)">Выезд:</span><br><strong style="color:var(--red)">${checkOut}</strong></div>
+    </div>
+    ${icalB?.summary?'<div style="margin-top:12px;padding:8px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--ink-d)">RC: '+icalB.summary+'</div>':''}
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" style="font-size:11px;color:var(--red)" onclick="chessDeleteBooking('${aptId}','${checkIn}')">🗑 Удалить</button>
+      <button class="btn btn-outline" onclick="this.closest('div[style*=fixed]').remove()">Закрыть</button>
+    </div>
+  </div>`;
   document.body.appendChild(modal);
+}
+
+function chessCreateBooking(aptId,startDate){
+  const apt=window._allApts?.find(a=>a.id===aptId);
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove()};
+  
+  // Calculate default checkout (next day)
+  const start=new Date(startDate);
+  const end=new Date(start);end.setDate(end.getDate()+1);
+  const endStr=end.toISOString().split('T')[0];
+  
+  modal.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px;min-width:420px;max-width:520px">
+    <h3 style="font-size:16px;font-weight:400;margin-bottom:16px">➕ Новая бронь — ${apt?.name||aptId} <span style="font-size:11px;color:var(--ink-d)">${apt?.complex||''}</span></h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div><label style="font-size:11px;color:var(--ink-m)">Заезд</label><input type="date" id="chessCI" value="${startDate}" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+      <div><label style="font-size:11px;color:var(--ink-m)">Выезд</label><input type="date" id="chessCO" value="${endStr}" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div><label style="font-size:11px;color:var(--ink-m)">Имя гостя</label><input type="text" id="chessGuest" placeholder="Имя Фамилия" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+      <div><label style="font-size:11px;color:var(--ink-m)">Телефон</label><input type="text" id="chessPhone" placeholder="+998..." style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div><label style="font-size:11px;color:var(--ink-m)">Цена ($)</label><input type="number" id="chessPrice" placeholder="0" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+      <div><label style="font-size:11px;color:var(--ink-m)">Источник</label><select id="chessSrc" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"><option value="website">🌐 Сайт</option><option value="airbnb">🏠 Airbnb</option><option value="booking">📘 Booking</option><option value="ostrovok">🟢 Ostrovok</option><option value="yandex">🟡 Яндекс</option><option value="sutochno">🔵 Sutochno</option><option value="phone">📞 Телефон</option><option value="blocked">🔒 Блокировка</option></select></div>
+    </div>
+    <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--ink-m)">Заметка</label><input type="text" id="chessNote" placeholder="Примечание..." style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--ink);font-family:inherit"></div>
+    <div id="chessErr" style="display:none;color:var(--red);font-size:11px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="this.closest('div[style*=fixed]').remove()">Отмена</button>
+      <button class="btn" onclick="chessSaveBooking('${aptId}')">💾 Сохранить</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function chessSaveBooking(aptId){
+  const ci=document.getElementById('chessCI').value;
+  const co=document.getElementById('chessCO').value;
+  const guest=document.getElementById('chessGuest').value;
+  const phone=document.getElementById('chessPhone').value;
+  const price=parseFloat(document.getElementById('chessPrice').value)||0;
+  const src=document.getElementById('chessSrc').value;
+  const note=document.getElementById('chessNote').value;
+  const errEl=document.getElementById('chessErr');
+  
+  if(!ci||!co){errEl.textContent='Укажите даты';errEl.style.display='block';return}
+  if(ci>=co){errEl.textContent='Выезд должен быть позже заезда';errEl.style.display='block';return}
+  
+  const isBlock=src==='blocked';
+  const{error}=await sb.from('bookings').insert({
+    apartment_id:aptId,
+    guest_name:isBlock?'🔒 БЛОКИРОВКА':(guest||'Гость'),
+    guest_phone:phone||'',
+    check_in:ci,
+    check_out:co,
+    total_price:price,
+    source:src,
+    status:isBlock?'blocked':'confirmed',
+    admin_notes:note||''
+  });
+  
+  if(error){errEl.textContent='Ошибка: '+error.message;errEl.style.display='block';return}
+  
+  // Close modal and reload
+  document.querySelector('div[style*="position:fixed"]')?.remove();
+  loadChessmate();
+}
+
+async function chessDeleteBooking(aptId,checkIn){
+  if(!confirm('Удалить эту бронь из Supabase?'))return;
+  await sb.from('bookings').delete().eq('apartment_id',aptId).eq('check_in',checkIn);
+  document.querySelector('div[style*="position:fixed"]')?.remove();
+  loadChessmate();
 }
 
 // Init scaling tab
