@@ -147,8 +147,8 @@ exports.handler = async (event) => {
     }
 
     // Send Telegram notification
-    const tgToken = process.env.TG_BOT_TOKEN;
-    const tgChat = process.env.TG_CHAT_ID;
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TG_BOT_TOKEN;
+    const tgChat = process.env.TELEGRAM_CHAT_ID || process.env.TG_CHAT_ID;
     if (tgToken && tgChat) {
       const srcIcons = {airbnb:'🏠',booking:'📘',ostrovok:'🟢',sutochno:'🔵',yandex:'🟡','101hotels':'🏨',other:'📋'};
       const msg = `📥 *Новая бронь из RealtyCalendar*\n\n` +
