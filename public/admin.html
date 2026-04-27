@@ -1368,22 +1368,56 @@ const COMPLEX_MAP={nest:'Nest One',utower:'U-Tower',utower2:'U-Tower',mirabad:'M
 const COMPLEX_COLORS={nest:'#2ecc71',utower:'#3498db',utower2:'#3498db',mirabad:'#e67e22',kislorod:'#e74c3c'};
 function getComplex(aptId){const p=aptId.split('_')[0];return{name:COMPLEX_MAP[p]||p,color:COMPLEX_COLORS[p]||'#888'}}
 
-function renderTodayList(items,el){
+function renderTodayList(items,el,bookingsDB){
   if(!items||!items.length){el.textContent='Нет на сегодня';return}
-  // Group by complex
   const groups={};
   items.forEach(b=>{
     const apt=window._allApts?.find(a=>a.id===b.apartment_id);
     const cx=getComplex(b.apartment_id);
     if(!groups[cx.name])groups[cx.name]={color:cx.color,items:[]};
-    groups[cx.name].items.push({name:apt?.name||b.apartment_id,source:b.source,summary:b.summary,nights:b.nights});
+    // Match with Supabase booking by apartment + date
+    let dbMatch=null;
+    if(bookingsDB&&bookingsDB.length){
+      dbMatch=bookingsDB.find(db=>db.apartment_id===b.apartment_id&&(db.check_in===b.check_in||db.check_out===b.check_out));
+    }
+    // Extract RC booking number from summary like "RC(135534611)"
+    const rcMatch=b.summary?.match(/RC\((\d+)\)/);
+    const rcId=rcMatch?rcMatch[1]:null;
+    
+    groups[cx.name].items.push({
+      name:apt?.name||b.apartment_id,
+      source:dbMatch?.source||b.source||'other',
+      nights:b.nights||0,
+      guest:dbMatch?.guest_name||null,
+      price:dbMatch?.total_price||null,
+      checkIn:b.check_in||'',
+      checkOut:b.check_out||'',
+      rcId:rcId,
+      hasDB:!!dbMatch,
+      notes:dbMatch?.admin_notes||''
+    });
   });
+  
+  const srcIcons={airbnb:'🏠',booking:'📘',website:'🌐',telegram:'📱','101hotels':'🏨',other:'📋',blocked:'🔒',phone:'📞'};
+  const srcNames={airbnb:'Airbnb',booking:'Booking.com',website:'urbanluxe.cc',telegram:'Telegram',phone:'Телефон','101hotels':'101Hotels',other:'RealtyCalendar',blocked:'Блокировка'};
+  
   el.innerHTML=Object.entries(groups).map(([name,g])=>{
-    const items=g.items.map(i=>{
-      const srcIcons={airbnb:'🏠',booking:'📘',website:'🌐',telegram:'📱','101hotels':'🏨',other:'📋',blocked:'🔒'};
-      return`<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="font-size:14px">${srcIcons[i.source]||'📋'}</span><strong style="font-size:12px">${i.name}</strong><span style="font-size:10px;color:var(--ink-d)">${i.nights?i.nights+' ноч.':''}</span></div>`;
+    const itemsH=g.items.map((i,idx)=>{
+      const uid='td_'+name.replace(/\s/g,'')+'_'+idx;
+      const srcIcon=srcIcons[i.source]||'📋';
+      const hasFull=i.hasDB&&i.guest;
+      
+      return`<div style="margin-bottom:2px"><div onclick="var e=document.getElementById('${uid}');e.style.display=e.style.display==='none'?'block':'none'" style="display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;border-radius:4px;transition:background .2s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'"><span style="font-size:14px">${srcIcon}</span><strong style="font-size:12px;flex:1">${i.name}</strong><span style="font-size:10px;color:var(--ink-d)">${i.nights} ноч.</span>${i.price?'<span style="font-size:10px;color:var(--gold)">$'+Number(i.price).toLocaleString()+'</span>':''}<span style="font-size:9px;color:var(--ink-d)">▼</span></div>`
+      +`<div id="${uid}" style="display:none;padding:8px 12px;margin:2px 0 6px 26px;background:var(--bg3);border-radius:6px;border-left:3px solid ${g.color};font-size:11px">`
+      +(hasFull?
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span style="color:var(--ink-d)">Площадка:</span><br><strong>${srcIcon} ${srcNames[i.source]||i.source}</strong></div><div><span style="color:var(--ink-d)">Гость:</span><br><strong>${i.guest}</strong></div><div><span style="color:var(--ink-d)">Цена:</span><br><strong style="color:var(--gold)">$${Number(i.price).toLocaleString()}</strong></div><div><span style="color:var(--ink-d)">Ночей:</span><br><strong>${i.nights}</strong></div><div><span style="color:var(--ink-d)">Заезд:</span><br>${i.checkIn}</div><div><span style="color:var(--ink-d)">Выезд:</span><br>${i.checkOut}</div></div>`
+        :
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><span style="color:var(--ink-d)">Источник:</span><br><strong>📋 RealtyCalendar</strong></div><div><span style="color:var(--ink-d)">Бронь №:</span><br><strong>${i.rcId||'—'}</strong></div><div><span style="color:var(--ink-d)">Ночей:</span><br><strong>${i.nights}</strong></div><div><span style="color:var(--ink-d)">Даты:</span><br>${i.checkIn} → ${i.checkOut}</div></div><div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--line);color:var(--ink-d);font-size:10px">ℹ️ Имя гостя, цена и площадка доступны в <a href="https://realtycalendar.ru/bookings/${i.rcId||''}" target="_blank" style="color:var(--gold)">RealtyCalendar</a>. Добавьте бронирование через вкладку "Бронирования" для полных данных.</div>`
+      )
+      +(i.notes?'<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line);color:var(--ink-d)">📝 '+i.notes+'</div>':'')
+      +`</div></div>`;
     }).join('');
-    return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:${g.color}">${name} (${g.items.length})</span></div>${items}</div>`;
+    return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:${g.color}">${name} (${g.items.length})</span></div>${itemsH}</div>`;
   }).join('');
 }
 
@@ -1392,8 +1426,12 @@ async function loadTodayWidget(){
     const r=await fetch('/.netlify/functions/sync-ical');
     const d=await r.json();
     
-    renderTodayList(d.checkins,document.getElementById('todayCheckins'));
-    renderTodayList(d.checkouts,document.getElementById('todayCheckouts'));
+    // Fetch bookings from Supabase for guest names & prices
+    const today=new Date().toISOString().split('T')[0];
+    const{data:dbBookings}=await sb.from('bookings').select('apartment_id,guest_name,guest_phone,total_price,check_in,check_out,source,admin_notes,status').or(`check_in.eq.${today},check_out.eq.${today}`).neq('status','cancelled');
+    
+    renderTodayList(d.checkins,document.getElementById('todayCheckins'),dbBookings||[]);
+    renderTodayList(d.checkouts,document.getElementById('todayCheckouts'),dbBookings||[]);
     
     // Messages + stats
     const{data:msgs}=await sb.from('messages').select('conversation_id').eq('sender_role','guest').eq('is_read',false);
