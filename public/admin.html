@@ -297,6 +297,10 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <button class="btn btn-sm btn-outline" onclick="showScaleTab('complexes')">🏢 Комплексы</button>
 <button class="btn btn-sm btn-outline" onclick="showScaleTab('roi')">💰 ROI</button>
 <button class="btn btn-sm btn-outline" onclick="showScaleTab('actions')">⚡ Действия</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('team')">👥 Команда</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('roadmap')">🗓️ Дорожная карта</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('simulator')">📈 Симулятор 10x</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('leaders')">🌍 Лидеры мира</button>
 </div>
 
 <div id="scaleContent">
@@ -2023,6 +2027,68 @@ function showScaleTab(id){
   if(id==='actions'){
     el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Что делать прямо сейчас</h3><div style="display:grid;gap:4px">'+SCALE_ACTIONS.map(a=>'<div style="display:grid;grid-template-columns:24px 2.5fr 1.5fr 0.8fr 0.8fr;gap:8px;padding:8px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;font-size:11px;align-items:center"><span style="font-size:14px">'+a.p+'</span><strong>'+a.a+'</strong><span style="color:var(--green)">'+a.i+'</span><span style="color:var(--gold)">'+a.c+'</span><span style="color:var(--ink-d)">'+a.t+'</span></div>').join('')+'</div><div style="margin-top:8px;font-size:10px;color:var(--ink-d);display:grid;grid-template-columns:24px 2.5fr 1.5fr 0.8fr 0.8fr;gap:8px;padding:4px 12px"><span></span><span>ДЕЙСТВИЕ</span><span>ВЛИЯНИЕ</span><span>ЦЕНА</span><span>ВРЕМЯ</span></div>';
   }
+
+  if(id==='team'){
+    const units=parseInt(document.getElementById('dAp')?.textContent||22);
+    const calcTeam=(n)=>{
+      const t=[
+        {r:'Операционный менеджер',per:50,s:'$1500-2000'},
+        {r:'Клининг-менеджер',per:40,s:'$800-1000'},
+        {r:'Клинер',per:8,s:'200K сум/день'},
+        {r:'Техник',per:50,s:'$600-800'},
+        {r:'Контент-менеджер',per:100,s:'$800-1200'},
+        {r:'Revenue менеджер',per:80,s:'$1000-1500'},
+        {r:'Бухгалтер',per:100,s:'$600-800'},
+        {r:'Закупщик',per:60,s:'$400-600'},
+      ];
+      return t.map(x=>({...x,count:Math.max(1,Math.ceil(n/x.per))}));
+    };
+    el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Калькулятор команды</h3>'
+    +'<div style="margin-bottom:16px"><label style="font-size:11px;color:var(--ink-m)">Количество апартаментов: <strong id="teamUnitsV" style="color:var(--gold);font-size:16px">'+units+'</strong></label><br><input type="range" id="teamUnits" min="22" max="200" value="'+units+'" oninput="updateTeam()" style="width:100%;accent-color:var(--gold)"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+    +'<div style="background:var(--bg2);border:1px solid var(--line);padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d);text-transform:uppercase">Всего сотрудников</div><div id="teamTotal" style="font-size:28px;font-family:Playfair Display,serif;color:var(--gold)">'+calcTeam(units).reduce((s,x)=>s+x.count,0)+'</div></div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--line);padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d);text-transform:uppercase">Клинеров</div><div id="teamCleaners" style="font-size:28px;font-family:Playfair Display,serif">'+calcTeam(units).find(x=>x.r==='Клинер').count+'</div></div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--line);padding:14px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d);text-transform:uppercase">1 клинер на</div><div style="font-size:28px;font-family:Playfair Display,serif">8 <span style="font-size:12px;color:var(--ink-d)">апт.</span></div></div></div>'
+    +'<div id="teamTable" style="background:var(--bg2);border:1px solid var(--line);border-radius:8px;overflow:hidden">'+calcTeam(units).map(s=>'<div style="display:grid;grid-template-columns:2fr 0.6fr 0.8fr 1fr;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:11px"><strong>'+s.r+'</strong><span style="color:var(--gold);font-size:14px;font-weight:500">'+s.count+'</span><span style="color:var(--ink-d)">/'+s.per+' юн.</span><span>'+s.s+'</span></div>').join('')+'</div>';
+  }
+
+  if(id==='roadmap'){
+    const phases=[
+      {q:'Q1 (0-3 мес)',t:'ДОМИНИРОВАНИЕ',c:'var(--red)',u:'22→40',r:'$52K→$95K',tasks:['+10 Nest One','+5 U-Tower','+2 Kislorod','Pricelabs','Фото всех 22','Smart locks','HighLife партнёрство','Booking.com','Google Ads $300/мес']},
+      {q:'Q2 (3-6 мес)',t:'ЭКСПАНСИЯ',c:'#e67e22',u:'40→70',r:'$95K→$180K',tasks:['+8 Boulevard','+6 Gardens','+4 Modera','+3 U-Tower','+1 менеджер','+3 клинера','Корпоративные','Revenue менеджер','Instagram 3/нед']},
+      {q:'Q3-Q4 (6-12 мес)',t:'МАСШТАБ',c:'var(--gold)',u:'70→120',r:'$180K→$310K',tasks:['+8 Akay City','+6 Skyline','+6 Prestige','+5 Baroque','Guesty PMS','Turno клининг','Авто-сообщения','Самарканд пилот','HR + бухгалтер']},
+      {q:'Q5-Q6 (12-18 мес)',t:'10X ЦЕЛЬ',c:'var(--green)',u:'120→160+',r:'$310K→$500K+',tasks:['+4 Parisien','+6 Seoul','+6 Minor','+20 новые','Самарканд 10-20','Бренд-отель','Управление (20-30%)','AI-консьерж','Инвесторы / IPO']},
+    ];
+    el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">18 месяцев до 10x</h3>'+phases.map(p=>'<div style="display:flex;gap:12px;margin-bottom:14px"><div style="width:4px;background:'+p.c+';border-radius:2px;flex-shrink:0"></div><div style="flex:1;background:var(--bg2);border:1px solid var(--line);padding:14px;border-radius:8px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><h4 style="font-size:14px;font-weight:400;margin:0;color:'+p.c+'">'+p.q+' — '+p.t+'</h4></div><div style="text-align:right"><div style="font-size:11px;color:var(--ink-m)">'+p.u+'</div><div style="font-size:15px;color:var(--green)">'+p.r+'</div></div></div><div style="display:flex;gap:4px;flex-wrap:wrap">'+p.tasks.map(t=>'<span style="font-size:10px;padding:3px 8px;background:var(--bg3);border-radius:3px;color:var(--ink-m)">→ '+t+'</span>').join('')+'</div></div></div>').join('')
+    +'<div style="background:rgba(201,169,97,.06);border:1px solid rgba(201,169,97,.15);padding:12px;border-radius:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center;font-size:11px">'+[{l:'Сейчас',u:22,r:'$52K',x:'1x'},{l:'Ф1',u:40,r:'$95K',x:'1.8x'},{l:'Ф2',u:70,r:'$180K',x:'3.5x'},{l:'Ф3',u:120,r:'$310K',x:'6x'},{l:'Ф4',u:160,r:'$500K+',x:'10x'}].map(f=>'<div style="padding:8px;background:var(--bg2);border-radius:6px"><div style="font-size:9px;color:var(--ink-d)">'+f.l+'</div><div style="font-size:18px;color:var(--gold)">'+f.x+'</div><div style="color:var(--ink-m)">'+f.u+' юн.</div></div>').join('')+'</div>';
+  }
+
+  if(id==='simulator'){
+    el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Симулятор роста 10x</h3>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div style="background:var(--bg2);border:1px solid var(--line);padding:16px;border-radius:8px">'
+    +'<label style="font-size:11px;color:var(--ink-m)">Апартаментов: <strong id="simUV" style="color:var(--gold);font-size:15px">22</strong></label><br><input type="range" id="simU" min="22" max="300" value="22" oninput="calcSim()" style="width:100%;accent-color:var(--gold)"><br>'
+    +'<label style="font-size:11px;color:var(--ink-m)">ADR ($/ночь): <strong id="simAV" style="color:var(--gold);font-size:15px">$96</strong></label><br><input type="range" id="simA" min="50" max="200" value="96" oninput="calcSim()" style="width:100%;accent-color:var(--gold)"><br>'
+    +'<label style="font-size:11px;color:var(--ink-m)">Загрузка: <strong id="simOV" style="color:var(--gold);font-size:15px">94%</strong></label><br><input type="range" id="simO" min="50" max="100" value="94" oninput="calcSim()" style="width:100%;accent-color:var(--gold)">'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:12px">'+[{l:'Ф1',u:40,a:100,o:90},{l:'Ф2',u:70,a:110,o:88},{l:'Ф3',u:120,a:120,o:87},{l:'Ф4',u:160,a:130,o:85},{l:'ЦЕЛЬ',u:200,a:140,o:85},{l:'MAX',u:300,a:150,o:85}].map(p=>'<button class="btn btn-sm btn-outline" style="font-size:9px;padding:3px" onclick="document.getElementById(\'simU\').value='+p.u+';document.getElementById(\'simA\').value='+p.a+';document.getElementById(\'simO\').value='+p.o+';calcSim()">'+p.l+' ('+p.u+')</button>').join('')+'</div>'
+    +'</div><div style="background:var(--bg2);border:1px solid var(--line);padding:16px;border-radius:8px;text-align:center">'
+    +'<div id="simResult"><div style="font-size:42px;font-family:Playfair Display,serif;color:var(--gold)">$59,314</div><div style="font-size:12px;color:var(--ink-m)">валовый доход / мес</div><div style="font-size:24px;color:var(--gold);margin-top:8px">1.1x</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><div style="background:var(--bg3);padding:8px;border-radius:6px"><div style="font-size:8px;color:var(--ink-d)">ПРИБЫЛЬ/МЕС</div><div style="font-size:16px;color:var(--green)">$26,098</div></div><div style="background:var(--bg3);padding:8px;border-radius:6px"><div style="font-size:8px;color:var(--ink-d)">ПРИБЫЛЬ/ГОД</div><div style="font-size:16px;color:var(--green)">$313,176</div></div></div></div>'
+    +'</div></div>';
+    calcSim();
+  }
+
+  if(id==='leaders'){
+    const leaders=[
+      {n:'Casago-Vacasa',u:'43,000',c:'USA',y:2001,s:'M&A',k:'Купили Vacasa за $47M',l:'Масштаб через покупку',r:'Vacasa -97% стоимости'},
+      {n:'Awaze',u:'110,000',c:'EU 36 стран',y:1994,s:'Multi-brand',k:'Wyndham продал за $1.3B',l:'Диверсификация по странам',r:'Сложность 36 стран'},
+      {n:'Evolve',u:'30,000',c:'USA',y:2011,s:'Tech-first',k:'$400M+ привлечено, 10x за 5 лет',l:'Технологии = быстрый рост',r:'Зависимость от OTA'},
+      {n:'Sykes',u:'21,000',c:'UK',y:2009,s:'Качество',k:'British Travel Award 8 лет',l:'Качество + бренд = устойчивость',r:'Только UK'},
+      {n:'Houst',u:'7,000',c:'UK/EU',y:2015,s:'Urban STR',k:'0→7K за 10 лет',l:'Городские апартаменты',r:'Регулирование'},
+      {n:'Sonder ☠️',u:'БАНКРОТ',c:'USA',y:2014,s:'Lease',k:'Банкротство 2025',l:'Рост без прибыли = смерть',r:'$500M сгорело'},
+    ];
+    el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Топ компании STR мира — уроки для Urban Luxe</h3>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin-bottom:16px">'+leaders.map(l=>'<div style="background:'+(l.n.includes('☠️')?'rgba(231,76,60,.04)':'var(--bg2)')+';border:1px solid '+(l.n.includes('☠️')?'rgba(231,76,60,.2)':'var(--line)')+';padding:14px;border-radius:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong style="font-size:13px">'+l.n+'</strong><span style="font-size:16px;font-family:Playfair Display,serif;color:'+(l.u==='БАНКРОТ'?'var(--red)':'var(--gold)')+'">'+l.u+'</span></div><div style="font-size:10px;color:var(--ink-d);margin-bottom:6px">📍 '+l.c+' · '+l.y+' · '+l.s+'</div><div style="font-size:11px;color:var(--ink-m);line-height:1.6"><div>🚀 '+l.k+'</div><div style="color:var(--green)">✅ '+l.l+'</div><div style="color:'+(l.n.includes('☠️')?'var(--red)':'#e67e22')+'">⚠️ '+l.r+'</div></div></div>').join('')+'</div>'
+    +'<div style="background:rgba(201,169,97,.06);border:1px solid rgba(201,169,97,.15);padding:14px;border-radius:8px"><h4 style="font-size:13px;font-weight:400;color:var(--gold);margin-bottom:8px">💡 3 главных урока</h4><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:11px;color:var(--ink-m)"><div><strong style="color:var(--green)">Качество > Количество</strong><br>Ваш рейтинг 5.0 — главный актив. Не жертвуйте им ради скорости.</div><div><strong style="color:var(--gold)">Технологии = рост</strong><br>Pricelabs, AI pricing, автоматизация. 52% операторов уже используют AI.</div><div><strong style="color:var(--red)">Unit Economics!</strong><br>Sonder сжёг $500M без прибыли. Каждый юнит должен быть прибыльным.</div></div></div>';
+  }
 }
 
 function setROIPreset(type){
@@ -2059,6 +2125,38 @@ function calcROI(){
 
 // Init scaling tab
 setTimeout(()=>{try{showScaleTab('platforms')}catch(e){}},500);
+
+function updateTeam(){
+  const n=parseInt(document.getElementById('teamUnits').value);
+  document.getElementById('teamUnitsV').textContent=n;
+  const t=[
+    {r:'Операционный менеджер',per:50,s:'$1500-2000'},
+    {r:'Клининг-менеджер',per:40,s:'$800-1000'},
+    {r:'Клинер',per:8,s:'200K сум/день'},
+    {r:'Техник',per:50,s:'$600-800'},
+    {r:'Контент-менеджер',per:100,s:'$800-1200'},
+    {r:'Revenue менеджер',per:80,s:'$1000-1500'},
+    {r:'Бухгалтер',per:100,s:'$600-800'},
+    {r:'Закупщик',per:60,s:'$400-600'},
+  ].map(x=>({...x,count:Math.max(1,Math.ceil(n/x.per))}));
+  document.getElementById('teamTotal').textContent=t.reduce((s,x)=>s+x.count,0);
+  document.getElementById('teamCleaners').textContent=t.find(x=>x.r==='Клинер').count;
+  document.getElementById('teamTable').innerHTML=t.map(s=>'<div style="display:grid;grid-template-columns:2fr 0.6fr 0.8fr 1fr;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:11px"><strong>'+s.r+'</strong><span style="color:var(--gold);font-size:14px;font-weight:500">'+s.count+'</span><span style="color:var(--ink-d)">/'+s.per+' юн.</span><span>'+s.s+'</span></div>').join('');
+}
+
+function calcSim(){
+  const u=parseInt(document.getElementById('simU')?.value||22);
+  const a=parseInt(document.getElementById('simA')?.value||96);
+  const o=parseInt(document.getElementById('simO')?.value||94);
+  document.getElementById('simUV').textContent=u;
+  document.getElementById('simAV').textContent='$'+a;
+  document.getElementById('simOV').textContent=o+'%';
+  const rev=Math.round(u*a*30*(o/100));
+  const profit=Math.round(rev*0.44);
+  const mult=(rev/51887).toFixed(1);
+  const col=parseFloat(mult)>=10?'var(--green)':'var(--gold)';
+  document.getElementById('simResult').innerHTML='<div style="font-size:42px;font-family:Playfair Display,serif;color:var(--gold)">$'+rev.toLocaleString()+'</div><div style="font-size:12px;color:var(--ink-m)">валовый доход / мес</div><div style="font-size:24px;color:'+col+';margin-top:8px">'+mult+'x'+(parseFloat(mult)>=10?' ✅ ЦЕЛЬ!':'')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><div style="background:var(--bg3);padding:8px;border-radius:6px"><div style="font-size:8px;color:var(--ink-d)">ПРИБЫЛЬ/МЕС</div><div style="font-size:16px;color:var(--green)">$'+profit.toLocaleString()+'</div></div><div style="background:var(--bg3);padding:8px;border-radius:6px"><div style="font-size:8px;color:var(--ink-d)">ПРИБЫЛЬ/ГОД</div><div style="font-size:16px;color:var(--green)">$'+(profit*12).toLocaleString()+'</div></div></div>';
+}
 
 checkAuth();
 
