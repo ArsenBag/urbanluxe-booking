@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div><div class="tab" onclick="switchTab('scaling',this)" style="color:var(--gold)">🚀 Масштаб</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div><div class="tab" onclick="switchTab('chess',this)" style="color:#3498db">📅 Шахматка</div><div class="tab" onclick="switchTab('scaling',this)" style="color:var(--gold)">🚀 Масштаб</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- AUTO-REFRESH INDICATOR -->
@@ -286,6 +286,29 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div>
 <div id="amErr" class="error" style="display:none"></div>
 <div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
+
+<!-- CHESSMATE / ШАХМАТКА -->
+<div class="section" id="tab-chess">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h2 style="font-size:20px;font-weight:400">📅 Шахматка <span class="data-src data-src-ical">iCal + Supabase</span></h2>
+<div style="display:flex;gap:8px;align-items:center">
+<button class="btn btn-sm btn-outline" onclick="chessChangeMonth(-1)">← Пред</button>
+<span id="chessMonthLabel" style="font-size:14px;min-width:140px;text-align:center"></span>
+<button class="btn btn-sm btn-outline" onclick="chessChangeMonth(1)">След →</button>
+<button class="btn btn-sm" onclick="loadChessmate()" style="margin-left:8px">🔄</button>
+</div>
+</div>
+<div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--ink-d)">
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FF5A5F;border-radius:2px;display:inline-block"></span> Airbnb</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#003580;border-radius:2px;display:inline-block"></span> Booking</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#2ecc71;border-radius:2px;display:inline-block"></span> Ostrovok</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#f39c12;border-radius:2px;display:inline-block"></span> Яндекс</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gold);border-radius:2px;display:inline-block"></span> Сайт/Другое</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#333;border-radius:2px;display:inline-block"></span> Занято</span>
+</div>
+<div id="chessGrid" style="overflow-x:auto"><div class="loading">Загрузка шахматки...</div></div>
+<div id="chessStats" style="margin-top:16px;display:flex;gap:16px;font-size:12px;color:var(--ink-m)"></div>
+</div>
 
 <!-- SCALING TAB -->
 <div class="section" id="tab-scaling">
@@ -1355,6 +1378,7 @@ switchTab=function(t,btn){_origSwitch2(t,btn);
   if(t==='guests')loadGuests();
   if(t==='staff')loadTimesheet();
   if(t==='dash')loadTodayWidget();
+  if(t==='chess')loadChessmate();
 };
 
 setInterval(async()=>{
@@ -2159,6 +2183,149 @@ function calcROI(){
   +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">'
   +[{l:'МАРЖА',v:margin+'%'},{l:'ГОД',v:'$'+(profit*12).toLocaleString()},{l:'НОЧЕЙ',v:nights}].map(k=>'<div style="background:var(--bg3);padding:6px;border-radius:4px;text-align:center"><div style="font-size:8px;color:var(--ink-d)">'+k.l+'</div><div style="font-size:14px;color:var(--gold)">'+k.v+'</div></div>').join('')
   +'</div>';
+}
+
+// ============ CHESSMATE / ШАХМАТКА ============
+let chessMonth=new Date().getMonth();
+let chessYear=new Date().getFullYear();
+let chessIcalData=null;
+let chessDbData=null;
+
+function chessChangeMonth(delta){
+  chessMonth+=delta;
+  if(chessMonth>11){chessMonth=0;chessYear++}
+  if(chessMonth<0){chessMonth=11;chessYear--}
+  renderChessGrid();
+}
+
+async function loadChessmate(){
+  const el=document.getElementById('chessGrid');
+  el.innerHTML='<div style="color:var(--ink-d);text-align:center;padding:20px">Загрузка данных...</div>';
+  try{
+    const [icalR,dbR]=await Promise.all([
+      fetch('/.netlify/functions/sync-ical').then(r=>r.json()),
+      sb.from('bookings').select('apartment_id,guest_name,total_price,check_in,check_out,source,status').neq('status','cancelled')
+    ]);
+    chessIcalData=icalR.all_bookings||[];
+    chessDbData=dbR.data||[];
+    const label=document.getElementById('chessMonthLabel');
+    const months=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    label.textContent=months[chessMonth]+' '+chessYear;
+    renderChessGrid();
+  }catch(e){
+    el.innerHTML='<div style="color:var(--red)">Ошибка: '+e.message+'</div>';
+  }
+}
+
+function renderChessGrid(){
+  const el=document.getElementById('chessGrid');
+  const apts=window._allApts||[];
+  if(!apts.length||!chessIcalData){el.innerHTML='<div style="color:var(--ink-d)">Нет данных</div>';return}
+  
+  const months=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const label=document.getElementById('chessMonthLabel');
+  label.textContent=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][chessMonth]+' '+chessYear;
+  
+  const daysInMonth=new Date(chessYear,chessMonth+1,0).getDate();
+  const today=new Date().toISOString().split('T')[0];
+  const dayNames=['вс','пн','вт','ср','чт','пт','сб'];
+  
+  const srcColors={airbnb:'#FF5A5F',booking:'#003580',ostrovok:'#2ecc71',sutochno:'#3498db',yandex:'#f39c12',website:'var(--gold)',other:'#666',blocked:'#333'};
+  const cxColors={'Nest One':'#2ecc71','U-Tower':'#3498db','U-Tower 2':'#3498db','Mirabad':'#e67e22','Kislorod':'#e74c3c'};
+  
+  // Group apartments by complex
+  const groups={};
+  apts.forEach(a=>{
+    const cx=a.complex==='U-Tower 2'?'U-Tower':a.complex;
+    if(!groups[cx])groups[cx]=[];
+    groups[cx].push(a);
+  });
+  
+  // Header row with days
+  let html='<table style="border-collapse:collapse;width:100%;min-width:'+(200+daysInMonth*36)+'px;font-size:11px">';
+  html+='<thead><tr><th style="position:sticky;left:0;z-index:2;background:var(--bg);padding:6px 8px;text-align:left;min-width:160px;border-bottom:2px solid var(--line)">Апартамент</th>';
+  for(let d=1;d<=daysInMonth;d++){
+    const dt=new Date(chessYear,chessMonth,d);
+    const dayStr=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const isToday=dayStr===today;
+    const isWeekend=dt.getDay()===0||dt.getDay()===6;
+    html+='<th style="padding:2px 0;min-width:34px;text-align:center;border-bottom:2px solid var(--line);'+(isToday?'background:rgba(201,169,97,.15);':'')+(isWeekend?'color:var(--red);':'color:var(--ink-d);')+'"><div style="font-size:9px">'+dayNames[dt.getDay()]+'</div><div style="font-size:12px;font-weight:'+(isToday?'700':'400')+'">'+d+'</div></th>';
+  }
+  html+='</tr></thead><tbody>';
+  
+  // Render each complex group
+  let totalOccupied=0,totalCells=0;
+  Object.entries(groups).forEach(([cx,aptList])=>{
+    html+='<tr><td colspan="'+(daysInMonth+1)+'" style="padding:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:'+( cxColors[cx]||'var(--ink-d)')+';border-top:2px solid var(--line);background:var(--bg)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(cxColors[cx]||'#888')+';margin-right:6px"></span>'+cx+' ('+aptList.length+')</td></tr>';
+    
+    aptList.forEach(apt=>{
+      const aptBookings=[...chessIcalData.filter(b=>b.apartment_id===apt.id)];
+      
+      html+='<tr><td style="position:sticky;left:0;z-index:1;background:var(--bg2);padding:4px 8px;white-space:nowrap;border-bottom:1px solid var(--line);font-size:11px"><strong>'+apt.name+'</strong></td>';
+      
+      for(let d=1;d<=daysInMonth;d++){
+        const dayStr=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        const isToday=dayStr===today;
+        const booking=aptBookings.find(b=>dayStr>=b.check_in&&dayStr<b.check_out);
+        
+        totalCells++;
+        let cellBg='transparent';
+        let cellContent='';
+        let title='';
+        let cursor='default';
+        
+        if(booking){
+          totalOccupied++;
+          // Try to find DB booking for guest name & price
+          const dbMatch=chessDbData.find(db=>db.apartment_id===apt.id&&db.check_in===booking.check_in);
+          const src=dbMatch?.source||booking.source||'other';
+          cellBg=srcColors[src]||'#666';
+          
+          // Show price on first day of booking
+          if(dayStr===booking.check_in){
+            const price=dbMatch?.total_price;
+            const guest=dbMatch?.guest_name;
+            cellContent=price?'<span style="font-size:9px;color:#fff;font-weight:500">'+Math.round(price/booking.nights)+'</span>':'';
+            title=(guest||'Гость')+' · '+(price?'$'+price:'')+' · '+booking.nights+' ноч. · '+src;
+          }
+          cursor='pointer';
+        }
+        
+        const isWeekend=new Date(chessYear,chessMonth,d).getDay()%6===0;
+        html+='<td style="padding:0;border-bottom:1px solid var(--line);border-right:1px solid '+(isWeekend?'rgba(231,76,60,.1)':'var(--line)')+';text-align:center;cursor:'+cursor+';'+(isToday&&!booking?'background:rgba(201,169,97,.06);':'')+(booking?'background:'+cellBg+';':'')+ '" title="'+title.replace(/"/g,"&quot;")+'"'+(booking?' onclick="showBookingDetail(\''+apt.id+'\',\''+booking.check_in+'\',\''+booking.check_out+'\')"':'')+'>'+cellContent+'</td>';
+      }
+      html+='</tr>';
+    });
+  });
+  
+  html+='</tbody></table>';
+  el.innerHTML=html;
+  
+  // Stats
+  const occPct=totalCells>0?Math.round(totalOccupied/totalCells*100):0;
+  document.getElementById('chessStats').innerHTML='<span>Загрузка месяца: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong></span><span>Занято: <strong>'+totalOccupied+'</strong> / '+totalCells+' ночей</span><span>Апартаментов: <strong>'+apts.length+'</strong></span>';
+}
+
+function showBookingDetail(aptId,checkIn,checkOut){
+  const icalB=chessIcalData.find(b=>b.apartment_id===aptId&&b.check_in===checkIn);
+  const dbB=chessDbData.find(b=>b.apartment_id===aptId&&b.check_in===checkIn);
+  const apt=window._allApts?.find(a=>a.id===aptId);
+  const src=dbB?.source||icalB?.source||'other';
+  const srcNames={airbnb:'Airbnb',booking:'Booking.com',ostrovok:'Ostrovok',sutochno:'Sutochno',yandex:'Яндекс',website:'Сайт',other:'RealtyCalendar'};
+  const srcIcons={airbnb:'🏠',booking:'📘',ostrovok:'🟢',sutochno:'🔵',yandex:'🟡',website:'🌐',other:'📋'};
+  
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML='<div style="background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px;min-width:360px;max-width:500px"><h3 style="font-size:16px;font-weight:400;margin-bottom:16px">'+(srcIcons[src]||'📋')+' '+(apt?.name||aptId)+'</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">'
+  +'<div><span style="color:var(--ink-d)">Площадка:</span><br><strong>'+(srcNames[src]||src)+'</strong></div>'
+  +'<div><span style="color:var(--ink-d)">Гость:</span><br><strong>'+(dbB?.guest_name||'—')+'</strong></div>'
+  +'<div><span style="color:var(--ink-d)">Цена:</span><br><strong style="color:var(--gold)">'+(dbB?.total_price?'$'+dbB.total_price:'—')+'</strong></div>'
+  +'<div><span style="color:var(--ink-d)">Ночей:</span><br><strong>'+(icalB?.nights||'—')+'</strong></div>'
+  +'<div><span style="color:var(--ink-d)">Заезд:</span><br><strong>'+checkIn+'</strong></div>'
+  +'<div><span style="color:var(--ink-d)">Выезд:</span><br><strong>'+checkOut+'</strong></div>'
+  +'</div><div style="margin-top:16px;text-align:right"><button class="btn btn-outline" onclick="this.closest(\'div[style]\').parentElement.remove()">Закрыть</button></div></div>';
+  document.body.appendChild(modal);
 }
 
 // Init scaling tab
