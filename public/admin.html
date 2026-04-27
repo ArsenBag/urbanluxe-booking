@@ -75,14 +75,20 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
+<!-- AUTO-REFRESH INDICATOR -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<span id="autoRefreshTS" style="font-size:10px;color:var(--ink-d)"></span>
+<span style="font-size:10px;color:var(--green)">● Авто-обновление каждые 60 сек</span>
+</div>
 <!-- TODAY WIDGET -->
 <div style="margin-bottom:24px">
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:12px">&#9992; Заезды сегодня</h4><div id="todayCheckins" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
-<div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:12px">&#128682; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
-<div style="background:linear-gradient(135deg,rgba(201,169,97,.08),rgba(201,169,97,.02));border:1px solid rgba(201,169,97,.2);padding:20px;border-radius:8px"><h4 style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">&#128172; Сообщения &amp; Статистика</h4><div id="todayMessages" style="font-size:13px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">&#9992; Заезды сегодня</h4><div id="todayCheckins" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:10px">&#128682; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(201,169,97,.08),rgba(201,169,97,.02));border:1px solid rgba(201,169,97,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">&#128172; Сообщения</h4><div id="todayMessages" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(52,152,219,.08),rgba(52,152,219,.02));border:1px solid rgba(52,152,219,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#3498db;margin-bottom:10px">&#127968; Загрузка сегодня</h4><div id="todayOccupied" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 </div>
-<div id="todaySourceBar" style="display:none;background:var(--bg2);border:1px solid var(--line);padding:12px 20px;border-radius:8px;font-size:12px;color:var(--ink-m)"></div>
+<div id="todaySourceBar" style="display:none;background:var(--bg2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;font-size:11px;color:var(--ink-m)"></div>
 </div>
 <div id="notifBar" style="background:var(--bg2);border:1px solid var(--line);padding:12px 24px;margin-bottom:24px;display:none;flex-wrap:wrap;gap:8px;align-items:center"></div>
 <div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
@@ -90,25 +96,6 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div id="cplxBars" class="cplx"></div>
 <div class="chart-grid"><div class="feed"><h3>Последние бронирования <span class="data-src data-src-supabase">Supabase</span></h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели <span class="data-src data-src-sheets">Sheets</span></h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
 <div class="occ-grid"><h3>Календарь занятости <span class="data-src data-src-ical">RealtyCalendar iCal</span></h3><div id="occCal"><div class="loading pulse">Загрузка данных из RealtyCalendar...</div></div></div>
-</div>
-<!-- CALENDAR GANTT -->
-<div class="section" id="tab-calendar">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-<h2 style="font-size:20px;font-weight:400">Календарь загрузки <span class="data-src data-src-ical">RealtyCalendar</span></h2>
-<div style="display:flex;gap:8px;align-items:center">
-<button class="btn btn-sm btn-outline" onclick="calChangeMonth(-1)">← Пред</button>
-<span id="calMonthLabel" style="font-size:14px;min-width:140px;text-align:center"></span>
-<button class="btn btn-sm btn-outline" onclick="calChangeMonth(1)">След →</button>
-</div>
-</div>
-<div style="display:flex;gap:12px;margin-bottom:16px;font-size:11px;color:var(--ink-d)">
-<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FF5A5F;border-radius:2px;display:inline-block"></span> Airbnb</span>
-<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#003580;border-radius:2px;display:inline-block"></span> Booking</span>
-<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gold);border-radius:2px;display:inline-block"></span> Сайт</span>
-<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#888;border-radius:2px;display:inline-block"></span> Другое</span>
-<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#333;border-radius:2px;display:inline-block"></span> Заблокировано</span>
-</div>
-<div id="ganttGrid" style="overflow-x:auto"><div class="loading">Загрузка календаря...</div></div>
 </div>
 <!-- EXPENSES -->
 <div class="section" id="tab-expenses">
@@ -1392,6 +1379,17 @@ async function loadTodayWidget(){
     html+=`<div style="font-size:11px;color:var(--ink-d);border-top:1px solid var(--line);padding-top:8px;margin-top:8px">Активных броней: <strong style="color:var(--ink)">${d.total_bookings}</strong><br>Заездов: <strong style="color:var(--green)">${d.today_checkins}</strong> · Выездов: <strong style="color:var(--red)">${d.today_checkouts}</strong></div>`;
     msgEl.innerHTML=html;
     
+    // Occupied / Free today
+    const totalApts=(window._allApts||[]).length||22;
+    const occupiedToday=d.all_bookings?new Set(d.all_bookings.filter(b=>{
+      const today=new Date().toISOString().split('T')[0];
+      return b.check_in<=today&&b.check_out>today;
+    }).map(b=>b.apartment_id)).size:0;
+    const freeToday=totalApts-occupiedToday;
+    const occPct=totalApts>0?Math.round(occupiedToday/totalApts*100):0;
+    const occEl=document.getElementById('todayOccupied');
+    occEl.innerHTML=`<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px"><strong style="font-size:22px;color:${occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)'}">${occupiedToday}</strong><span style="font-size:12px">/ ${totalApts} занято (${occPct}%)</span></div><div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${occPct}%;background:${occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)'};border-radius:3px"></div></div><div style="font-size:11px;color:var(--ink-d)">Свободно: <strong style="color:${freeToday>0?'var(--gold)':'var(--green)'}">${freeToday}</strong> апартаментов</div>`;
+    
     // Source stats bar
     if(d.source_stats){
       const srcNames={airbnb:'🏠 Airbnb',booking:'📘 Booking',website:'🌐 Сайт',telegram:'📱 Telegram','101hotels':'🏨 101Hotels',other:'📋 RealtyCalendar',blocked:'🔒 Блок'};
@@ -1830,11 +1828,28 @@ let lastBookingCount=0;
 async function checkNewBookings(){
   const{data}=await sb.from('bookings').select('id',{count:'exact',head:true}).eq('status','pending');
   if(data&&data.length>lastBookingCount&&lastBookingCount>0){
-    try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=800;g.gain.value=0.3;o.start();o.stop(a.currentTime+0.15);setTimeout(()=>{o.frequency.value=1200;const o2=a.createOscillator();const g2=a.createGain();o2.connect(g2);g2.connect(a.destination);o2.frequency.value=1200;g2.gain.value=0.3;o2.start();o2.stop(a.currentTime+0.15)},200)}catch(e){}
+    try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=800;g.gain.value=0.3;o.start();o.stop(a.currentTime+0.15);setTimeout(()=>{const o2=a.createOscillator();const g2=a.createGain();o2.connect(g2);g2.connect(a.destination);o2.frequency.value=1200;g2.gain.value=0.3;o2.start();o2.stop(a.currentTime+0.15)},200)}catch(e){}
   }
   if(data)lastBookingCount=data.length;
 }
 setInterval(checkNewBookings,30000);
+
+// ============ AUTO-REFRESH ============
+let autoRefreshInterval=null;
+function startAutoRefresh(){
+  if(autoRefreshInterval)clearInterval(autoRefreshInterval);
+  autoRefreshInterval=setInterval(()=>{
+    // Only refresh if on dashboard tab
+    const dashTab=document.getElementById('tab-dash');
+    if(dashTab&&dashTab.classList.contains('active')){
+      loadTodayWidget();
+      // Update timestamp
+      const ts=document.getElementById('autoRefreshTS');
+      if(ts)ts.textContent='Обновлено: '+new Date().toLocaleTimeString('ru-RU');
+    }
+  },60000);
+}
+startAutoRefresh();
 
 // ============ MANUAL BOOKING ============
 function openManualBooking(){
