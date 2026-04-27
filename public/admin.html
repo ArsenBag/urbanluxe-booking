@@ -72,7 +72,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="login-page" id="loginPage"><div class="login-box"><h1>URBAN LUXE</h1><p>Админ-панель управления</p><div id="loginError" class="error" style="display:none"></div><label>Email</label><input type="email" id="loginEmail" placeholder="admin@urbanluxe.cc"><label>Пароль</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"><button class="btn btn-full" onclick="login()">Войти</button></div></div>
 <div class="dashboard" id="dashboard">
 <div class="topbar"><h1>URBAN LUXE — Админ</h1><div class="topbar-right"><span id="dataStatus" class="data-src data-src-sheets pulse">⟳ Загрузка данных...</span><span class="topbar-user" id="userEmail"></span><button class="btn btn-sm btn-outline" onclick="logout()">Выйти</button></div></div>
-<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div></div>
+<div class="tabs"><div class="tab active" onclick="switchTab('dash',this)">Дашборд</div><div class="tab" onclick="switchTab('analytics',this)">Аналитика</div><div class="tab" onclick="switchTab('apartments',this)">Апартаменты</div><div class="tab" onclick="switchTab('bookings',this)">Бронирования</div><div class="tab" onclick="switchTab('expenses',this)">Расходы</div><div class="tab" onclick="switchTab('finance',this)">Финансы</div><div class="tab" onclick="switchTab('chat',this)">Чат <span id="chatBadge" style="display:none;background:var(--red);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-left:4px"></span></div><div class="tab" onclick="switchTab('guests',this)">Гости</div><div class="tab" onclick="switchTab('staff',this)">Персонал</div><div class="tab" onclick="switchTab('scaling',this)" style="color:var(--gold)">🚀 Масштаб</div></div>
 <div class="content">
 <div class="section active" id="tab-dash">
 <!-- AUTO-REFRESH INDICATOR -->
@@ -286,7 +286,26 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="form-row"><div><label>Макс.гостей</label><input type="number" id="amG" value="3"></div><div><label>Статус</label><select id="amA"><option value="true">Активен</option><option value="false">Выключен</option></select></div></div>
 <div id="amErr" class="error" style="display:none"></div>
 <div class="modal-actions"><button class="btn btn-outline" onclick="closeAM()">Отмена</button><button class="btn" onclick="saveA()">Сохранить</button></div></div></div>
+
+<!-- SCALING TAB -->
+<div class="section" id="tab-scaling">
+<h2 style="font-size:20px;font-weight:400;margin-bottom:8px">🚀 Масштабирование <span class="data-src" style="background:#c9a961;color:#000">Стратегия 10x</span></h2>
+<p style="color:var(--ink-d);font-size:12px;margin-bottom:16px">Площадки · Комплексы · Команда · ROI калькулятор</p>
+
+<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap" id="scaleTabs">
+<button class="btn btn-sm" onclick="showScaleTab('platforms')" style="background:var(--gold);color:#000">📡 Площадки</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('complexes')">🏢 Комплексы</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('roi')">💰 ROI</button>
+<button class="btn btn-sm btn-outline" onclick="showScaleTab('actions')">⚡ Действия</button>
+</div>
+
+<div id="scaleContent">
+<div style="color:var(--ink-d);text-align:center;padding:40px">Загрузка...</div>
+</div>
+</div>
+
 <script>
+
 const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 const API_BASE='/.netlify/functions';
@@ -1898,7 +1917,150 @@ async function submitManualBooking(){
 // Load today widget on dash
 setTimeout(loadTodayWidget,3000);
 
+// ============ SCALING TAB ============
+const SCALE_PLATFORMS_CURRENT=[
+  {n:"Airbnb",c:"15%",a:"Иностранные туристы"},{n:"Booking.com",c:"15-18%",a:"Весь мир"},
+  {n:"Ostrovok.ru",c:"12-15%",a:"Россия, СНГ"},{n:"Яндекс Путешествия",c:"10-15%",a:"Россия"},
+  {n:"Sutochno.ru",c:"10-12%",a:"Россия, СНГ"},{n:"urbanluxe.cc",c:"0%",a:"Прямые брони"},
+  {n:"OLX.uz",c:"0%",a:"Локальная реклама"},
+];
+const SCALE_PLATFORMS_NEW=[
+  {n:"Trip.com",c:"12-15%",a:"Китай, Азия",w:"Растущий поток из Китая",p:1},
+  {n:"Agoda",c:"15-18%",a:"ЮВА, Корея, Япония",w:"Сильна в Азии",p:1},
+  {n:"Expedia / Hotels.com",c:"15-20%",a:"США, Европа",w:"2-й в мире после Booking",p:1},
+  {n:"Google Vacation Rentals",c:"0%",a:"Глобально",w:"Бесплатный трафик из Google",p:1},
+  {n:"Vrbo",c:"8-12%",a:"Семьи, группы",w:"Фокус на целые квартиры",p:2},
+  {n:"101Hotels.com",c:"10-15%",a:"Россия, СНГ",w:"Популярен в Узбекистане",p:2},
+  {n:"Hotellook",c:"Агрегатор",a:"Россия",w:"Сравнивает 70 площадок",p:2},
+  {n:"Realting.uz",c:"Объявления",a:"Узбекистан",w:"Премиум, местный рынок",p:2},
+  {n:"Tvil.ru",c:"10-15%",a:"Россия",w:"200K+ объектов",p:3},
+  {n:"Krisha.kz",c:"Объявления",a:"Казахстан",w:"Казахстанские туристы",p:3},
+  {n:"m2bomber",c:"Объявления",a:"Узбекистан",w:"Агрегатор посуточной",p:3},
+];
+const SCALE_COMPLEXES=[
+  {n:"Nest One",cl:"Premium",d:"Шайхантахур",s:"current",u:5,t:20,r:800,a:120,note:"51 эт. HighLife: 22 кв., 90%",dm:"🔥🔥🔥"},
+  {n:"U-Tower NRG",cl:"Business+",d:"Шайхантахур",s:"current",u:12,t:25,r:700,a:105,note:"UL+HL=34 кв.",dm:"🔥🔥🔥"},
+  {n:"Mirabad Avenue",cl:"Premium",d:"Мирабад",s:"current",u:2,t:8,r:900,a:135,note:"Элитный район",dm:"🔥🔥"},
+  {n:"Kislorod",cl:"Business+",d:"Юнусабад",s:"current",u:3,t:10,r:600,a:95,note:"K_128 топ по доходу",dm:"🔥🔥"},
+  {n:"Boulevard",cl:"Premium",d:"Шайхантахур",s:"enter",u:0,t:12,r:750,a:130,note:"Tashkent City",dm:"🔥🔥🔥"},
+  {n:"Gardens Residence",cl:"Premium",d:"Шайхантахур",s:"enter",u:0,t:10,r:800,a:125,note:"Tashkent City Park",dm:"🔥🔥🔥"},
+  {n:"Modera Towers",cl:"Business+",d:"Шайхантахур",s:"enter",u:0,t:8,r:550,a:90,note:"HighLife 4кв 82%",dm:"🔥🔥"},
+  {n:"Akay City",cl:"Business+",d:"Яккасарай",s:"enter",u:0,t:8,r:650,a:110,note:"Центр, метро",dm:"🔥🔥"},
+  {n:"Skyline Towers",cl:"Premium",d:"Мирзо-Улугбек",s:"enter",u:0,t:6,r:700,a:115,note:"Rooftop pool",dm:"🔥🔥"},
+  {n:"Labzak Park City",cl:"Premium",d:"Шайхантахур",s:"next",u:0,t:6,r:800,a:120,note:"4 башни, SPA",dm:"🔥🔥"},
+  {n:"Parisien",cl:"Luxury",d:"Мирабад",s:"next",u:0,t:4,r:900,a:150,note:"Ультра-люкс",dm:"🔥"},
+  {n:"Prestige Gardens",cl:"Premium",d:"Яккасарай",s:"next",u:0,t:6,r:700,a:120,note:"Тихий район",dm:"🔥🔥"},
+  {n:"Baroque",cl:"Business+",d:"Яккасарай",s:"next",u:0,t:6,r:700,a:115,note:"RNB здесь",dm:"🔥🔥"},
+  {n:"Seoul Riverside",cl:"Business+",d:"Шайхантахур",s:"next",u:0,t:6,r:650,a:100,note:"HL SM-169",dm:"🔥"},
+  {n:"Infinity Club",cl:"Club",d:"Мирабад",s:"next",u:0,t:3,r:1200,a:180,note:"35 кв клубный дом",dm:"🔥"},
+  {n:"Newport",cl:"Premium",d:"Шайхантахур",s:"next",u:0,t:6,r:700,a:110,note:"15 корпусов",dm:"🔥"},
+  {n:"Minor Towers",cl:"Business+",d:"Шайхантахур",s:"future",u:0,t:6,r:600,a:95,note:"Метро Minor",dm:"🔥"},
+  {n:"Bodomzor",cl:"Business+",d:"Юнусабад",s:"future",u:0,t:6,r:550,a:90,note:"Бассейн",dm:"🔥"},
+  {n:"NRJ City",cl:"Business+",d:"Шайхантахур",s:"future",u:0,t:6,r:600,a:100,note:"TNM Home здесь",dm:"🔥"},
+  {n:"Saadiyat",cl:"Premium",d:"Шайхантахур",s:"future",u:0,t:6,r:750,a:115,note:"Murad Buildings",dm:"🔥🔥"},
+  {n:"Nirvana Luxury",cl:"Luxury",d:"Яккасарай",s:"future",u:0,t:4,r:900,a:140,note:"11га парка",dm:"🔥🔥"},
+  {n:"Assalom Sohil",cl:"Business+",d:"Яккасарай",s:"future",u:0,t:8,r:500,a:85,note:"Большой потенциал",dm:"🔥"},
+  {n:"Parkwood",cl:"Business+",d:"Мирабад",s:"future",u:0,t:4,r:600,a:95,note:"HL 2кв 75%",dm:"🔥"},
+  {n:"GC Tower",cl:"Premium",d:"Яккасарай",s:"future",u:0,t:4,r:700,a:110,note:"Новый премиум",dm:"🔥"},
+  {n:"Mavera Town",cl:"Premium",d:"Яккасарай",s:"future",u:0,t:4,r:700,a:115,note:"Новостройка",dm:"🔥"},
+  {n:"Celebrity Res.",cl:"Premium",d:"Яккасарай",s:"future",u:0,t:4,r:750,a:120,note:"Премиум",dm:"🔥"},
+  {n:"Yakkasaroy Palace",cl:"Premium",d:"Яккасарай",s:"future",u:0,t:4,r:700,a:115,note:"Дворцовый",dm:"🔥"},
+  {n:"Kazakhstan Res.",cl:"Business+",d:"Юнусабад",s:"future",u:0,t:6,r:600,a:95,note:"Метро Minor",dm:"🔥"},
+  {n:"Loft Residence",cl:"Business+",d:"Мирабад",s:"future",u:0,t:4,r:650,a:100,note:"Лофт стиль",dm:"🔥"},
+  {n:"Glinka Premium",cl:"Premium",d:"Шайхантахур",s:"future",u:0,t:4,r:700,a:110,note:"Центр",dm:"🔥"},
+];
+const SCALE_ACTIONS=[
+  {a:"Pricelabs — динамические цены",i:"ADR +15-25%, +$8-12K/мес",c:"$22-44/мес",t:"1 день",p:"🔴"},
+  {a:"Фото всех 22 апартаментов",i:"Конверсия +30-50%",c:"$200-500",t:"2-3 дня",p:"🔴"},
+  {a:"Smart locks на все юниты",i:"Экономия 2ч/день",c:"$50-100/замок",t:"1 неделя",p:"🔴"},
+  {a:"+10 кв. в Nest One",i:"+$10-15K/мес",c:"$15-30K",t:"1-2 мес",p:"🔴"},
+  {a:"Trip.com + Agoda + Expedia",i:"+20-30% бронирований",c:"Бесплатно",t:"3-5 дней",p:"🟡"},
+  {a:"Авто-сообщения гостям",i:"Рейтинг 5.0 удержание",c:"$0",t:"2-3 дня",p:"🟡"},
+  {a:"Google Ads urbanluxe.cc",i:"+10-20 прямых/мес",c:"$200-500/мес",t:"1 неделя",p:"🟡"},
+  {a:"Партнёрство HighLife",i:"52→80+ юнитов",c:"$0",t:"1 встреча",p:"🟢"},
+  {a:"Корпоративные контракты",i:"+$5-10K/мес стабильно",c:"$0",t:"1-2 мес",p:"🟢"},
+];
+
+function showScaleTab(id){
+  document.querySelectorAll('#scaleTabs button').forEach(b=>{b.className='btn btn-sm btn-outline'});
+  event.target.className='btn btn-sm';event.target.style.background='var(--gold)';event.target.style.color='#000';
+  const el=document.getElementById('scaleContent');
+  const sColors={current:'var(--green)',enter:'var(--red)',next:'var(--gold)',future:'var(--blue)'};
+  const sNames={current:'✅ Работаем',enter:'🔴 Сейчас',next:'🟡 Следующий',future:'🔵 Будущее'};
+  
+  if(id==='platforms'){
+    el.innerHTML='<div style="margin-bottom:20px"><h3 style="font-size:14px;font-weight:400;color:var(--green);margin-bottom:10px">✅ Подключены ('+SCALE_PLATFORMS_CURRENT.length+')</h3><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">'+SCALE_PLATFORMS_CURRENT.map(p=>'<div style="background:var(--bg2);border:1px solid rgba(46,204,113,.15);padding:10px;border-radius:6px"><strong style="font-size:12px">'+p.n+'</strong><div style="font-size:10px;color:var(--ink-d)">'+p.c+' · '+p.a+'</div></div>').join('')+'</div></div><h3 style="font-size:14px;font-weight:400;color:var(--red);margin-bottom:10px">🔴 Подключить ('+SCALE_PLATFORMS_NEW.length+')</h3><div style="display:grid;gap:4px">'+SCALE_PLATFORMS_NEW.sort((a,b)=>a.p-b.p).map(p=>'<div style="display:grid;grid-template-columns:24px 1.5fr 0.8fr 2fr 1fr;gap:8px;padding:8px 12px;background:var(--bg2);border:1px solid '+(p.p===1?'rgba(231,76,60,.15)':'var(--line)')+';border-radius:4px;font-size:11px;align-items:center"><span>'+(p.p===1?'🔴':p.p===2?'🟡':'🟢')+'</span><strong>'+p.n+'</strong><span style="color:var(--gold)">'+p.c+'</span><span style="color:var(--ink-m)">'+p.w+'</span><span style="color:var(--ink-d)">'+p.a+'</span></div>').join('')+'</div>';
+  }
+  
+  if(id==='complexes'){
+    const totCur=SCALE_COMPLEXES.reduce((s,c)=>s+c.u,0);
+    const totTgt=SCALE_COMPLEXES.reduce((s,c)=>s+c.t,0);
+    let html='<div style="font-size:12px;color:var(--ink-m);margin-bottom:12px">'+totCur+' текущих → <strong style="color:var(--gold)">'+totTgt+'</strong> целевых · '+SCALE_COMPLEXES.length+' комплексов</div>';
+    ['current','enter','next','future'].forEach(st=>{
+      const cxs=SCALE_COMPLEXES.filter(c=>c.s===st);
+      if(!cxs.length)return;
+      const stRev=cxs.reduce((s,c)=>s+Math.round(c.t*c.a*30*0.87),0);
+      html+='<div style="margin-bottom:16px"><h4 style="font-size:13px;font-weight:400;margin-bottom:8px;color:'+sColors[st]+'">'+sNames[st]+' ('+cxs.length+' ЖК · $'+stRev.toLocaleString()+'/мес)</h4><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px">';
+      cxs.forEach(c=>{
+        const rev=Math.round(c.t*c.a*30*0.87);
+        const pct=c.u>0?Math.round(c.u/c.t*100):0;
+        html+='<div style="background:var(--bg2);border:1px solid '+sColors[st]+'22;padding:12px;border-radius:6px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong style="font-size:12px">'+c.n+'</strong><span style="font-size:9px;color:'+sColors[st]+'">'+c.cl+'</span></div><div style="font-size:10px;color:var(--ink-d);margin-bottom:6px">📍 '+c.d+' · '+c.dm+'</div><div style="font-size:10px;color:var(--ink-m);margin-bottom:6px">'+c.note+'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:10px"><div><span style="color:var(--ink-d)">Сейчас</span><br><strong'+(c.u>0?' style="color:var(--green)"':'')+'>'+c.u+'</strong></div><div><span style="color:var(--ink-d)">Цель</span><br><strong style="color:var(--gold)">'+c.t+'</strong></div><div><span style="color:var(--ink-d)">Аренда</span><br><strong>$'+c.r+'</strong></div><div><span style="color:var(--ink-d)">$/ночь</span><br><strong style="color:var(--gold)">$'+c.a+'</strong></div></div><div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+sColors[st]+';border-radius:2px;min-width:'+(pct>0?'4px':'0')+'"></div></div><div style="font-size:10px;color:var(--green);margin-top:4px">→ $'+rev.toLocaleString()+'/мес</div></div>';
+      });
+      html+='</div></div>';
+    });
+    el.innerHTML=html;
+  }
+  
+  if(id==='roi'){
+    el.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div style="background:var(--bg2);border:1px solid var(--line);padding:16px;border-radius:8px"><h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Параметры объекта</h3><div style="margin-bottom:10px"><div style="display:flex;gap:4px;margin-bottom:8px">'
+    +['Студия','1к','2к','3к','4к+'].map(r=>'<button class="btn btn-sm btn-outline" onclick="setROIPreset(\''+r+'\')">'+r+'</button>').join('')
+    +'</div><div id="roiSliders"><label style="font-size:11px;color:var(--ink-m)">Аренда ($/мес): <strong id="roiRentV" style="color:var(--gold)">$1000</strong></label><br><input type="range" id="roiRent" min="700" max="3000" step="50" value="1000" oninput="calcROI()" style="width:100%;accent-color:var(--gold)"><br><label style="font-size:11px;color:var(--ink-m)">$/ночь: <strong id="roiAdrV" style="color:var(--gold)">$100</strong></label><br><input type="range" id="roiAdr" min="50" max="300" step="5" value="100" oninput="calcROI()" style="width:100%;accent-color:var(--gold)"><br><label style="font-size:11px;color:var(--ink-m)">Загрузка: <strong id="roiOccV" style="color:var(--gold)">85%</strong></label><br><input type="range" id="roiOcc" min="50" max="100" step="1" value="85" oninput="calcROI()" style="width:100%;accent-color:var(--gold)"></div></div><div style="padding:8px;background:var(--bg3);border-radius:6px;font-size:10px;color:var(--ink-m);margin-top:8px"><strong style="color:var(--ink)">Быстрый подбор:</strong><div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">'
+    +[{l:'NO Ст',r:800,a:80},{l:'NO 1к',r:1000,a:100},{l:'NO 2к',r:1400,a:120},{l:'NO 3к',r:1800,a:150},{l:'UT Ст',r:700,a:75},{l:'UT 1к',r:900,a:95},{l:'Blvd 2к',r:1400,a:130},{l:'Paris',r:1600,a:150}].map(p=>'<button class="btn btn-sm btn-outline" style="padding:2px 6px;font-size:9px" onclick="document.getElementById(\'roiRent\').value='+p.r+';document.getElementById(\'roiAdr\').value='+p.a+';calcROI()">'+p.l+'</button>').join('')
+    +'</div></div></div><div style="background:var(--bg2);border:1px solid var(--line);padding:16px;border-radius:8px"><h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Результат</h3><div id="roiResult" style="text-align:center"><div style="color:var(--ink-d)">Двигайте ползунки</div></div></div></div>';
+    calcROI();
+  }
+  
+  if(id==='actions'){
+    el.innerHTML='<h3 style="font-size:14px;font-weight:400;margin-bottom:12px">Что делать прямо сейчас</h3><div style="display:grid;gap:4px">'+SCALE_ACTIONS.map(a=>'<div style="display:grid;grid-template-columns:24px 2.5fr 1.5fr 0.8fr 0.8fr;gap:8px;padding:8px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;font-size:11px;align-items:center"><span style="font-size:14px">'+a.p+'</span><strong>'+a.a+'</strong><span style="color:var(--green)">'+a.i+'</span><span style="color:var(--gold)">'+a.c+'</span><span style="color:var(--ink-d)">'+a.t+'</span></div>').join('')+'</div><div style="margin-top:8px;font-size:10px;color:var(--ink-d);display:grid;grid-template-columns:24px 2.5fr 1.5fr 0.8fr 0.8fr;gap:8px;padding:4px 12px"><span></span><span>ДЕЙСТВИЕ</span><span>ВЛИЯНИЕ</span><span>ЦЕНА</span><span>ВРЕМЯ</span></div>';
+  }
+}
+
+function setROIPreset(type){
+  const presets={Студия:{r:800,a:80},'1к':{r:1000,a:100},'2к':{r:1400,a:120},'3к':{r:1800,a:150},'4к+':{r:2500,a:200}};
+  const p=presets[type];if(!p)return;
+  document.getElementById('roiRent').value=p.r;document.getElementById('roiAdr').value=p.a;calcROI();
+}
+
+function calcROI(){
+  const rent=parseInt(document.getElementById('roiRent')?.value||1000);
+  const adr=parseInt(document.getElementById('roiAdr')?.value||100);
+  const occ=parseInt(document.getElementById('roiOcc')?.value||85);
+  document.getElementById('roiRentV').textContent='$'+rent;
+  document.getElementById('roiAdrV').textContent='$'+adr;
+  document.getElementById('roiOccV').textContent=occ+'%';
+  const nights=Math.round(30*occ/100);
+  const gross=adr*nights;
+  const commis=Math.round(gross*0.15);
+  const clean=Math.round(nights/2.5*15)+50;
+  const total=rent+commis+clean+80+150;
+  const profit=gross-total;
+  const margin=gross>0?Math.round(profit/gross*100):0;
+  const vCol=profit>800?'var(--green)':profit>400?'var(--gold)':'var(--red)';
+  const vTxt=profit>800?'✅ ОТЛИЧНО — брать!':profit>400?'⚠️ Нормально':profit>0?'⚡ Слабо':'❌ Убыточно';
+  const el=document.getElementById('roiResult');
+  el.innerHTML='<div style="font-size:14px;padding:6px 16px;border-radius:6px;display:inline-block;border:1px solid '+vCol+'44;color:'+vCol+';margin-bottom:12px">'+vTxt+'</div>'
+  +'<div style="text-align:left;font-size:12px">'
+  +[{l:'Валовый доход',v:'$'+gross.toLocaleString(),c:'var(--green)'},{l:'— Аренда',v:'-$'+rent,c:'var(--red)'},{l:'— Комиссии 15%',v:'-$'+commis,c:'var(--red)'},{l:'— Клининг+расх.',v:'-$'+clean,c:'var(--red)'},{l:'— Комм.+ФОТ',v:'-$230',c:'var(--red)'}].map(r=>'<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">'+r.l+'</span><strong style="color:'+r.c+'">'+r.v+'</strong></div>').join('')
+  +'</div><div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;margin-top:4px"><strong>Прибыль</strong><strong style="color:'+vCol+';font-size:18px">$'+profit.toLocaleString()+'/мес</strong></div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">'
+  +[{l:'МАРЖА',v:margin+'%'},{l:'ГОД',v:'$'+(profit*12).toLocaleString()},{l:'НОЧЕЙ',v:nights}].map(k=>'<div style="background:var(--bg3);padding:6px;border-radius:4px;text-align:center"><div style="font-size:8px;color:var(--ink-d)">'+k.l+'</div><div style="font-size:14px;color:var(--gold)">'+k.v+'</div></div>').join('')
+  +'</div>';
+}
+
+// Init scaling tab
+setTimeout(()=>{try{showScaleTab('platforms')}catch(e){}},500);
+
 checkAuth();
-</script>
+
 </body>
 </html>
