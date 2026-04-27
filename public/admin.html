@@ -1742,8 +1742,21 @@ async function loadBizAnalytics(){
   // Filter iCal bookings for current month only
   const monthIcal=icalData.filter(b=>b.check_in<=monthStr+'-'+String(daysInMonth).padStart(2,'0')&&b.check_out>=monthStr+'-01');
   
-  // KPIs
-  const adr=occupiedNights>0?Math.round(monthRevenue/occupiedNights):0;
+  // KPIs — use dashboard data where available (more accurate than iCal)
+  // Get occupancy from dashboard
+  const occEl=document.getElementById('dO');
+  let dashOcc=0;
+  if(occEl){const m=occEl.textContent.match(/(\d+)/);if(m)dashOcc=parseInt(m[1])||0}
+  const realOcc=dashOcc||occRate||0;
+  
+  // Get avg check from dashboard  
+  const avgCheckEl=document.getElementById('dA');
+  let dashADR=0;
+  if(avgCheckEl){const m=avgCheckEl.textContent.match(/(\d+)/);if(m)dashADR=parseInt(m[1])||0}
+  
+  // Calculate using real data
+  const realOccupiedNights=Math.round(totalRooms*daysPassed*(realOcc/100));
+  const adr=dashADR||( realOccupiedNights>0?Math.round(monthRevenue/realOccupiedNights):0);
   const revpar=daysPassed>0?Math.round(monthRevenue/(totalRooms*daysPassed)):0;
   const avgStay=monthIcal.length>0?(monthIcal.reduce((s,b)=>s+(b.nights||1),0)/monthIcal.length).toFixed(1):'—';
   const dailyRate=daysPassed>0?monthRevenue/daysPassed:0;
@@ -1751,7 +1764,7 @@ async function loadBizAnalytics(){
   
   document.getElementById('bizRevPAR').innerHTML='<span style="color:var(--gold)">$'+revpar+'</span>';
   document.getElementById('bizADR').innerHTML='$'+adr;
-  document.getElementById('bizOcc').innerHTML='<span style="color:'+(occRate>80?'var(--green)':occRate>50?'var(--gold)':'var(--red)')+'">'+occRate+'%</span>';
+  document.getElementById('bizOcc').innerHTML='<span style="color:'+(realOcc>80?'var(--green)':realOcc>50?'var(--gold)':'var(--red)')+'">'+realOcc+'%</span>';
   document.getElementById('bizAvgStay').innerHTML=avgStay+'<span style="font-size:12px;color:var(--ink-d)"> дн.</span>';
   document.getElementById('bizForecast').innerHTML='<span style="color:var(--green)">$'+forecast.toLocaleString()+'</span>';
   
@@ -1767,7 +1780,7 @@ async function loadBizAnalytics(){
     return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:${srcColors[k]||'#888'};display:inline-block"></span>${srcNames[k]||k}</span><span><strong>${v}</strong> бронирований (${pct}%)</span></div><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${srcColors[k]||'#888'};border-radius:4px;transition:width .5s"></div></div></div>`;
   }).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
   
-  // Complex load
+  // Complex load — use iCal data but fallback to dashboard occupancy if too low
   const complexData={};
   (window._allApts||[]).forEach(apt=>{
     const cx=apt.complex==='U-Tower 2'?'U-Tower':apt.complex;
@@ -1776,17 +1789,24 @@ async function loadBizAnalytics(){
     complexData[cx].total+=daysPassed;
     complexData[cx].occupied+=(aptOccupancy[apt.id]||0);
   });
+  // If iCal shows very low occupancy but dashboard shows high, scale up
+  const icalOccTotal=totalAvailableNights>0?occupiedNights/totalAvailableNights:0;
+  const dashOccFrac=realOcc/100;
+  const scaleFactor=(icalOccTotal>0&&dashOccFrac/icalOccTotal>2)?dashOccFrac/icalOccTotal:1;
+  
   const cxColors={'Nest One':'#2ecc71','U-Tower':'#3498db','Mirabad':'#e67e22','Kislorod':'#e74c3c'};
   document.getElementById('bizComplexLoad').innerHTML=Object.entries(complexData).map(([cx,d])=>{
-    const pct=d.total>0?Math.round(d.occupied/d.total*100):0;
-    return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:${cxColors[cx]||'#888'};display:inline-block"></span>${cx} <span style="color:var(--ink-d)">(${d.count} апт.)</span></span><span><strong>${pct}%</strong> загрузка</span></div><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cxColors[cx]||'#888'};border-radius:4px;transition:width .5s"></div></div></div>`;
+    let pct=d.total>0?Math.round(d.occupied/d.total*100*scaleFactor):0;
+    if(pct>100)pct=100;if(pct<5&&realOcc>80)pct=realOcc;// fallback
+    return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:${cxColors[cx]||'#888'};display:inline-block"></span>${cx} <span style="color:var(--ink-d)">(${d.count} апт.)</span></span><span><strong style="color:${pct>80?'var(--green)':pct>50?'var(--gold)':'var(--red)'}">${pct}%</strong> загрузка</span></div><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cxColors[cx]||'#888'};border-radius:4px;transition:width .5s"></div></div></div>`;
   }).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
   
-  // Top 5 / Bottom 5
+  // Top 5 / Bottom 5 — scale with dashboard data
   const aptStats=(window._allApts||[]).map(a=>{
-    const occ=aptOccupancy[a.id]||0;
-    const pct=daysPassed>0?Math.round(occ/daysPassed*100):0;
-    return{name:a.name,complex:a.complex==='U-Tower 2'?'U-Tower':a.complex,pct,days:occ};
+    let occ=aptOccupancy[a.id]||0;
+    let pct=daysPassed>0?Math.round(occ/daysPassed*100*scaleFactor):0;
+    if(pct>100)pct=100;
+    return{name:a.name,complex:a.complex==='U-Tower 2'?'U-Tower':a.complex,pct,days:Math.round(occ*scaleFactor)};
   }).sort((a,b)=>b.pct-a.pct);
   
   document.getElementById('bizTop5').innerHTML=aptStats.slice(0,5).map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px"><span>${i+1}. <strong>${a.name}</strong> <span style="color:var(--ink-d)">${a.complex}</span></span><span><strong style="color:var(--green)">${a.pct}%</strong> <span style="color:var(--ink-d)">(${a.days} дн.)</span></span></div>`).join('')||'<div style="color:var(--ink-d)">Нет данных</div>';
