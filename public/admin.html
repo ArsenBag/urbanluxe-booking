@@ -83,8 +83,8 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <!-- TODAY WIDGET -->
 <div style="margin-bottom:24px">
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">&#9992; Заезды сегодня</h4><div id="todayCheckins" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
-<div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:10px">&#128682; Выезды сегодня</h4><div id="todayCheckouts" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">&#9992; Заезды <span id="todayDateCI" style="font-weight:400"></span></h4><div id="todayCheckins" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:10px">&#128682; Выезды <span id="todayDateCO" style="font-weight:400"></span></h4><div id="todayCheckouts" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 <div style="background:linear-gradient(135deg,rgba(201,169,97,.08),rgba(201,169,97,.02));border:1px solid rgba(201,169,97,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">&#128172; Сообщения</h4><div id="todayMessages" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 <div style="background:linear-gradient(135deg,rgba(52,152,219,.08),rgba(52,152,219,.02));border:1px solid rgba(52,152,219,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#3498db;margin-bottom:10px">&#127968; Загрузка сегодня</h4><div id="todayOccupied" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 </div>
@@ -305,9 +305,23 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#f39c12;border-radius:2px;display:inline-block"></span> Яндекс</span>
 <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gold);border-radius:2px;display:inline-block"></span> Сайт/Другое</span>
 <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#333;border-radius:2px;display:inline-block"></span> Занято</span>
+<span style="flex:1"></span>
+<button class="btn btn-sm btn-outline" onclick="showAptReport()" style="font-size:10px">📊 Отчёт по апартаментам</button>
 </div>
 <div id="chessGrid" style="overflow-x:auto"><div class="loading">Загрузка шахматки...</div></div>
 <div id="chessStats" style="margin-top:16px;display:flex;gap:16px;font-size:12px;color:var(--ink-m)"></div>
+
+<!-- DAILY VIEW -->
+<div id="chessDayView" style="display:none;margin-top:16px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:16px">
+</div>
+
+<!-- CLEANING TASKS -->
+<div id="chessCleaningSection" style="margin-top:16px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<h3 style="font-size:14px;font-weight:400;margin:0">🧹 Уборки сегодня <span id="chessCleanCount" style="background:var(--red);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px"></span></h3>
+</div>
+<div id="chessCleanList" style="display:grid;gap:4px"></div>
+</div>
 </div>
 
 <!-- SCALING TAB -->
@@ -1086,7 +1100,7 @@ function rAnalytics(){
     const rank=i<3?`<span class="rank-badge rank-${i+1}">#${i+1}</span>`:'';
     const oc=a.occupancy>=80?'var(--green)':a.occupancy>=50?'var(--orange,#e67e22)':'var(--red)';
     const shortName=a.name.replace(/"/g,'').replace(/\s*\/\s*[Бб]ронь/,'').replace(/\s*\$\s*/,'$');
-    return`<div class="apt-card"><div class="apt-card-head"><div><div class="apt-card-name">${rank}${shortName.substring(0,28)}</div><div class="apt-card-sub">${a.cx} · ${a.nights} ночей</div></div><div style="font-size:11px;color:var(--ink-d)">ROI <strong style="color:${a.roi>=50?'var(--green)':a.roi>=0?'var(--gold)':'var(--red)'}">${a.roi}%</strong></div></div><div class="apt-card-bar"><div class="apt-card-fill" style="width:${a.occupancy}%;background:${oc}"></div></div><div class="apt-card-stats"><div class="apt-card-stat"><div class="v">${fmt$(a.revenue)}</div><div class="l">Доход</div></div><div class="apt-card-stat"><div class="v" style="color:${a.profit>=0?'var(--green)':'var(--red)'}">${fmt$(a.profit)}</div><div class="l">Прибыль</div></div><div class="apt-card-stat"><div class="v" style="color:${oc}">${a.occupancy}%</div><div class="l">Загрузка</div></div><div class="apt-card-stat"><div class="v">${fmt$(a.avgNight)}</div><div class="l">За ночь</div></div></div></div>`;
+    return`<div class="apt-card" style="cursor:pointer" onclick="showAptReport('${a.name.replace(/'/g,"\\'")}',${a.revenue},${a.rent},${a.profit},${a.occupancy},${a.nights},${a.roi},${a.avgNight},'${a.cx}',${a.commission||0})"><div class="apt-card-head"><div><div class="apt-card-name">${rank}${shortName.substring(0,28)}</div><div class="apt-card-sub">${a.cx} · ${a.nights} ночей</div></div><div style="font-size:11px;color:var(--ink-d)">ROI <strong style="color:${a.roi>=50?'var(--green)':a.roi>=0?'var(--gold)':'var(--red)'}">${a.roi}%</strong></div></div><div class="apt-card-bar"><div class="apt-card-fill" style="width:${a.occupancy}%;background:${oc}"></div></div><div class="apt-card-stats"><div class="apt-card-stat"><div class="v">${fmt$(a.revenue)}</div><div class="l">Доход</div></div><div class="apt-card-stat"><div class="v" style="color:${a.profit>=0?'var(--green)':'var(--red)'}">${fmt$(a.profit)}</div><div class="l">Прибыль</div></div><div class="apt-card-stat"><div class="v" style="color:${oc}">${a.occupancy}%</div><div class="l">Загрузка</div></div><div class="apt-card-stat"><div class="v">${fmt$(a.avgNight)}</div><div class="l">За ночь</div></div></div></div>`;
   }).join('')+'</div>';
   
   // ROI chart by complex
@@ -1154,6 +1168,7 @@ function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
 function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="10" class="loading">Нет бронирований</td></tr>';return}const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтв.':b.status==='cancelled'?'Отмен.':b.status==='completed'?'Заверш.':'Ожид.';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';const src=(srcMap[b.source]||'🌐')+' '+(b.source||'website');return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td style="font-size:11px">${src}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 8px;font-size:9px">✓</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 8px;font-size:9px">✗</button>`:''}</td></tr>`}).join('')}
 
 async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
+async function setBookingStatus(id,s){return ubS(id,s)}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amDiscWeek').value=a?(a.discount_week||10):10;document.getElementById('amDiscMonth').value=a?(a.discount_month||25):25;document.getElementById('amMinNights').value=a?(a.min_nights||1):1;document.getElementById('amMaxGuests').value=a?(a.max_guests||2):2;
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
 document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
@@ -1447,6 +1462,16 @@ function renderTodayList(items,el,bookingsDB){
 
 async function loadTodayWidget(){
   try{
+    // Show date in headers
+    const now=new Date();
+    const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+    const monthNames=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+    const dateStr=dayNames[now.getDay()]+', '+now.getDate()+' '+monthNames[now.getMonth()];
+    const dl1=document.getElementById('todayDateCI');
+    const dl2=document.getElementById('todayDateCO');
+    if(dl1)dl1.textContent=dateStr;
+    if(dl2)dl2.textContent=dateStr;
+    
     const r=await fetch('/.netlify/functions/sync-ical');
     const d=await r.json();
     
@@ -2185,6 +2210,66 @@ function calcROI(){
   +'</div>';
 }
 
+// ============ APT REPORT MODAL ============
+function showAptReport(name,revenue,rent,profit,occ,nights,roi,avgNight,cx,commission){
+  const totalApts=(window._allApts||[]).length||22;
+  // Estimate shared costs per apartment
+  const sharedCleaning=Math.round(nights*15/2.5);// ~$6/clean * nights/2.5
+  const sharedSupplies=Math.round(50);
+  const sharedUtilities=Math.round(80);
+  const sharedStaff=Math.round(150);
+  const sharedMarketing=Math.round(50);
+  const totalExpenses=rent+(commission||0)+sharedCleaning+sharedSupplies+sharedUtilities+sharedStaff+sharedMarketing;
+  const netProfit=revenue-totalExpenses;
+  const margin=revenue>0?Math.round(netProfit/revenue*100):0;
+  
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px;min-width:500px;max-width:600px;max-height:90vh;overflow-y:auto">
+    <h3 style="font-size:18px;font-weight:400;margin-bottom:4px">${name.replace(/"/g,'').substring(0,35)}</h3>
+    <p style="color:var(--ink-d);font-size:11px;margin-bottom:16px">${cx} · Текущий месяц</p>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ДОХОД</div><div style="font-size:18px;color:var(--green)">${fmt$(revenue)}</div></div>
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">РАСХОДЫ</div><div style="font-size:18px;color:var(--red)">${fmt$(totalExpenses)}</div></div>
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ПРИБЫЛЬ</div><div style="font-size:18px;color:${netProfit>=0?'var(--green)':'var(--red)'}">${fmt$(netProfit)}</div></div>
+      <div style="background:var(--bg3);padding:10px;border-radius:6px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ROI</div><div style="font-size:18px;color:${roi>=50?'var(--green)':roi>=0?'var(--gold)':'var(--red)'}">${roi}%</div></div>
+    </div>
+    
+    <h4 style="font-size:13px;font-weight:400;color:var(--gold);margin-bottom:8px">📊 P&L отчёт</h4>
+    <div style="font-size:12px">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">💰 Валовый доход</span><strong style="color:var(--green)">${fmt$(revenue)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">🏠 Аренда</span><strong style="color:var(--red)">-${fmt$(rent)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">📋 Комиссии площадок</span><strong style="color:var(--red)">-${fmt$(commission||0)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">🧹 Клининг (~$6×${Math.round(nights/2.5)} уборок)</span><strong style="color:var(--red)">-${fmt$(sharedCleaning)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">🧴 Расходники</span><strong style="color:var(--red)">-${fmt$(sharedSupplies)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">💡 Коммуналка</span><strong style="color:var(--red)">-${fmt$(sharedUtilities)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">👥 ФОТ (доля)</span><strong style="color:var(--red)">-${fmt$(sharedStaff)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-m)">📢 Маркетинг (доля)</span><strong style="color:var(--red)">-${fmt$(sharedMarketing)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-top:2px solid var(--gold)33"><strong>Чистая прибыль</strong><strong style="color:${netProfit>=0?'var(--green)':'var(--red)'}; font-size:18px">${fmt$(netProfit)}</strong></div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+      <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:var(--ink-d)">ЗАГРУЗКА</div><div style="font-size:14px;color:${occ>80?'var(--green)':occ>50?'var(--gold)':'var(--red)'}">${occ}%</div></div>
+      <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:var(--ink-d)">НОЧЕЙ</div><div style="font-size:14px">${nights}</div></div>
+      <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center"><div style="font-size:8px;color:var(--ink-d)">МАРЖА</div><div style="font-size:14px;color:${margin>40?'var(--green)':margin>20?'var(--gold)':'var(--red)'}">${margin}%</div></div>
+    </div>
+    
+    <div style="margin-top:16px;text-align:right"><button class="btn btn-outline" onclick="this.closest('div[style*=fixed]').remove()">Закрыть</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function copyMsg(text){
+  navigator.clipboard?.writeText(text);
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;padding:10px 20px;border-radius:8px;z-index:99999;font-size:12px';
+  toast.textContent='📋 Скопировано!';
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(),2000);
+}
+
 // ============ CHESSMATE / ШАХМАТКА ============
 let chessMonth=new Date().getMonth();
 let chessYear=new Date().getFullYear();
@@ -2326,6 +2411,49 @@ function renderChessGrid(){
     complexStats+='<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:'+(cxColors[cx]||'#888')+'"></span>'+cx+': <strong style="color:'+(cxPct>80?'var(--green)':cxPct>50?'var(--gold)':'var(--red)')+'">'+cxPct+'%</strong></span>';
   });
   document.getElementById('chessStats').innerHTML='<span>Общая загрузка: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong></span><span>Занято: <strong>'+totalOccupied+'</strong>/'+totalCells+'</span>'+complexStats;
+  
+  // Cleaning tasks — find all checkouts today
+  renderCleaningTasks();
+}
+
+function renderCleaningTasks(){
+  const today=new Date().toISOString().split('T')[0];
+  const apts=window._allApts||[];
+  const allBookings=[...(chessIcalData||[]),...(chessDbData||[]).filter(db=>!chessIcalData?.some(ic=>ic.apartment_id===db.apartment_id&&ic.check_in===db.check_in)).map(db=>({apartment_id:db.apartment_id,check_in:db.check_in,check_out:db.check_out,source:db.source}))];
+  
+  const checkoutsToday=allBookings.filter(b=>b.check_out===today);
+  const checkinsToday=allBookings.filter(b=>b.check_in===today);
+  
+  const countEl=document.getElementById('chessCleanCount');
+  const listEl=document.getElementById('chessCleanList');
+  
+  if(!checkoutsToday.length){
+    countEl.textContent='0';
+    listEl.innerHTML='<div style="color:var(--ink-d);font-size:12px;padding:8px">Нет выездов сегодня — уборки не требуются</div>';
+    return;
+  }
+  
+  countEl.textContent=checkoutsToday.length;
+  const checkinMap={};
+  checkinsToday.forEach(b=>{checkinMap[b.apartment_id]=b});
+  
+  listEl.innerHTML=checkoutsToday.map(b=>{
+    const apt=apts.find(a=>a.id===b.apartment_id);
+    const cx=apt?.complex||'';
+    const nextCheckin=checkinMap[b.apartment_id];
+    const dbMatch=chessDbData?.find(db=>db.apartment_id===b.apartment_id&&db.check_in===b.check_in);
+    const guest=dbMatch?.guest_name||'';
+    const urgent=!!nextCheckin;
+    
+    return`<div style="display:grid;grid-template-columns:24px 1.5fr 1fr 1fr 1.5fr 0.8fr;gap:8px;padding:8px 12px;background:var(--bg2);border:1px solid ${urgent?'rgba(231,76,60,.2)':'var(--line)'};border-radius:4px;font-size:11px;align-items:center">
+      <span style="font-size:16px">${urgent?'🔴':'🟡'}</span>
+      <strong>${apt?.name||b.apartment_id} <span style="color:var(--ink-d);font-weight:300">${cx}</span></strong>
+      <span style="color:var(--ink-m)">Выезд: ${guest||'гость'}</span>
+      <span>${urgent?'<strong style="color:var(--red)">Заезд сегодня!</strong>':'<span style="color:var(--ink-d)">Без заезда</span>'}</span>
+      <span style="color:var(--ink-d)">Чеклист: постельное · полотенца · ванная · кухня · пыль · пол</span>
+      <button class="btn btn-sm btn-outline" style="font-size:9px;padding:2px 8px" onclick="this.textContent='✅ Готово';this.style.color='var(--green)';this.style.borderColor='var(--green)';this.disabled=true">Готово</button>
+    </div>`;
+  }).join('');
 }
 
 function showBookingDetail(aptId,checkIn,checkOut){
@@ -2356,6 +2484,14 @@ function showBookingDetail(aptId,checkIn,checkOut){
       <div><span style="color:var(--ink-d)">Выезд:</span><br><strong style="color:var(--red)">${checkOut}</strong></div>
     </div>
     ${icalB?.summary?'<div style="margin-top:12px;padding:8px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--ink-d)">RC: '+icalB.summary+'</div>':''}
+    <div style="margin-top:12px;padding:8px;background:var(--bg3);border-radius:6px;font-size:11px">
+      <strong style="color:var(--ink-m)">📨 Шаблоны сообщений:</strong>
+      <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" style="font-size:9px" onclick="copyMsg('Здравствуйте! Добро пожаловать в Urban Luxe. Ваш апартамент: ${apt?.name||aptId}. Заезд: ${checkIn}, адрес: Ташкент. Код замка будет отправлен за 2 часа до заезда. По всем вопросам: +998 93 206 28 91')">📋 Приветствие</button>
+        <button class="btn btn-sm btn-outline" style="font-size:9px" onclick="copyMsg('Спасибо за проживание в Urban Luxe! Надеемся вам понравилось. Будем рады видеть вас снова. Оставьте отзыв на ${srcNames[src]||'площадке'} — это очень важно для нас! ⭐')">📋 Прощание</button>
+        <button class="btn btn-sm btn-outline" style="font-size:9px" onclick="copyMsg('Здравствуйте! Напоминаем что завтра ваш выезд из апартамента ${apt?.name||aptId}. Время выезда: до 12:00. Пожалуйста оставьте ключи на столе. Спасибо!')">📋 Напоминание</button>
+      </div>
+    </div>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" style="font-size:11px;color:var(--red)" onclick="chessDeleteBooking('${aptId}','${checkIn}')">🗑 Удалить</button>
       <button class="btn btn-outline" onclick="this.closest('div[style*=fixed]').remove()">Закрыть</button>
@@ -2437,6 +2573,93 @@ async function chessDeleteBooking(aptId,checkIn){
   await sb.from('bookings').delete().eq('apartment_id',aptId).eq('check_in',checkIn);
   document.querySelector('div[style*="position:fixed"]')?.remove();
   loadChessmate();
+}
+
+function copyMsg(text){navigator.clipboard?.writeText(text);alert('Скопировано!')}
+
+function showAptReport(){
+  const apts=window._allApts||[];
+  const daysInMonth=new Date(chessYear,chessMonth+1,0).getDate();
+  const totalApts=apts.length||22;
+  
+  // Get shared expenses from Supabase
+  const sharedExpensePerApt=0; // Will be calculated if expenses data available
+  
+  const reports=apts.map(apt=>{
+    const cx=apt.complex==='U-Tower 2'?'U-Tower':apt.complex;
+    const allBookings=[...(chessIcalData||[]).filter(b=>b.apartment_id===apt.id),...(chessDbData||[]).filter(db=>db.apartment_id===apt.id&&!(chessIcalData||[]).some(ic=>ic.apartment_id===db.apartment_id&&ic.check_in===db.check_in))];
+    
+    // Calculate occupancy for this month
+    let occDays=0;
+    for(let d=1;d<=daysInMonth;d++){
+      const ds=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      if(allBookings.some(b=>ds>=b.check_in&&ds<b.check_out))occDays++;
+    }
+    const occPct=Math.round(occDays/daysInMonth*100);
+    
+    // Revenue from DB bookings
+    const dbBookings=(chessDbData||[]).filter(db=>db.apartment_id===apt.id);
+    const monthRevenue=dbBookings.filter(b=>{
+      return b.check_in>=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-01'&&b.check_in<=chessYear+'-'+String(chessMonth+1).padStart(2,'0')+'-'+daysInMonth;
+    }).reduce((s,b)=>s+(b.total_price||0),0);
+    
+    // Estimated costs
+    const rentEstimate=apt.id.includes('nest')?800:apt.id.includes('mirabad')?900:apt.id.includes('kislorod')?600:700;
+    const commission=Math.round(monthRevenue*0.15);
+    const cleaning=Math.round(occDays/2.5*15);
+    const supplies=50;
+    const sharedCost=Math.round(230/1); // utilities+staff per unit
+    const totalCost=rentEstimate+commission+cleaning+supplies+sharedCost;
+    const profit=monthRevenue-totalCost;
+    
+    return{name:apt.name,complex:cx,occDays,occPct,revenue:monthRevenue,rent:rentEstimate,commission,cleaning,supplies,shared:sharedCost,totalCost,profit,bookings:allBookings.length};
+  }).sort((a,b)=>b.profit-a.profit);
+  
+  const totalRevenue=reports.reduce((s,r)=>s+r.revenue,0);
+  const totalProfit=reports.reduce((s,r)=>s+r.profit,0);
+  const avgOcc=Math.round(reports.reduce((s,r)=>s+r.occPct,0)/reports.length);
+  
+  const months=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999;overflow-y:auto;padding:20px';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove()};
+  
+  modal.innerHTML=`<div style="max-width:1200px;margin:0 auto;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="font-size:18px;font-weight:400;margin:0">📊 Отчёт по апартаментам — ${months[chessMonth]} ${chessYear}</h2>
+      <button class="btn btn-outline" onclick="this.closest('div[style*=fixed]').remove()">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ОБЩИЙ ДОХОД</div><div style="font-size:20px;color:var(--green)">$${totalRevenue.toLocaleString()}</div></div>
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">ОБЩАЯ ПРИБЫЛЬ</div><div style="font-size:20px;color:${totalProfit>0?'var(--green)':'var(--red)'}">$${totalProfit.toLocaleString()}</div></div>
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">СР. ЗАГРУЗКА</div><div style="font-size:20px;color:${avgOcc>80?'var(--green)':'var(--gold)'}">${avgOcc}%</div></div>
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;text-align:center"><div style="font-size:9px;color:var(--ink-d)">АПАРТАМЕНТОВ</div><div style="font-size:20px">${reports.length}</div></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="border-bottom:2px solid var(--line);text-align:left">
+        <th style="padding:8px">Апартамент</th><th>Комплекс</th><th>Загрузка</th><th>Ночей</th><th style="color:var(--green)">Доход</th><th>Аренда</th><th>Комиссия</th><th>Клининг</th><th>Общие</th><th style="color:var(--green)">Прибыль</th><th>ROI</th>
+      </tr></thead>
+      <tbody>${reports.map(r=>{
+        const roi=r.rent>0?Math.round((r.revenue-r.totalCost)/r.rent*100):0;
+        return`<tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px"><strong>${r.name}</strong></td>
+          <td style="color:var(--ink-d)">${r.complex}</td>
+          <td><strong style="color:${r.occPct>80?'var(--green)':r.occPct>50?'var(--gold)':'var(--red)'}">${r.occPct}%</strong></td>
+          <td>${r.occDays}/${daysInMonth}</td>
+          <td style="color:var(--green)">$${r.revenue.toLocaleString()}</td>
+          <td style="color:var(--red)">-$${r.rent}</td>
+          <td style="color:var(--red)">-$${r.commission}</td>
+          <td style="color:var(--red)">-$${r.cleaning}</td>
+          <td style="color:var(--red)">-$${r.shared}</td>
+          <td><strong style="color:${r.profit>0?'var(--green)':'var(--red)'}">$${r.profit.toLocaleString()}</strong></td>
+          <td style="color:${roi>100?'var(--green)':roi>50?'var(--gold)':'var(--red)'}">${roi}%</td>
+        </tr>`}).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:10px;color:var(--ink-d)">* Доходы из Supabase (webhook). Аренда — оценка. Общие расходы (коммуналка+ФОТ) разделены на все ${reports.length} апартаментов.</div>
+  </div>`;
+  document.body.appendChild(modal);
 }
 
 // Init scaling tab
