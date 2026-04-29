@@ -83,7 +83,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <!-- TODAY WIDGET -->
 <div style="margin-bottom:24px">
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">&#9992; Заезды <span id="todayDateCI" style="font-weight:400"></span></h4><div id="todayCheckins" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
+<div style="background:linear-gradient(135deg,rgba(46,204,113,.08),rgba(46,204,113,.02));border:1px solid rgba(46,204,113,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">&#9992; Заезды <input type="date" id="todayDatePicker" onchange="loadTodayForDate(this.value)" style="background:transparent;border:1px solid rgba(46,204,113,.3);color:var(--green);padding:2px 6px;border-radius:4px;font-size:10px;font-family:inherit;margin-left:4px"></h4><div id="todayCheckins" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 <div style="background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.02));border:1px solid rgba(231,76,60,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:10px">&#128682; Выезды <span id="todayDateCO" style="font-weight:400"></span></h4><div id="todayCheckouts" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 <div style="background:linear-gradient(135deg,rgba(201,169,97,.08),rgba(201,169,97,.02));border:1px solid rgba(201,169,97,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">&#128172; Сообщения</h4><div id="todayMessages" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
 <div style="background:linear-gradient(135deg,rgba(52,152,219,.08),rgba(52,152,219,.02));border:1px solid rgba(52,152,219,.2);padding:16px;border-radius:8px"><h4 style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#3498db;margin-bottom:10px">&#127968; Загрузка сегодня</h4><div id="todayOccupied" style="font-size:12px;color:var(--ink-m)">Загрузка...</div></div>
@@ -95,7 +95,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div class="chart-grid"><div class="chart-box"><h3>Доход по месяцам <span class="data-src data-src-sheets">Google Sheets</span></h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
 <div id="cplxBars" class="cplx"></div>
 <div class="chart-grid"><div class="feed"><h3>Последние бронирования <span class="data-src data-src-supabase">Supabase</span></h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели <span class="data-src data-src-sheets">Sheets</span></h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
-<div class="occ-grid"><h3>Календарь занятости <span class="data-src data-src-ical">RealtyCalendar iCal</span></h3><div id="occCal"><div class="loading pulse">Загрузка данных из RealtyCalendar...</div></div></div>
+<div class="occ-grid"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3>Календарь занятости <span class="data-src data-src-ical">iCal</span></h3><div style="display:flex;gap:6px;align-items:center"><button class="btn btn-sm btn-outline" onclick="occCalChangeMonth(-1)">←</button><span id="occCalMonthLabel" style="min-width:120px;text-align:center;font-size:13px"></span><button class="btn btn-sm btn-outline" onclick="occCalChangeMonth(1)">→</button></div></div><div id="occCal"><div class="loading pulse">Загрузка...</div></div></div>
 </div>
 <!-- EXPENSES -->
 <div class="section" id="tab-expenses">
@@ -697,7 +697,12 @@ function rRevC(){
   }
   
   if(C1)C1.destroy();
-  C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:MONTH_LABELS,datasets:[{data:d,backgroundColor:d.map((v,i)=>i===new Date().getMonth()?'rgba(201,169,97,.9)':'rgba(201,169,97,.4)'),borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+  // Labels: show year for months that cross year boundary
+  const chartLabels=MONTH_LABELS.map((l,i)=>{
+    if(d[i]>0&&i===11)return l+" '25";// December is 2025
+    return l;
+  });
+  C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:chartLabels,datasets:[{data:d,backgroundColor:d.map((v,i)=>i===new Date().getMonth()?'rgba(201,169,97,.9)':'rgba(201,169,97,.4)'),borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
 }
 
 function rCompC(){
@@ -785,36 +790,35 @@ function rFeed(){
 }
 
 // ============ OCCUPANCY CALENDAR (iCal) ============
+let occCalM=new Date().getMonth(),occCalY=new Date().getFullYear();
+function occCalChangeMonth(delta){occCalM+=delta;if(occCalM>11){occCalM=0;occCalY++}if(occCalM<0){occCalM=11;occCalY--}rOcc()}
 function rOcc(){
-  const n=new Date(),y=n.getFullYear(),m=n.getMonth(),dm=new Date(y,m+1,0).getDate(),td=n.getDate();
+  const y=occCalY,m=occCalM,dm=new Date(y,m+1,0).getDate();
+  const todayStr=new Date().toISOString().split('T')[0];
+  const td=y===new Date().getFullYear()&&m===new Date().getMonth()?new Date().getDate():-1;
+  const dayNamesShort=['вс','пн','вт','ср','чт','пт','сб'];
+  
+  // Update month label
+  const ml=document.getElementById('occCalMonthLabel');
+  if(ml)ml.textContent=MONTH_LABELS_FULL[m]+' '+y;
   
   const aptList=[
-    {id:'kislorod_128',label:'Kislorod Апартамент 128'},
-    {id:'kislorod_58',label:'Kislorod Апартамент 58'},
-    {id:'kislorod_49',label:'Kislorod Апартамент 49'},
-    {id:'mirabad_205',label:'Mirabad Апартамент 205'},
-    {id:'mirabad_111',label:'Mirabad Апартамент 111'},
-    {id:'nest_15',label:'Nest One Апартамент 15'},
-    {id:'nest_249',label:'Nest One Апартамент 249'},
-    {id:'nest_481',label:'Nest One Апартамент 481'},
-    {id:'nest_233',label:'Nest One Апартамент 233'},
-    {id:'nest_353',label:'Nest One Апартамент 353'},
-    {id:'utower_410',label:'U-Tower Апартамент 410'},
-    {id:'utower_310',label:'U-Tower Апартамент 310'},
-    {id:'utower_208',label:'U-Tower Апартамент 208'},
-    {id:'utower_171',label:'U-Tower Апартамент 171'},
-    {id:'utower_73',label:'U-Tower Апартамент 73'},
-    {id:'utower_65',label:'U-Tower Апартамент 65'},
-    {id:'utower2_92',label:'U-Tower 2 Апартамент 92'},
-    {id:'utower2_5',label:'U-Tower 2 Апартамент 5'},
-    {id:'utower2_9',label:'U-Tower 2 Апартамент 9'},
-    {id:'utower2_207',label:'U-Tower 2 Апартамент 207'},
-    {id:'utower2_228',label:'U-Tower 2 Апартамент 228'},
-    {id:'utower2_296',label:'U-Tower 2 Апартамент 296'},
+    {id:'kislorod_128',label:'Kislorod 128'},{id:'kislorod_58',label:'Kislorod 58'},{id:'kislorod_49',label:'Kislorod 49'},
+    {id:'mirabad_205',label:'Mirabad 205'},{id:'mirabad_111',label:'Mirabad 111'},
+    {id:'nest_15',label:'Nest One 15'},{id:'nest_249',label:'Nest One 249'},{id:'nest_481',label:'Nest One 481'},{id:'nest_233',label:'Nest One 233'},{id:'nest_353',label:'Nest One 353'},
+    {id:'utower_410',label:'U-Tower 410'},{id:'utower_310',label:'U-Tower 310'},{id:'utower_208',label:'U-Tower 208'},{id:'utower_171',label:'U-Tower 171'},{id:'utower_73',label:'U-Tower 73'},{id:'utower_65',label:'U-Tower 65'},
+    {id:'utower2_92',label:'U-Tower 92'},{id:'utower2_5',label:'U-Tower 5'},{id:'utower2_9',label:'U-Tower 9'},{id:'utower2_207',label:'U-Tower 207'},{id:'utower2_228',label:'U-Tower 228'},{id:'utower2_296',label:'U-Tower 296'},
   ];
   
+  // Header with day names
   let h='<table class="occ-table"><thead><tr><th></th>';
-  for(let d=1;d<=dm;d++)h+=`<th${d===td?' style="color:var(--gold);font-weight:700"':''}>${d}</th>`;
+  for(let d=1;d<=dm;d++){
+    const dt=new Date(y,m,d);
+    const dn=dayNamesShort[dt.getDay()];
+    const isWe=dt.getDay()===0||dt.getDay()===6;
+    const isToday=d===td;
+    h+=`<th style="text-align:center;${isToday?'color:var(--gold);font-weight:700;':isWe?'color:var(--red);':''}"><div style="font-size:8px;line-height:1">${dn}</div><div>${d}</div></th>`;
+  }
   h+='</tr></thead><tbody>';
   
   aptList.forEach(apt=>{
@@ -1407,6 +1411,24 @@ const COMPLEX_MAP={nest:'Nest One',utower:'U-Tower',utower2:'U-Tower',mirabad:'M
 const COMPLEX_COLORS={nest:'#2ecc71',utower:'#3498db',utower2:'#3498db',mirabad:'#e67e22',kislorod:'#e74c3c'};
 function getComplex(aptId){const p=aptId.split('_')[0];return{name:COMPLEX_MAP[p]||p,color:COMPLEX_COLORS[p]||'#888'}}
 
+async function loadTodayForDate(dateStr){
+  if(!dateStr)return;
+  const d=new Date(dateStr);
+  const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const monthNames=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  const dl2=document.getElementById('todayDateCO');
+  if(dl2)dl2.textContent=dayNames[d.getUTCDay()]+', '+d.getUTCDate()+' '+monthNames[d.getUTCMonth()];
+  try{
+    const r=await fetch('/.netlify/functions/sync-ical');
+    const ical=await r.json();
+    const{data:dbBookings}=await sb.from('bookings').select('apartment_id,guest_name,guest_phone,total_price,check_in,check_out,source,admin_notes,status').or(`check_in.eq.${dateStr},check_out.eq.${dateStr}`).neq('status','cancelled');
+    const checkins=(ical.all_bookings||[]).filter(b=>b.check_in===dateStr);
+    const checkouts=(ical.all_bookings||[]).filter(b=>b.check_out===dateStr);
+    renderTodayList(checkins,document.getElementById('todayCheckins'),dbBookings||[]);
+    renderTodayList(checkouts,document.getElementById('todayCheckouts'),dbBookings||[]);
+  }catch(e){document.getElementById('todayCheckins').textContent='Ошибка'}
+}
+
 function renderTodayList(items,el,bookingsDB){
   if(!items||!items.length){el.textContent='Нет на сегодня';return}
   const groups={};
@@ -1462,25 +1484,30 @@ function renderTodayList(items,el,bookingsDB){
 
 async function loadTodayWidget(){
   try{
-    // Show date in headers
     const now=new Date();
     const dayNames=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
     const monthNames=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
     const dateStr=dayNames[now.getDay()]+', '+now.getDate()+' '+monthNames[now.getMonth()];
-    const dl1=document.getElementById('todayDateCI');
+    const todayISO=now.toISOString().split('T')[0];
+    
+    // Set date picker
+    const dp=document.getElementById('todayDatePicker');
+    if(dp&&!dp.value)dp.value=todayISO;
     const dl2=document.getElementById('todayDateCO');
-    if(dl1)dl1.textContent=dateStr;
     if(dl2)dl2.textContent=dateStr;
     
     const r=await fetch('/.netlify/functions/sync-ical');
     const d=await r.json();
     
-    // Fetch bookings from Supabase for guest names & prices
-    const today=new Date().toISOString().split('T')[0];
-    const{data:dbBookings}=await sb.from('bookings').select('apartment_id,guest_name,guest_phone,total_price,check_in,check_out,source,admin_notes,status').or(`check_in.eq.${today},check_out.eq.${today}`).neq('status','cancelled');
+    const selDate=dp?.value||todayISO;
+    const{data:dbBookings}=await sb.from('bookings').select('apartment_id,guest_name,guest_phone,total_price,check_in,check_out,source,admin_notes,status').or(`check_in.eq.${selDate},check_out.eq.${selDate}`).neq('status','cancelled');
     
-    renderTodayList(d.checkins,document.getElementById('todayCheckins'),dbBookings||[]);
-    renderTodayList(d.checkouts,document.getElementById('todayCheckouts'),dbBookings||[]);
+    // Filter iCal data for selected date
+    const checkins=(d.all_bookings||[]).filter(b=>b.check_in===selDate);
+    const checkouts=(d.all_bookings||[]).filter(b=>b.check_out===selDate);
+    
+    renderTodayList(checkins,document.getElementById('todayCheckins'),dbBookings||[]);
+    renderTodayList(checkouts,document.getElementById('todayCheckouts'),dbBookings||[]);
     
     // Messages + stats
     const{data:msgs}=await sb.from('messages').select('conversation_id').eq('sender_role','guest').eq('is_read',false);
