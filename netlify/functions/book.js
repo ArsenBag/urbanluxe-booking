@@ -58,28 +58,64 @@ function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
   return { total, nights };
 }
 
+// Генератор короткого ID: UL-A8F2K3 (6 символов из A-Z, 0-9 без 0/O/I/1)
+function generateBookingRef() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return 'UL-' + code;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }, body: '' };
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+      },
+      body: ''
+    };
   }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
-
+  
   try {
     const data = JSON.parse(event.body);
-    const { apartment_id, guest_name, guest_phone, guest_email, check_in, check_out, guests_count, notes } = data;
+    const {
+      apartment_id,
+      guest_name, guest_phone, guest_email,
+      check_in, check_out, guests_count, notes,
+      // Новые поля
+      user_id,
+      booker_name, booker_phone, booker_email,
+      total_price: clientTotal, // на всякий случай — но мы пересчитываем сами
+      nights: clientNights
+    } = data;
 
     if (!apartment_id || !guest_name || !guest_phone || !check_in || !check_out) {
-      return { statusCode: 400, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Заполните обязательные поля' }) };
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Заполните обязательные поля' })
+      };
     }
 
     const apt = APARTMENTS[apartment_id];
     if (!apt) {
-      return { statusCode: 400, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Апартамент не найден' }) };
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Апартамент не найден' })
+      };
     }
 
     const { total, nights } = calculateTotal(check_in, check_out, apt.weekday, apt.weekend);
+    const booking_ref = generateBookingRef();
 
     const booking = {
       apartment_id,
@@ -93,6 +129,12 @@ exports.handler = async (event) => {
       total_price: total,
       nights,
       status: 'pending',
+      source: 'website',
+      booking_ref,
+      user_id: user_id || null,
+      booker_name: booker_name || null,
+      booker_phone: booker_phone || null,
+      booker_email: booker_email || null,
       created_at: new Date().toISOString(),
     };
 
@@ -101,8 +143,7 @@ exports.handler = async (event) => {
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
     const postData = JSON.stringify(booking);
 
-    console.log('[BOOK] Saving to Supabase:', supabaseUrl);
-    console.log('[BOOK] Data:', postData);
+    console.log('[BOOK] Saving to Supabase, ref:', booking_ref);
 
     const sbResult = await httpsRequest(
       `${supabaseUrl}/rest/v1/bookings`,
@@ -120,24 +161,54 @@ exports.handler = async (event) => {
     );
 
     console.log('[BOOK] Supabase status:', sbResult.statusCode);
-    console.log('[BOOK] Supabase response:', sbResult.body.substring(0, 500));
+
+    let savedBooking = null;
+    try {
+      const parsed = JSON.parse(sbResult.body);
+      if (Array.isArray(parsed) && parsed.length) savedBooking = parsed[0];
+    } catch (e) {}
+
+    if (sbResult.statusCode >= 400) {
+      console.error('[BOOK] Supabase error body:', sbResult.body);
+      return {
+        statusCode: 500,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Ошибка сохранения. Попробуйте ещё раз.' })
+      };
+    }
 
     // Send Telegram
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChat = process.env.TELEGRAM_CHAT_ID;
-
     if (tgToken && tgChat) {
-      const tgMessage = `🏠 *Новая заявка с сайта!*\n\n📍 ${apt.name}\n👤 ${guest_name}\n📞 ${guest_phone}\n📧 ${guest_email || 'не указан'}\n\n📅 Заезд: ${check_in}\n📅 Выезд: ${check_out}\n🌙 Ночей: ${nights}\n👥 Гостей: ${guests_count || 1}\n\n💰 Итого: $${total}\n📝 ${notes || 'без комментариев'}\n\n⏳ Статус: ожидает подтверждения`;
+      const isForOther = booker_name && booker_name !== guest_name;
+      const bookerLine = isForOther
+        ? `\n💼 *Покупатель:* ${booker_name}${booker_phone ? ` · ${booker_phone}` : ''}${booker_email ? ` · ${booker_email}` : ''}`
+        : '';
+      const tgMessage =
+        `🏠 *Новая заявка с сайта!*\n` +
+        `🔖 \`${booking_ref}\`\n\n` +
+        `📍 ${apt.name}\n` +
+        `🛏️ *Гость заезда:* ${guest_name}\n📞 ${guest_phone}` +
+        (guest_email ? `\n📧 ${guest_email}` : '') +
+        bookerLine +
+        `\n\n📅 Заезд: ${check_in}\n📅 Выезд: ${check_out}\n` +
+        `🌙 Ночей: ${nights}\n👥 Гостей: ${guests_count || 1}\n\n` +
+        `💰 Итого: $${total}\n` +
+        `📝 ${notes || 'без комментариев'}\n\n` +
+        `⏳ Статус: ожидает подтверждения`;
 
-      const tgData = JSON.stringify({ chat_id: tgChat, text: tgMessage, parse_mode: 'Markdown' });
-
+      const tgData = JSON.stringify({
+        chat_id: tgChat,
+        text: tgMessage,
+        parse_mode: 'Markdown'
+      });
       try {
-        const tgResult = await httpsRequest(
+        await httpsRequest(
           `https://api.telegram.org/bot${tgToken}/sendMessage`,
           { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(tgData)) } },
           tgData
         );
-        console.log('[BOOK] Telegram status:', tgResult.statusCode);
       } catch (e) {
         console.error('[BOOK] Telegram error:', e.message);
       }
@@ -145,17 +216,34 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         success: true,
         message: 'Заявка отправлена! Мы свяжемся с вами в течение часа.',
-        booking: { apartment: apt.name, check_in, check_out, nights, total },
-        supabase_status: sbResult.statusCode,
+        booking: {
+          id: savedBooking?.id || null,
+          booking_ref,
+          apartment: apt.name,
+          apartment_id,
+          check_in,
+          check_out,
+          nights,
+          total,
+          guest_name,
+          guest_phone,
+          guest_email: guest_email || null,
+        },
       }),
     };
-
   } catch (e) {
     console.error('[BOOK] Error:', e);
-    return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Ошибка сервера' }) };
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'Ошибка сервера' })
+    };
   }
 };
