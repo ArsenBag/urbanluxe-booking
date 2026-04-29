@@ -1178,7 +1178,7 @@ document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
 // Auto-generate iCal Import URL
 const aptId=a?a.id:document.getElementById('amI').value.trim();
 if(aptId){
-  const baseUrl=window.location.origin+'/.netlify/functions/calendar?apt='+aptId;
+  const baseUrl='https://fastidious-blancmange-678804.netlify.app/.netlify/functions/calendar?apt='+aptId;
   document.getElementById('amUI').value=baseUrl;
 }
 if(a){
@@ -1237,7 +1237,7 @@ function copyIcalImport(){
 document.getElementById('amI')?.addEventListener('input',function(){
   const id=this.value.trim();
   if(id){
-    document.getElementById('amUI').value=window.location.origin+'/.netlify/functions/calendar?apt='+id;
+    document.getElementById('amUI').value=window.location.origin → 'https://fastidious-blancmange-678804.netlify.app'?apt='+id;
   }else{
     document.getElementById('amUI').value='';
   }
