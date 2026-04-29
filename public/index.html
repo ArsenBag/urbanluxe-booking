@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <style>
-:root{--bg:#090807;--bg2:#0f0e0c;--bg3:#171512;--bg4:#1f1c18;--ink:#ede8df;--ink-m:#a09888;--ink-d:#635c52;--gold:#c9a961;--gold-l:#ddc07a;--gold-d:#a88d45;--gold-s:rgba(201,169,97,.12);--line:rgba(201,169,97,.08);--line-l:rgba(201,169,97,.15);--r:12px;--fd:'Playfair Display',Georgia,serif;--fb:'Jost',sans-serif}
+:root{--bg:#090807;--bg2:#0f0e0c;--bg3:#171512;--bg4:#1f1c18;--ink:#ede8df;--ink-m:#a09888;--ink-d:#635c52;--gold:#c9a961;--gold-l:#ddc07a;--gold-d:#a88d45;--gold-s:rgba(201,169,97,.12);--line:rgba(201,169,97,.08);--line-l:rgba(201,169,97,.15);--green:#2ecc71;--red:#e74c3c;--r:12px;--fd:'Playfair Display',Georgia,serif;--fb:'Jost',sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font-family:var(--fb);font-weight:300;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 ::selection{background:var(--gold);color:var(--bg)}
@@ -63,6 +63,7 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;point
 .btn:hover{background:var(--gold-d);box-shadow:0 4px 24px rgba(201,169,97,.3)}
 .btn--ghost{background:transparent;color:var(--ink-m);padding:18px 0;letter-spacing:.12em}.btn--ghost:hover{color:var(--gold)}
 .btn--ghost::before{display:none}
+.btn-o{background:transparent;border:1px solid var(--gold-d);color:var(--gold)}.btn-o:hover{background:var(--gold);color:var(--bg)}
 .hero__stats{position:absolute;bottom:100px;right:80px;display:flex;gap:56px;z-index:2;animation:fadeUp 1.2s .6s cubic-bezier(.16,1,.3,1) both}
 .hero__stat{text-align:center}.hero__stat .n{font-family:var(--fd);font-size:48px;font-weight:300;color:var(--gold-l);letter-spacing:-.02em}.hero__stat .l{font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:var(--ink-d);margin-top:6px;font-weight:400}
 
@@ -136,12 +137,6 @@ section{padding:140px 80px}
 #searchResults{margin-top:60px}
 #searchStatus{margin-top:20px;font-size:13px;color:var(--ink-m);font-weight:300}
 #resultsList{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px;margin-top:32px}
-#bookingForm{display:none;margin-top:48px;padding:36px;background:var(--bg3);border:1px solid var(--line-l);border-radius:var(--r)}
-#bookingForm h3{font-family:var(--fd);font-size:22px;margin-bottom:24px;font-weight:400}
-#bookingForm label{display:block;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-d);margin-bottom:6px;margin-top:18px;font-weight:400}
-#bookingForm input,#bookingForm textarea{width:100%;padding:13px 16px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:var(--fb);outline:none;border-radius:6px;font-weight:300;transition:border-color .3s}
-#bookingForm input:focus,#bookingForm textarea:focus{border-color:var(--gold-d)}
-#bookingForm textarea{height:80px;resize:vertical}
 
 /* Footer */
 .footer{padding:80px;border-top:1px solid var(--line);display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:48px}
@@ -321,22 +316,58 @@ section{padding:140px 80px}
 </div>
 </div>
 <div id="searchResults"><div id="resultsList"></div></div>
-<div id="bookingForm" style="display:none">
-<h3 id="bookingTitle">Бронирование</h3>
-<p style="color:var(--ink-m);font-size:14px;margin-bottom:20px">Нажмите на апартамент выше, чтобы открыть его карточку и забронировать.</p>
-</div>
 </section>
 
 <footer class="footer" id="contacts">
 <div><h4>Urban Luxe</h4><p>Премиальные апартаменты в лучших комплексах Ташкента. Стиль, комфорт и вдохновение.</p></div>
 <div><h4>Комплексы</h4><a href="#apartments">Nest One</a><a href="#apartments">U-Tower NRG</a><a href="#apartments">Mirabad Avenue</a><a href="#apartments">Kislorod</a></div>
 <div><h4>Контакты</h4><a href="https://t.me/Arsen_bnb" target="_blank">Telegram @Arsen_bnb</a><a href="https://t.me/UrbanLuxehotel" target="_blank">Канал @UrbanLuxehotel</a><a href="https://instagram.com/urbanluxe.uz" target="_blank">Instagram @urbanluxe.uz</a></div>
-<div><h4>Информация</h4><a href="#">Условия бронирования</a><a href="#">Правила проживания</a><a href="#">FAQ</a></div>
+<div><h4>Информация</h4><a href="/cancel.html">Управление бронированием</a><a href="#">Условия бронирования</a><a href="#">Правила проживания</a><a href="#">FAQ</a></div>
 </footer>
 <div class="footer__copy"><span>&copy; 2026 Urban Luxe. Все права защищены.</span><span>urbanluxe.cc</span></div>
 
 <div class="modal-overlay" id="modalOverlay">
 <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- Chat Widget -->
+<div id="chatWidget" style="position:fixed;bottom:24px;right:24px;z-index:9000">
+<button id="chatBtn" onclick="toggleChat()" style="width:60px;height:60px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(201,169,97,.4);display:flex;align-items:center;justify-content:center;transition:transform .3s,box-shadow .3s;font-size:24px" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">💬</button>
+<div id="chatUnread" style="display:none;position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:#e74c3c;border-radius:50%;font-size:11px;color:#fff;display:none;align-items:center;justify-content:center"></div>
+</div>
+
+<div id="chatPanel" style="display:none;position:fixed;bottom:100px;right:24px;width:380px;max-height:520px;background:var(--bg2);border:1px solid var(--line-l);border-radius:16px;z-index:9000;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);flex-direction:column">
+<div id="chatAuth" style="padding:32px">
+<h3 style="font-family:var(--fd);font-size:22px;font-weight:400;margin-bottom:8px">Войти в чат</h3>
+<p style="color:var(--ink-d);font-size:13px;margin-bottom:24px">Авторизуйтесь чтобы связаться с нами</p>
+<div id="chatAuthTabs" style="display:flex;gap:8px;margin-bottom:20px">
+<button onclick="showAuthTab('login')" class="chatTabBtn active" style="flex:1;padding:8px;background:var(--gold-s);border:1px solid var(--gold-d);color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Вход</button>
+<button onclick="showAuthTab('register')" class="chatTabBtn" style="flex:1;padding:8px;background:transparent;border:1px solid var(--line);color:var(--ink-d);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Регистрация</button>
+</div>
+<div id="chatLogin">
+<input type="email" id="chatEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="password" id="chatPassword" placeholder="Пароль" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
+<button onclick="chatLogin()" class="btn" style="width:100%;padding:12px">Войти</button>
+</div>
+<div id="chatRegister" style="display:none">
+<input type="text" id="chatRegName" placeholder="Ваше имя" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="email" id="chatRegEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
+<input type="password" id="chatRegPassword" placeholder="Пароль (мин. 6 символов)" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
+<button onclick="chatRegister()" class="btn" style="width:100%;padding:12px">Зарегистрироваться</button>
+</div>
+<div id="chatAuthError" style="color:#e74c3c;font-size:12px;margin-top:12px;display:none"></div>
+</div>
+<div id="chatView" style="display:none;flex-direction:column;height:480px">
+<div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-family:var(--fd);font-size:16px">Urban Luxe</div><div style="font-size:11px;color:var(--ink-d)">Обычно отвечаем за 5 минут</div></div>
+<button onclick="chatLogout()" style="background:none;border:none;color:var(--ink-d);cursor:pointer;font-size:12px">Выйти</button>
+</div>
+<div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px"></div>
+<div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px">
+<input type="text" id="chatInput" placeholder="Написать сообщение..." style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:20px;font-family:var(--fb);outline:none" onkeydown="if(event.key==='Enter')sendMessage()">
+<button onclick="sendMessage()" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;color:var(--bg);font-size:16px;display:flex;align-items:center;justify-content:center">&#10148;</button>
+</div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -347,21 +378,17 @@ section{padding:140px 80px}
 const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 const sb=supabase.createClient(SB_URL,SB_KEY),API='/.netlify/functions';
 const AL={wifi:'Wi-Fi',ac:'Кондиционер',kitchen:'Кухня',washer:'Стиральная машина',tv:'Smart TV',parking:'Парковка',balcony:'Балкон',view:'Панорамный вид',gym:'Спортзал',pool:'Бассейн',iron:'Утюг',hairdryer:'Фен'};
-let allApts=[],selectedApt=null,gIdx=0,gPh=[];
+let allApts=[],gIdx=0,gPh=[];
 
-// Nav
 window.addEventListener('scroll',()=>{document.getElementById('navbar').classList.toggle('s',window.scrollY>50)});
 
-// Scroll reveal
 const revealObs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');revealObs.unobserve(e.target)}})},{threshold:.15,rootMargin:'0px 0px -40px 0px'});
 document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el));
 
-// Flatpickr
 const today=new Date(),fpIn=flatpickr('#searchCheckIn',{locale:'ru',minDate:today,dateFormat:'d.m.Y',onChange(d){if(d[0]){const n=new Date(d[0]);n.setDate(n.getDate()+1);fpOut.set('minDate',n);if(!fpOut.selectedDates.length)fpOut.open()}}});
 const nx=new Date(today);nx.setDate(nx.getDate()+1);
 const fpOut=flatpickr('#searchCheckOut',{locale:'ru',minDate:nx,dateFormat:'d.m.Y'});
 
-// Load apartments
 async function loadApartments(){
   const{data}=await sb.from('apartments').select('*').eq('is_active',true).order('complex');
   if(!data)return;
@@ -369,7 +396,6 @@ async function loadApartments(){
     let desc=(a.description||'').replace(/\[VIDEO:.*?\]/g,'').trim(),vid=null;const vm=(a.description||'').match(/\[VIDEO:(.*?)\]/);if(vm)vid=vm[1];
     return{...a,_photos:ph,_cover:ph[0]||'',_desc:desc,_video:vid}});
   renderAptGrid(allApts);
-  // Re-observe new reveals
   document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs.observe(el));
 }
 
@@ -403,7 +429,6 @@ function toggleFav(id){
 function filterApts(c){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');
   renderAptGrid(c==='all'?allApts:allApts.filter(a=>(a.complex==='U-Tower 2'?'U-Tower':a.complex)===c))}
 
-// Modal with inline booking (Airbnb-style)
 let modalAptId=null;
 function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptId=id;gPh=a._photos;gIdx=0;
   let h='<button class="modal-close" onclick="closeModal()">&#10005;</button>';
@@ -412,7 +437,6 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
       for(let i=0;i<gPh.length;i++)h+=`<span${i===0?' class="active"':''} onclick="gGo(${i})"></span>`;h+='</div>'}h+='</div>';
   }else{h+='<div class="gallery" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg3),var(--bg4))"><span style="color:var(--ink-d);font-size:14px;letter-spacing:.1em">'+t('apt_nophoto')+'</span></div>'}
   h+=`<div class="modal-body"><div style="display:grid;grid-template-columns:1fr 320px;gap:32px">`;
-  // Left: details
   h+=`<div><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px"><div><div class="modal-title">${a.name}</div>`;
   if(a.style)h+=`<div class="modal-style">${a.style}</div>`;
   h+=`</div></div>`;
@@ -424,7 +448,6 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
   if(a._video){const yt=a._video.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
     if(yt)h+=`<iframe width="100%" height="315" src="https://www.youtube.com/embed/${yt[1]}" frameborder="0" allowfullscreen style="border-radius:var(--r);margin-bottom:28px"></iframe>`}
   h+=`</div>`;
-  // Right: booking panel (sticky)
   h+=`<div style="position:sticky;top:20px">
     <div style="background:var(--bg3);border:1px solid var(--line-l);border-radius:var(--r);padding:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div class="modal-price">от $${a.weekday_price}</div><div style="font-size:11px;color:var(--ink-d)">за ночь</div></div>
@@ -438,7 +461,18 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
       </div>
       <div id="modalGuestFields" style="display:none;margin-bottom:16px">
         <input type="text" id="modalGuestName" placeholder="Ваше имя" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
-        <input type="text" id="modalGuestPhone" placeholder="Телефон" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
+        <input type="text" id="modalGuestPhone" placeholder="Телефон" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
+        <input type="email" id="modalGuestEmail" placeholder="Email (для подтверждения)" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
+      </div>
+      <div id="modalForOtherWrap" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--ink-m)">
+          <input type="checkbox" id="modalForOther" onchange="toggleForOther()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)">
+          <span>Бронирую для другого человека</span>
+        </label>
+        <div id="modalGuestForOther" style="display:none;margin-top:12px">
+          <input type="text" id="modalOtherName" placeholder="Имя гостя заезда" style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
+          <input type="text" id="modalOtherPhone" placeholder="Телефон гостя заезда" style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
+        </div>
       </div>
       <button class="btn" style="width:100%;padding:14px" id="modalBookBtn" onclick="modalBook()">Проверить доступность</button>
       <div id="modalBookStatus" style="margin-top:12px;font-size:12px;text-align:center"></div>
@@ -451,13 +485,16 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
   </div>`;
   h+=`</div></div>`;
   document.getElementById('modalContent').innerHTML=h;document.getElementById('modalOverlay').classList.add('active');document.body.style.overflow='hidden';
-  // Init flatpickr in modal
   initModalDates(id,a);
+}
+
+function toggleForOther(){
+  const checked = document.getElementById('modalForOther').checked;
+  document.getElementById('modalGuestForOther').style.display = checked ? 'block' : 'none';
 }
 
 let mfpIn,mfpOut,modalBookData=null;
 async function initModalDates(aptId,apt){
-  // Load booked dates for this apartment
   let disabledDates=[];
   try{
     const r=await fetch(API+'/availability?apt='+aptId);
@@ -469,8 +506,7 @@ async function initModalDates(aptId,apt){
       });
     }
   }catch(e){}
-  
-  // Show mini calendar
+
   const calEl=document.getElementById('modalAvailCal');
   if(calEl){
     const now=new Date(),y=now.getFullYear(),m=now.getMonth(),dm=new Date(y,m+1,0).getDate();
@@ -491,8 +527,7 @@ async function initModalDates(aptId,apt){
     calH+='</div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px"><span style="color:var(--green)">● Свободно</span><span style="color:var(--red)">● Занято</span></div>';
     calEl.innerHTML=calH;
   }
-  
-  // Init flatpickrs
+
   if(mfpIn)mfpIn.destroy();if(mfpOut)mfpOut.destroy();
   mfpIn=flatpickr('#modalCheckIn',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',disable:disabledDates.map(d=>new Date(d+'T12:00:00')),onChange(dates){
     if(dates[0]){const n=new Date(dates[0]);n.setDate(n.getDate()+1);mfpOut.set('minDate',n);if(!mfpOut.selectedDates.length)mfpOut.open();calcModalPrice(apt)}
@@ -514,75 +549,146 @@ function calcModalPrice(apt){
   document.getElementById('modalAvgPrice').textContent='$'+p.avgPerNight;
   document.getElementById('modalBookBtn').textContent=t('m_book')+' $'+p.total;
   modalBookData={aptId:modalAptId,total:p.total,nights:p.nights,checkIn:ciStr,checkOut:coStr};
-  // Show guest fields if not logged in
   checkModalAuth();
 }
 
 async function checkModalAuth(){
   const{data:{user}}=await sb.auth.getUser();
+  const guestFields=document.getElementById('modalGuestFields');
+  const forOtherWrap=document.getElementById('modalForOtherWrap');
   if(user){
-    // Auto-fill from profile
-    document.getElementById('modalGuestFields').style.display='none';
-    const{data:prof}=await sb.from('guest_profiles').select('name,phone').eq('user_id',user.id).single();
+    if(guestFields)guestFields.style.display='none';
+    if(forOtherWrap)forOtherWrap.style.display='block';
+    let prof=null;
+    try{const r=await sb.from('guest_profiles').select('name,phone').eq('user_id',user.id).maybeSingle();prof=r.data}catch(e){}
     modalBookData.guestName=prof?.name||user.user_metadata?.name||'';
     modalBookData.guestPhone=prof?.phone||'';
     modalBookData.guestEmail=user.email;
     modalBookData.userId=user.id;
   }else{
-    document.getElementById('modalGuestFields').style.display='block';
+    if(guestFields)guestFields.style.display='block';
+    if(forOtherWrap)forOtherWrap.style.display='none';
   }
 }
 
 async function modalBook(){
   if(!modalBookData||!modalBookData.checkIn){
-    // No dates selected — just check availability
     const ci=mfpIn?.selectedDates[0],co=mfpOut?.selectedDates[0];
     if(!ci||!co){document.getElementById('modalBookStatus').innerHTML='<span style="color:var(--red)">Выберите даты заезда и выезда</span>';return}
     return;
   }
   const st=document.getElementById('modalBookStatus');
   const btn=document.getElementById('modalBookBtn');
-  
-  // Check if logged in
+
   const{data:{user}}=await sb.auth.getUser();
   let guestName,guestPhone,guestEmail;
-  
+  let bookerName=null,bookerPhone=null,bookerEmail=null,userId=null;
+
   if(user){
-    guestName=modalBookData.guestName;
-    guestPhone=modalBookData.guestPhone;
-    guestEmail=modalBookData.guestEmail;
+    // Залогинен — booker = текущий пользователь
+    bookerName=modalBookData.guestName||user.user_metadata?.name||user.email;
+    bookerPhone=modalBookData.guestPhone||'';
+    bookerEmail=user.email;
+    userId=user.id;
+
+    // Если "бронирую для другого" — гостя берём из спец-полей, иначе гость = booker
+    const forOther=document.getElementById('modalForOther')?.checked;
+    if(forOther){
+      guestName=document.getElementById('modalOtherName')?.value?.trim();
+      guestPhone=document.getElementById('modalOtherPhone')?.value?.trim();
+      guestEmail='';
+      if(!guestName||!guestPhone){st.innerHTML='<span style="color:var(--red)">Введите имя и телефон гостя</span>';return}
+    }else{
+      guestName=bookerName;
+      guestPhone=bookerPhone;
+      guestEmail=bookerEmail;
+    }
   }else{
     guestName=document.getElementById('modalGuestName')?.value?.trim();
     guestPhone=document.getElementById('modalGuestPhone')?.value?.trim();
+    guestEmail=document.getElementById('modalGuestEmail')?.value?.trim()||'';
     if(!guestName||!guestPhone){st.innerHTML='<span style="color:var(--red)">Введите имя и телефон</span>';return}
-    guestEmail='';
   }
-  
+
   btn.disabled=true;btn.textContent='Бронирование...';
+  st.innerHTML='';
   try{
     const r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      apartment_id:modalBookData.aptId,guest_name:guestName,guest_phone:guestPhone,guest_email:guestEmail,
-      check_in:modalBookData.checkIn,check_out:modalBookData.checkOut,nights:modalBookData.nights,total_price:modalBookData.total,guests:2
+      apartment_id:modalBookData.aptId,
+      guest_name:guestName,
+      guest_phone:guestPhone,
+      guest_email:guestEmail,
+      check_in:modalBookData.checkIn,
+      check_out:modalBookData.checkOut,
+      nights:modalBookData.nights,
+      total_price:modalBookData.total,
+      guests_count:2,
+      user_id:userId,
+      booker_name:bookerName,
+      booker_phone:bookerPhone,
+      booker_email:bookerEmail
     })});
     const d=await r.json();
     if(d.success||d.id){
-      st.innerHTML='<span style="color:var(--green)">&#10003; Бронирование создано!</span>';
-      btn.textContent='&#10003; Забронировано';
-      btn.style.background='var(--green)';
-      // Telegram notification
+      // Показываем красивую страницу подтверждения вместо простого статуса
+      showBookingConfirmation(d.booking||{},modalBookData.aptId,!!user);
       const aptInfo=allApts.find(x=>x.id===modalBookData.aptId);
       fetch(API+'/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'new_booking',apartment:aptInfo?.name||modalBookData.aptId,guest_name:guestName,guest_phone:guestPhone,check_in:modalBookData.checkIn,check_out:modalBookData.checkOut,nights:modalBookData.nights,total:modalBookData.total})}).catch(()=>{});
-      if(user){
-        st.innerHTML+='<br><a href="/guest.html" style="color:var(--gold);font-size:12px">Перейти в личный кабинет →</a>';
-      }else{
-        st.innerHTML+='<br><span style="color:var(--ink-d);font-size:11px">Мы свяжемся с вами для подтверждения</span>';
-      }
     }else{
       st.innerHTML='<span style="color:var(--red)">'+(d.error||'Ошибка. Попробуйте снова')+'</span>';
       btn.disabled=false;btn.textContent='Попробовать снова';
     }
   }catch(e){st.innerHTML='<span style="color:var(--red)">Ошибка сети</span>';btn.disabled=false;btn.textContent='Попробовать снова'}
 }
+
+// Страница подтверждения бронирования (Booking.com-style)
+function showBookingConfirmation(booking, aptId, isLoggedIn){
+  const apt = allApts.find(x=>x.id===aptId) || {};
+  const ref = booking.booking_ref || '—';
+  const aptName = booking.apartment || apt.name || aptId;
+  const total = booking.total || 0;
+  const ci = booking.check_in || '—';
+  const co = booking.check_out || '—';
+  const email = booking.guest_email || '';
+
+  const html = `
+    <button class="modal-close" onclick="closeBookingConfirmation()">&#10005;</button>
+    <div style="padding:48px 40px;text-align:center;max-width:560px;margin:0 auto">
+      <div style="width:72px;height:72px;border-radius:50%;background:rgba(46,204,113,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:32px;color:var(--green)">&#10003;</div>
+      <h2 style="font-family:var(--fd);font-size:28px;font-weight:300;margin-bottom:8px">Заявка отправлена</h2>
+      <p style="color:var(--ink-d);font-size:14px;margin-bottom:32px;line-height:1.6">Мы свяжемся с вами в течение часа для подтверждения. Сохраните номер брони — он понадобится для управления.</p>
+
+      <div style="background:var(--bg3);border:1px solid var(--line-l);border-radius:var(--r);padding:24px;margin-bottom:24px;text-align:left">
+        <div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-d);margin-bottom:6px">Номер бронирования</div>
+        <div style="font-family:var(--fd);font-size:28px;color:var(--gold);letter-spacing:.1em;margin-bottom:24px">${ref}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+          <div><div style="color:var(--ink-d);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Апартамент</div><div>${aptName}</div></div>
+          <div><div style="color:var(--ink-d);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Сумма</div><div style="color:var(--gold)">$${total}</div></div>
+          <div><div style="color:var(--ink-d);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Заезд</div><div>${ci}</div></div>
+          <div><div style="color:var(--ink-d);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Выезд</div><div>${co}</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${isLoggedIn ? `<a href="/guest.html" class="btn" style="text-decoration:none;text-align:center;padding:14px">Открыть личный кабинет</a>` : ''}
+        <a href="/cancel.html?ref=${encodeURIComponent(ref)}" class="btn btn-o" style="text-decoration:none;text-align:center;padding:14px;display:block">Управление бронированием</a>
+        <button onclick="closeBookingConfirmation()" style="background:transparent;border:none;color:var(--ink-d);font-size:11px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;padding:12px;margin-top:8px;font-family:var(--fb)">Закрыть</button>
+      </div>
+
+      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-d);line-height:1.7">
+        Сохраните номер <strong style="color:var(--gold)">${ref}</strong> для отмены или изменения брони.<br>
+        ${email ? 'Подтверждение отправлено на ' + email : 'Свяжитесь с нами через <a href="https://t.me/Arsen_bnb" target="_blank" style="color:var(--gold);text-decoration:none">Telegram @Arsen_bnb</a>'}
+      </div>
+    </div>
+  `;
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+function closeBookingConfirmation(){
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow='';
+}
+
 function closeModal(){document.getElementById('modalOverlay').classList.remove('active');document.body.style.overflow=''}
 function gNav(d){gIdx=(gIdx+d+gPh.length)%gPh.length;uG()}
 function gGo(i){gIdx=i;uG()}
@@ -590,7 +696,6 @@ function uG(){const img=document.getElementById('gImg');if(img)img.src=gPh[gIdx]
 document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
 document.addEventListener('keydown',e=>{if(!document.getElementById('modalOverlay').classList.contains('active'))return;if(e.key==='Escape')closeModal();if(e.key==='ArrowLeft')gNav(-1);if(e.key==='ArrowRight')gNav(1)});
 
-// Search
 async function searchAvailability(){
   const ci=fpIn.selectedDates[0],co=fpOut.selectedDates[0];
   if(!ci||!co){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Выберите даты заезда и выезда</span>';return}
@@ -607,27 +712,11 @@ async function searchAvailability(){
   catch(e){document.getElementById('searchStatus').innerHTML='<span style="color:#e74c3c">Ошибка поиска. Попробуйте снова.</span>'}}
 
 function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function selectForBooking(id,total,nights){selectedApt={id,total,nights,check_in:fmtD(fpIn.selectedDates[0]),check_out:fmtD(fpOut.selectedDates[0])};
-  const a=allApts.find(x=>x.id===id);document.getElementById('bookingTitle').textContent='Бронирование — '+(a?a.name:id)+' · $'+total+' за '+nights+' ноч.';
-  document.getElementById('bookingForm').style.display='block';document.getElementById('bookingForm').scrollIntoView({behavior:'smooth'})}
-
-async function submitBooking(){if(!selectedApt)return;
-  const name=document.getElementById('bName').value.trim(),phone=document.getElementById('bPhone').value.trim(),email=document.getElementById('bEmail').value.trim(),guests=parseInt(document.getElementById('bGuests').value)||2,notes=document.getElementById('bNotes').value.trim();
-  if(!name||!phone){document.getElementById('bookingStatus').innerHTML='<span style="color:#e74c3c">Заполните имя и телефон</span>';return}
-  const btn=event.target;btn.disabled=true;btn.textContent='Отправка...';
-  try{const r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apartment_id:selectedApt.id,guest_name:name,guest_phone:phone,guest_email:email,check_in:selectedApt.check_in,check_out:selectedApt.check_out,nights:selectedApt.nights,total_price:selectedApt.total,guests,notes})});
-    const d=await r.json();
-    if(d.success||d.id){document.getElementById('bookingStatus').innerHTML='<span style="color:#2ecc71">&#10003; Заявка отправлена! Мы свяжемся с вами в ближайшее время.</span>';document.getElementById('bookingForm').querySelectorAll('input,textarea').forEach(el=>el.value='')}
-    else document.getElementById('bookingStatus').innerHTML='<span style="color:#e74c3c">Ошибка: '+(d.error||'Попробуйте снова')+'</span>'}
-  catch(e){document.getElementById('bookingStatus').innerHTML='<span style="color:#e74c3c">Ошибка сети</span>'}
-  btn.disabled=false;btn.textContent='Отправить заявку'}
 
 loadApartments();
 
-// Init language from localStorage
 if(window.UL_LANG && window.UL_LANG !== 'ru') setLang(window.UL_LANG);
 
-// Load real reviews from bookings
 (async function(){
   const{data}=await sb.from('bookings').select('guest_name,apartment_id,review_rating,review_text').not('review_rating','is',null).order('updated_at',{ascending:false}).limit(6);
   if(data&&data.length>=2){
@@ -639,54 +728,8 @@ if(window.UL_LANG && window.UL_LANG !== 'ru') setLang(window.UL_LANG);
     }).join('');
   }
 })();
-</script>
-</body>
-</html>
 
-<!-- Chat Widget -->
-<div id="chatWidget" style="position:fixed;bottom:24px;right:24px;z-index:9000">
-<button id="chatBtn" onclick="toggleChat()" style="width:60px;height:60px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(201,169,97,.4);display:flex;align-items:center;justify-content:center;transition:transform .3s,box-shadow .3s;font-size:24px" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">💬</button>
-<div id="chatUnread" style="display:none;position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:#e74c3c;border-radius:50%;font-size:11px;color:#fff;display:none;align-items:center;justify-content:center"></div>
-</div>
-
-<div id="chatPanel" style="display:none;position:fixed;bottom:100px;right:24px;width:380px;max-height:520px;background:var(--bg2);border:1px solid var(--line-l);border-radius:16px;z-index:9000;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);flex-direction:column">
-<!-- Auth view -->
-<div id="chatAuth" style="padding:32px">
-<h3 style="font-family:var(--fd);font-size:22px;font-weight:400;margin-bottom:8px">Войти в чат</h3>
-<p style="color:var(--ink-d);font-size:13px;margin-bottom:24px">Авторизуйтесь чтобы связаться с нами</p>
-<div id="chatAuthTabs" style="display:flex;gap:8px;margin-bottom:20px">
-<button onclick="showAuthTab('login')" class="chatTabBtn active" style="flex:1;padding:8px;background:var(--gold-s);border:1px solid var(--gold-d);color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Вход</button>
-<button onclick="showAuthTab('register')" class="chatTabBtn" style="flex:1;padding:8px;background:transparent;border:1px solid var(--line);color:var(--ink-d);font-size:11px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:var(--fb)">Регистрация</button>
-</div>
-<div id="chatLogin">
-<input type="email" id="chatEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
-<input type="password" id="chatPassword" placeholder="Пароль" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
-<button onclick="chatLogin()" class="btn" style="width:100%;padding:12px">Войти</button>
-</div>
-<div id="chatRegister" style="display:none">
-<input type="text" id="chatRegName" placeholder="Ваше имя" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
-<input type="email" id="chatRegEmail" placeholder="Email" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:12px;border-radius:6px;font-family:var(--fb);outline:none">
-<input type="password" id="chatRegPassword" placeholder="Пароль (мин. 6 символов)" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;margin-bottom:16px;border-radius:6px;font-family:var(--fb);outline:none">
-<button onclick="chatRegister()" class="btn" style="width:100%;padding:12px">Зарегистрироваться</button>
-</div>
-<div id="chatAuthError" style="color:#e74c3c;font-size:12px;margin-top:12px;display:none"></div>
-</div>
-<!-- Chat view -->
-<div id="chatView" style="display:none;flex-direction:column;height:480px">
-<div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
-<div><div style="font-family:var(--fd);font-size:16px">Urban Luxe</div><div style="font-size:11px;color:var(--ink-d)">Обычно отвечаем за 5 минут</div></div>
-<button onclick="chatLogout()" style="background:none;border:none;color:var(--ink-d);cursor:pointer;font-size:12px">Выйти</button>
-</div>
-<div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px"></div>
-<div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px">
-<input type="text" id="chatInput" placeholder="Написать сообщение..." style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:20px;font-family:var(--fb);outline:none" onkeydown="if(event.key==='Enter')sendMessage()">
-<button onclick="sendMessage()" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;color:var(--bg);font-size:16px;display:flex;align-items:center;justify-content:center">&#10148;</button>
-</div>
-</div>
-</div>
-
-<script>
-// Chat functionality
+// ===== Chat widget functions =====
 let chatUser=null,chatSub=null;
 
 function toggleChat(){
@@ -744,7 +787,6 @@ async function loadMessages(){
   if(!chatUser)return;
   const{data}=await sb.from('messages').select('*').eq('conversation_id',chatUser.id).order('created_at',{ascending:true});
   renderMessages(data||[]);
-  // Mark as read
   await sb.from('messages').update({is_read:true}).eq('conversation_id',chatUser.id).eq('sender_role','admin').eq('is_read',false);
 }
 
@@ -773,6 +815,8 @@ function subscribeMessages(){
   chatSub=sb.channel('chat-'+chatUser.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+chatUser.id},()=>{loadMessages()}).subscribe();
 }
 
-// Check if user is already logged in
 (async function(){const{data:{user}}=await sb.auth.getUser();if(user)chatUser=user})();
 </script>
+
+</body>
+</html>
