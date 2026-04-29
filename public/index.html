@@ -493,20 +493,44 @@ function toggleForOther(){
   document.getElementById('modalGuestForOther').style.display = checked ? 'block' : 'none';
 }
 
-let mfpIn,mfpOut,modalBookData=null;
+let mfpIn,mfpOut,modalBookData=null,bookedEvents=[];
 async function initModalDates(aptId,apt){
-  let disabledDates=[];
+  // Логика бронирования (как в Booking/Airbnb):
+  //  - disabledForCheckIn: все занятые ночи — нельзя въехать
+  //  - disabledForCheckOut: все занятые ночи КРОМЕ start каждой брони
+  //    (в start-день предыдущий гость съезжает → новый гость может в этот же день выехать после своей брони)
+  //  Кстати, в API booked_dates приходит как маленькие интервалы [start,end], где end эксклюзив,
+  //  поэтому "ночь брони" = start. Мы собираем все ночи и отдельно — все start.
+  bookedEvents=[];
+  let bookedNights=new Set();      // все занятые ночи (даты как 'YYYY-MM-DD')
+  let nightStarts=new Set();       // первые ночи каждой непрерывной брони
+  let allStartsRaw=[];              // для построения непрерывных диапазонов
+
   try{
     const r=await fetch(API+'/availability?apt='+aptId);
     const d=await r.json();
     if(d.booked_dates){
+      bookedEvents=d.booked_dates.slice();
+      // Сначала соберём ВСЕ занятые ночи
       d.booked_dates.forEach(ev=>{
         let cur=new Date(ev.start+'T12:00:00');const end=new Date(ev.end+'T12:00:00');
-        while(cur<end){disabledDates.push(fmtD(cur));cur.setDate(cur.getDate()+1)}
+        while(cur<end){bookedNights.add(fmtD(cur));cur.setDate(cur.getDate()+1)}
+        allStartsRaw.push(ev.start);
+      });
+      // Найдём "настоящие" start'ы непрерывных периодов:
+      // ночь N — start, если предыдущая ночь N-1 НЕ в bookedNights
+      bookedNights.forEach(ds=>{
+        const prev=new Date(ds+'T12:00:00');prev.setDate(prev.getDate()-1);
+        if(!bookedNights.has(fmtD(prev)))nightStarts.add(ds);
       });
     }
-  }catch(e){}
+  }catch(e){console.error('availability fetch failed',e)}
 
+  const disabledForCheckIn=Array.from(bookedNights);
+  // Для выезда: можно выехать в день, когда новый гость заселяется (т.е. в start непрерывного блока)
+  const disabledForCheckOut=Array.from(bookedNights).filter(d=>!nightStarts.has(d));
+
+  // Мини-календарь индикатор (3 цвета: свободно / занято / можно выехать)
   const calEl=document.getElementById('modalAvailCal');
   if(calEl){
     const now=new Date(),y=now.getFullYear(),m=now.getMonth(),dm=new Date(y,m+1,0).getDate();
@@ -517,7 +541,7 @@ async function initModalDates(aptId,apt){
     for(let i=0;i<firstDay;i++)calH+='<div></div>';
     for(let d=1;d<=dm;d++){
       const ds=fmtD(new Date(y,m,d));
-      const booked=disabledDates.includes(ds);
+      const booked=bookedNights.has(ds);
       const past=new Date(y,m,d)<new Date(now.getFullYear(),now.getMonth(),now.getDate());
       const isToday=d===now.getDate();
       const bg=booked?'rgba(231,76,60,.15)':past?'transparent':'rgba(46,204,113,.1)';
@@ -529,10 +553,43 @@ async function initModalDates(aptId,apt){
   }
 
   if(mfpIn)mfpIn.destroy();if(mfpOut)mfpOut.destroy();
-  mfpIn=flatpickr('#modalCheckIn',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',disable:disabledDates.map(d=>new Date(d+'T12:00:00')),onChange(dates){
-    if(dates[0]){const n=new Date(dates[0]);n.setDate(n.getDate()+1);mfpOut.set('minDate',n);if(!mfpOut.selectedDates.length)mfpOut.open();calcModalPrice(apt)}
-  }});
-  mfpOut=flatpickr('#modalCheckOut',{locale:'ru',minDate:new Date(new Date().getTime()+864e5),dateFormat:'d.m.Y',disable:disabledDates.map(d=>new Date(d+'T12:00:00')),onChange(){calcModalPrice(apt)}});
+
+  mfpIn=flatpickr('#modalCheckIn',{
+    locale:'ru',minDate:'today',dateFormat:'d.m.Y',
+    disable:disabledForCheckIn.map(d=>new Date(d+'T12:00:00')),
+    onChange(dates){
+      if(!dates[0])return;
+      const ci=dates[0];
+      // min для выезда — заезд + 1 день
+      const minOut=new Date(ci);minOut.setDate(minOut.getDate()+1);
+      // max для выезда — первый занятый день (как ночь) ПОСЛЕ заезда + 1 (т.к. в этот день можно ВЫЕХАТЬ, но не позже)
+      // То есть нужно найти первую занятую ночь >= ci, и max-выезд = эта ночь.
+      // Если такой нет — без ограничения.
+      let maxOut=null;
+      const sortedNights=Array.from(bookedNights).sort();
+      for(const ds of sortedNights){
+        const dt=new Date(ds+'T12:00:00');
+        if(dt>=ci){maxOut=dt;break}
+      }
+      mfpOut.set('minDate',minOut);
+      mfpOut.set('maxDate',maxOut||null);
+      // Если уже выбран check_out но он выходит за границы — сбросить
+      if(mfpOut.selectedDates[0]){
+        const co=mfpOut.selectedDates[0];
+        if(co<minOut||(maxOut&&co>maxOut)){mfpOut.clear();}
+      }
+      if(!mfpOut.selectedDates.length)mfpOut.open();
+      calcModalPrice(apt);
+    }
+  });
+
+  mfpOut=flatpickr('#modalCheckOut',{
+    locale:'ru',
+    minDate:new Date(new Date().getTime()+864e5),
+    dateFormat:'d.m.Y',
+    disable:disabledForCheckOut.map(d=>new Date(d+'T12:00:00')),
+    onChange(){calcModalPrice(apt)}
+  });
 }
 
 function calcModalPrice(apt){
@@ -579,6 +636,19 @@ async function modalBook(){
   }
   const st=document.getElementById('modalBookStatus');
   const btn=document.getElementById('modalBookBtn');
+
+  // Доп. валидация: между check_in и check_out не должно быть занятых ночей
+  const ciDate=new Date(modalBookData.checkIn+'T12:00:00');
+  const coDate=new Date(modalBookData.checkOut+'T12:00:00');
+  for(const ev of (bookedEvents||[])){
+    const evStart=new Date(ev.start+'T12:00:00');
+    const evEnd=new Date(ev.end+'T12:00:00');
+    // Конфликт: интервалы пересекаются (с учётом что check_out эксклюзив, как и ev.end)
+    if(ciDate<evEnd && coDate>evStart){
+      st.innerHTML='<span style="color:var(--red)">В выбранном периоде уже есть бронь — выберите другие даты</span>';
+      return;
+    }
+  }
 
   const{data:{user}}=await sb.auth.getUser();
   let guestName,guestPhone,guestEmail;
