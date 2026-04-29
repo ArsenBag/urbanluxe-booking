@@ -58,7 +58,7 @@ function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
   return { total, nights };
 }
 
-// Генератор короткого ID: UL-A8F2K3 (6 символов из A-Z, 0-9 без 0/O/I/1)
+// UL-XXXXXX (без 0/O/I/1 чтобы не путать)
 function generateBookingRef() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -83,18 +83,15 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
-  
+
   try {
     const data = JSON.parse(event.body);
     const {
       apartment_id,
       guest_name, guest_phone, guest_email,
       check_in, check_out, guests_count, notes,
-      // Новые поля
       user_id,
       booker_name, booker_phone, booker_email,
-      total_price: clientTotal, // на всякий случай — но мы пересчитываем сами
-      nights: clientNights
     } = data;
 
     if (!apartment_id || !guest_name || !guest_phone || !check_in || !check_out) {
@@ -138,12 +135,11 @@ exports.handler = async (event) => {
       created_at: new Date().toISOString(),
     };
 
-    // Save to Supabase
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
     const postData = JSON.stringify(booking);
 
-    console.log('[BOOK] Saving to Supabase, ref:', booking_ref);
+    console.log('[BOOK] Saving, ref:', booking_ref);
 
     const sbResult = await httpsRequest(
       `${supabaseUrl}/rest/v1/bookings`,
@@ -177,7 +173,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Send Telegram
+    // Telegram notification
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChat = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChat) {
