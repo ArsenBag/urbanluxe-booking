@@ -1,0 +1,25 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Общие CORS-заголовки для всех путей
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+
+# iCal-функция — без Brotli/Gzip и без CDN-кэша,
+# чтобы строгие парсеры (RealtyCalendar) принимали ответ.
+[[headers]]
+  for = "/.netlify/functions/calendar*"
+  [headers.values]
+    Content-Encoding = "identity"
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
+    Netlify-CDN-Cache-Control = "no-store"
+    CDN-Cache-Control = "no-store"
+    Vary = "Accept-Encoding"

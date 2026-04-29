@@ -14,7 +14,7 @@ exports.handler = async (event) => {
   const headers = {
     'Content-Type': 'text/calendar; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
   };
 
   const apt = event.queryStringParameters?.apt;
