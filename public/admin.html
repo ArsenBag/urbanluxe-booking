@@ -1167,7 +1167,7 @@ function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
 
 function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="10" class="loading">Нет бронирований</td></tr>';return}const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтв.':b.status==='cancelled'?'Отмен.':b.status==='completed'?'Заверш.':'Ожид.';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';const src=(srcMap[b.source]||'🌐')+' '+(b.source||'website');return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td style="font-size:11px">${src}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 8px;font-size:9px">✓</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 8px;font-size:9px">✗</button>`:''}</td></tr>`}).join('')}
 
-async function ubS(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
+async function setBookingStatus(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
 async function setBookingStatus(id,s){return ubS(id,s)}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amDiscWeek').value=a?(a.discount_week||10):10;document.getElementById('amDiscMonth').value=a?(a.discount_month||25):25;document.getElementById('amMinNights').value=a?(a.min_nights||1):1;document.getElementById('amMaxGuests').value=a?(a.max_guests||2):2;
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
@@ -1926,7 +1926,12 @@ async function loadBizAnalytics(){
         let aptNum=null;
         for(let ni=allNums.length-1;ni>=0;ni--){if(parseInt(allNums[ni])<500){aptNum=String(allNums[ni]);break}}
         const mapped=aptNum?aptMap2.find(m=>m.k===aptNum):null;
-        return{name:apt.name.split('-')[0].trim()||apt.name.substring(0,20),complex:mapped?.cx||'',pct:mData.occupancy||0,revenue:mData.revenue||0};
+        // Better name: "Апартамент XXX" instead of raw RC name
+        const displayName=aptNum?'Апартамент '+aptNum:apt.name.split(/[-\/]/)[0].trim().substring(0,20);
+        // Occupancy is stored as number of nights, convert to percentage
+        const dm=new Date(chessYear||new Date().getFullYear(),(chessMonth||new Date().getMonth())+1,0).getDate();
+        const occPct=mData.occupancy>0?Math.min(100,Math.round(mData.occupancy/dm*100)):0;
+        return{name:displayName,complex:mapped?.cx||'',pct:occPct,revenue:mData.revenue||0};
       }).filter(a=>a.pct>0||a.revenue>0).sort((a,b)=>b.pct-a.pct);
       
       if(sheetsStats.length>0){
@@ -2315,7 +2320,7 @@ function renderChessGrid(){
   const today=new Date().toISOString().split('T')[0];
   const dayNames=['вс','пн','вт','ср','чт','пт','сб'];
   
-  const srcColors={airbnb:'#FF5A5F',booking:'#003580',ostrovok:'#2ecc71',sutochno:'#3498db',yandex:'#f39c12',website:'var(--gold)',other:'#666',blocked:'#333'};
+  const srcColors={airbnb:'#FF5A5F',booking:'#003580',ostrovok:'#2ecc71',sutochno:'#3498db',yandex:'#f39c12',website:'var(--gold)',other:'#555',blocked:'#222'};
   const cxColors={'Nest One':'#2ecc71','U-Tower':'#3498db','U-Tower 2':'#3498db','Mirabad':'#e67e22','Kislorod':'#e74c3c'};
   
   // Group apartments by complex
@@ -2410,7 +2415,7 @@ function renderChessGrid(){
     const cxPct=cxTotal>0?Math.round(cxOcc/cxTotal*100):0;
     complexStats+='<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:'+(cxColors[cx]||'#888')+'"></span>'+cx+': <strong style="color:'+(cxPct>80?'var(--green)':cxPct>50?'var(--gold)':'var(--red)')+'">'+cxPct+'%</strong></span>';
   });
-  document.getElementById('chessStats').innerHTML='<span>Общая загрузка: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong></span><span>Занято: <strong>'+totalOccupied+'</strong>/'+totalCells+'</span>'+complexStats;
+  document.getElementById('chessStats').innerHTML='<span>Загрузка: <strong style="color:'+(occPct>80?'var(--green)':occPct>50?'var(--gold)':'var(--red)')+'">'+occPct+'%</strong> <span style="color:var(--ink-d);font-size:10px">(iCal: текущие+будущие)</span></span><span>Занято: <strong>'+totalOccupied+'</strong>/'+totalCells+'</span>'+complexStats;
   
   // Cleaning tasks — find all checkouts today
   renderCleaningTasks();
