@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Управление бронированием · Urban Luxe</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,500;1,400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#090807;--bg2:#0f0e0c;--bg3:#171512;--bg4:#1f1c18;--ink:#ede8df;--ink-m:#a09888;--ink-d:#635c52;--gold:#c9a961;--gold-l:#ddc07a;--gold-d:#a88d45;--gold-s:rgba(201,169,97,.12);--line:rgba(201,169,97,.08);--line-l:rgba(201,169,97,.15);--green:#2ecc71;--red:#e74c3c;--blue:#3498db;--r:12px;--fd:'Playfair Display',serif;--fb:'Jost',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--fb);font-weight:300;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+::selection{background:var(--gold);color:var(--bg)}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;opacity:.03;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.nav{position:sticky;top:0;z-index:100;padding:16px 48px;display:flex;justify-content:space-between;align-items:center;background:rgba(9,8,7,.95);backdrop-filter:blur(24px);border-bottom:1px solid var(--line)}
+.nav a{color:var(--gold);text-decoration:none;letter-spacing:.25em;font-family:var(--fd);font-size:15px;font-weight:500}
+.btn{padding:14px 28px;background:var(--gold);color:var(--bg);border:none;font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-family:var(--fb);font-weight:400;cursor:pointer;border-radius:6px;transition:all .3s;width:100%}
+.btn:hover{background:var(--gold-d)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-o{background:transparent;border:1px solid var(--gold-d);color:var(--gold)}
+.btn-o:hover{background:var(--gold);color:var(--bg)}
+.btn-d{background:transparent;border:1px solid var(--red);color:var(--red)}
+.btn-d:hover{background:var(--red);color:#fff}
+.wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.box{background:var(--bg2);border:1px solid var(--line-l);padding:48px 40px;width:480px;max-width:100%;border-radius:var(--r)}
+.box h1{font-family:var(--fd);font-size:28px;font-weight:300;margin-bottom:8px}
+.box .sub{color:var(--ink-d);font-size:13px;margin-bottom:32px;line-height:1.6}
+label{display:block;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-d);margin-bottom:6px;margin-top:18px}
+input{width:100%;padding:13px 16px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:14px;font-family:var(--fb);outline:none;border-radius:6px;font-weight:300;transition:border-color .3s;letter-spacing:.05em}
+input:focus{border-color:var(--gold-d)}
+input.code-input{font-family:var(--fd);font-size:24px;text-align:center;letter-spacing:.4em;padding:18px 16px}
+input.ref-input{text-transform:uppercase;letter-spacing:.15em;font-size:16px}
+.msg{margin-top:16px;font-size:13px;line-height:1.5;padding:12px 14px;border-radius:6px;display:none}
+.msg.show{display:block}
+.msg.err{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:var(--red)}
+.msg.ok{background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);color:var(--green)}
+.msg.info{background:rgba(52,152,219,.08);border:1px solid rgba(52,152,219,.25);color:var(--blue)}
+.steps{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:32px}
+.step-dot{width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-d);transition:all .3s}
+.step-dot.active{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+.step-dot.done{background:rgba(46,204,113,.15);color:var(--green);border-color:var(--green)}
+.step-line{width:48px;height:1px;background:var(--line)}
+.step-line.done{background:var(--green)}
+.success-icon{width:64px;height:64px;border-radius:50%;background:rgba(46,204,113,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:32px;color:var(--green)}
+.detail-card{background:var(--bg3);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-top:20px}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:13px}
+.detail-row .l{color:var(--ink-d);text-transform:uppercase;letter-spacing:.1em;font-size:10px}
+.detail-row .v{color:var(--ink)}
+.detail-row .v.gold{color:var(--gold)}
+.helper-link{display:block;text-align:center;margin-top:24px;font-size:12px;color:var(--ink-d);text-decoration:none;letter-spacing:.05em}
+.helper-link:hover{color:var(--gold)}
+.timer{text-align:center;font-size:12px;color:var(--ink-d);margin-top:12px;letter-spacing:.05em}
+.footer-link{text-align:center;margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
+@media(max-width:600px){.nav{padding:14px 20px}.box{padding:32px 24px}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/">Urban Luxe</a>
+  <a href="/" style="color:var(--ink-d);font-size:11px;letter-spacing:.12em;text-transform:uppercase">На главную</a>
+</nav>
+
+<div class="wrap">
+
+  <!-- ШАГ 1: Запрос кода -->
+  <div class="box" id="step1">
+    <div class="steps">
+      <div class="step-dot active">1</div>
+      <div class="step-line"></div>
+      <div class="step-dot">2</div>
+    </div>
+    <h1>Управление бронированием</h1>
+    <p class="sub">Введите номер брони и контакт — мы вышлем код подтверждения на email или в Telegram.</p>
+
+    <label>Номер брони</label>
+    <input type="text" id="refInput" class="ref-input" placeholder="UL-XXXXXX" maxlength="9" autocomplete="off">
+
+    <label>Email или телефон, указанный при бронировании</label>
+    <input type="text" id="contactInput" placeholder="email@example.com или +998 ..." autocomplete="off">
+
+    <div id="step1Msg" class="msg"></div>
+
+    <button class="btn" id="step1Btn" onclick="requestCode()" style="margin-top:24px">Получить код</button>
+
+    <a href="/" class="helper-link">← Назад на сайт</a>
+  </div>
+
+  <!-- ШАГ 2: Ввод кода -->
+  <div class="box" id="step2" style="display:none">
+    <div class="steps">
+      <div class="step-dot done">✓</div>
+      <div class="step-line done"></div>
+      <div class="step-dot active">2</div>
+    </div>
+    <h1>Введите код</h1>
+    <p class="sub">Мы выслали 6-значный код на <strong id="contactHint" style="color:var(--ink)"></strong>. Срок действия: <span id="timerLeft">15:00</span>.</p>
+
+    <label>Код подтверждения</label>
+    <input type="text" id="codeInput" class="code-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="off">
+
+    <div id="step2Msg" class="msg"></div>
+
+    <button class="btn btn-d" id="step2Btn" onclick="confirmCancel()" style="margin-top:24px">Отменить бронирование</button>
+
+    <button class="btn btn-o" onclick="goBackToStep1()" style="margin-top:12px">← Назад</button>
+  </div>
+
+  <!-- ШАГ 3: Успех -->
+  <div class="box" id="step3" style="display:none">
+    <div class="success-icon">✓</div>
+    <h1 style="text-align:center">Бронирование отменено</h1>
+    <p class="sub" style="text-align:center">Подтверждение отправлено в Telegram администратору. Если у вас есть вопросы — напишите нам.</p>
+
+    <div class="detail-card" id="successDetails"></div>
+
+    <a href="/" class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:24px;color:var(--bg)">На главную</a>
+    <a href="https://t.me/Arsen_bnb" target="_blank" class="helper-link">Написать в Telegram →</a>
+  </div>
+
+</div>
+
+<script>
+const API = '/.netlify/functions';
+let timerInterval = null;
+let timerEnd = null;
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.className = 'msg show ' + (type || 'err');
+  el.textContent = text;
+}
+function clearMsg(id) {
+  const el = document.getElementById(id);
+  el.className = 'msg';
+  el.textContent = '';
+}
+
+// Auto-uppercase ref
+document.getElementById('refInput').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase();
+});
+// Auto-format ref: добавлять "UL-" если нет
+document.getElementById('refInput').addEventListener('blur', e => {
+  let v = e.target.value.trim().toUpperCase();
+  if (v && !v.startsWith('UL-') && !v.startsWith('UL')) {
+    v = 'UL-' + v;
+  } else if (v.startsWith('UL') && !v.startsWith('UL-')) {
+    v = 'UL-' + v.slice(2);
+  }
+  e.target.value = v;
+});
+
+// Numbers only for code
+document.getElementById('codeInput').addEventListener('input', e => {
+  e.target.value = e.target.value.replace(/\D/g, '');
+});
+
+// Pre-fill from ?ref= URL parameter
+(function preFill() {
+  const url = new URL(location.href);
+  const ref = url.searchParams.get('ref');
+  if (ref) {
+    document.getElementById('refInput').value = ref.toUpperCase();
+    document.getElementById('contactInput').focus();
+  }
+})();
+
+async function requestCode() {
+  const ref = document.getElementById('refInput').value.trim().toUpperCase();
+  const contact = document.getElementById('contactInput').value.trim();
+  const btn = document.getElementById('step1Btn');
+  clearMsg('step1Msg');
+
+  if (!ref) { showMsg('step1Msg', 'Введите номер брони', 'err'); return; }
+  if (!contact) { showMsg('step1Msg', 'Введите email или телефон', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Отправка...';
+  try {
+    const r = await fetch(API + '/cancel-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_ref: ref, contact })
+    });
+    const d = await r.json();
+
+    if (!r.ok || d.error) {
+      showMsg('step1Msg', d.error || 'Ошибка. Попробуйте позже.', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Получить код';
+      return;
+    }
+
+    // Успех — переходим к шагу 2
+    document.getElementById('contactHint').textContent = d.contact_hint || contact;
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    document.getElementById('codeInput').focus();
+    startTimer(15 * 60);
+  } catch (e) {
+    showMsg('step1Msg', 'Ошибка сети. Проверьте интернет.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Получить код';
+  }
+}
+
+async function confirmCancel() {
+  const ref = document.getElementById('refInput').value.trim().toUpperCase();
+  const code = document.getElementById('codeInput').value.trim();
+  const btn = document.getElementById('step2Btn');
+  clearMsg('step2Msg');
+
+  if (!code || code.length !== 6) { showMsg('step2Msg', 'Введите 6-значный код', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Проверка...';
+  try {
+    const r = await fetch(API + '/cancel-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_ref: ref, code })
+    });
+    const d = await r.json();
+
+    if (!r.ok || d.error) {
+      showMsg('step2Msg', d.error || 'Ошибка. Попробуйте позже.', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Отменить бронирование';
+      return;
+    }
+
+    // Успех — шаг 3
+    stopTimer();
+    const b = d.booking || {};
+    document.getElementById('successDetails').innerHTML = `
+      <div class="detail-row"><span class="l">Номер брони</span><span class="v gold">${b.booking_ref || ref}</span></div>
+      <div class="detail-row"><span class="l">Апартамент</span><span class="v">${b.apartment || '—'}</span></div>
+      <div class="detail-row"><span class="l">Заезд</span><span class="v">${b.check_in || '—'}</span></div>
+      <div class="detail-row"><span class="l">Выезд</span><span class="v">${b.check_out || '—'}</span></div>
+      <div class="detail-row"><span class="l">Статус</span><span class="v" style="color:var(--red)">Отменено</span></div>
+    `;
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'block';
+  } catch (e) {
+    showMsg('step2Msg', 'Ошибка сети. Проверьте интернет.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Отменить бронирование';
+  }
+}
+
+function goBackToStep1() {
+  stopTimer();
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step1').style.display = 'block';
+  document.getElementById('step1Btn').disabled = false;
+  document.getElementById('step1Btn').textContent = 'Получить код';
+  document.getElementById('codeInput').value = '';
+  clearMsg('step2Msg');
+}
+
+function startTimer(seconds) {
+  timerEnd = Date.now() + seconds * 1000;
+  updateTimer();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+function updateTimer() {
+  const left = Math.max(0, Math.floor((timerEnd - Date.now()) / 1000));
+  const m = Math.floor(left / 60);
+  const s = left % 60;
+  const el = document.getElementById('timerLeft');
+  if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+  if (left <= 0) {
+    stopTimer();
+    showMsg('step2Msg', 'Срок действия кода истёк. Запросите новый.', 'err');
+    document.getElementById('step2Btn').disabled = true;
+  }
+}
+
+// Enter to submit
+document.getElementById('refInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('contactInput').focus(); });
+document.getElementById('contactInput').addEventListener('keydown', e => { if (e.key === 'Enter') requestCode(); });
+document.getElementById('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmCancel(); });
+</script>
+
+</body>
+</html>
