@@ -306,7 +306,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gold);border-radius:2px;display:inline-block"></span> Сайт/Другое</span>
 <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#333;border-radius:2px;display:inline-block"></span> Занято</span>
 <span style="flex:1"></span>
-<button class="btn btn-sm btn-outline" onclick="showAptReport()" style="font-size:10px">📊 Отчёт по апартаментам</button>
+<button class="btn btn-sm btn-outline" onclick="showAptReportTable()" style="font-size:10px">📊 Отчёт по апартаментам</button>
 </div>
 <div id="chessGrid" style="overflow-x:auto"><div class="loading">Загрузка шахматки...</div></div>
 <div id="chessStats" style="margin-top:16px;display:flex;gap:16px;font-size:12px;color:var(--ink-m)"></div>
@@ -1171,8 +1171,7 @@ function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
 
 function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="10" class="loading">Нет бронирований</td></tr>';return}const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтв.':b.status==='cancelled'?'Отмен.':b.status==='completed'?'Заверш.':'Ожид.';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';const src=(srcMap[b.source]||'🌐')+' '+(b.source||'website');return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td style="font-size:11px">${src}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 8px;font-size:9px">✓</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 8px;font-size:9px">✗</button>`:''}</td></tr>`}).join('')}
 
-async function setBookingStatus(id,s){if(!confirm(s==='confirmed'?'Подтвердить?':'Отменить?'))return;await sb.from('bookings').update({status:s}).eq('id',id);loadAll()}
-async function setBookingStatus(id,s){return ubS(id,s)}
+async function setBookingStatus(id,s){if(!confirm(s==='confirmed'?'Подтвердить бронь?':'Отменить бронь?'))return;const{error}=await sb.from('bookings').update({status:s,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert('Ошибка: '+error.message);await loadAll()}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amDiscWeek').value=a?(a.discount_week||10):10;document.getElementById('amDiscMonth').value=a?(a.discount_month||25):25;document.getElementById('amMinNights').value=a?(a.min_nights||1):1;document.getElementById('amMaxGuests').value=a?(a.max_guests||2):2;
 document.getElementById('amDesc').value='';document.getElementById('amVideo').value='';
 document.getElementById('amUI').value=a?(a.ical_import_url||''):'';
@@ -1572,11 +1571,7 @@ async function loadGuests(){
   document.getElementById('gT').innerHTML=list.map(g=>`<tr><td><strong>${g.name||'—'}</strong></td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${g.bookings}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'}</td></tr>`).join('')||'<tr><td colspan="7">Нет данных</td></tr>';
 }
 
-// ============ BOOKING ACTIONS ============
-async function setBookingStatus(id,status){
-  await sb.from('bookings').update({status,updated_at:new Date().toISOString()}).eq('id',id);
-  loadAll();
-}
+// ============ BOOKING ACTIONS (moved to main setBookingStatus above) ============
 
 // ============ TIMESHEET (Supabase) ============
 let tsYear,tsMonth,staffList=[];
@@ -2607,9 +2602,9 @@ async function chessDeleteBooking(aptId,checkIn){
   loadChessmate();
 }
 
-function copyMsg(text){navigator.clipboard?.writeText(text);alert('Скопировано!')}
+// copyMsg defined above
 
-function showAptReport(){
+function showAptReportTable(){
   const apts=window._allApts||[];
   const daysInMonth=new Date(chessYear,chessMonth+1,0).getDate();
   const totalApts=apts.length||22;
