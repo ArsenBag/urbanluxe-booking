@@ -50,6 +50,8 @@ input:focus,textarea:focus{border-color:var(--gold-d)}
 .bcard-info{padding:24px}
 .bcard-name{font-family:var(--fd);font-size:20px;font-weight:400;margin-bottom:4px}
 .bcard-sub{font-size:12px;color:var(--ink-d);margin-bottom:12px}
+.bcard-ref{display:inline-block;font-family:var(--fd);font-size:13px;color:var(--gold);letter-spacing:.1em;background:var(--gold-s);padding:3px 10px;border-radius:4px;margin-bottom:10px}
+.bcard-tag{display:inline-block;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);background:var(--bg3);padding:3px 10px;border-radius:4px;margin-left:6px;border:1px solid var(--line)}
 .bcard-dates{display:flex;gap:28px;margin-bottom:12px}.bcard-dt{display:flex;flex-direction:column}.bcard-dt .l{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-d)}.bcard-dt .v{font-size:15px}
 .bcard-acts{padding:24px;display:flex;flex-direction:column;gap:8px;justify-content:center;border-left:1px solid var(--line);min-width:160px}
 .status{padding:4px 12px;border-radius:4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;display:inline-block}
@@ -88,10 +90,17 @@ input:focus,textarea:focus{border-color:var(--gold-d)}
 .mdl-box h2{font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:20px}
 /* Empty */
 .empty{text-align:center;padding:80px 40px;color:var(--ink-d)}.empty h3{font-family:var(--fd);font-size:24px;color:var(--ink-m);margin-bottom:12px;font-weight:300}.empty p{font-size:14px;margin-bottom:24px}
+/* Toast */
+.toast{position:fixed;top:24px;right:24px;background:var(--bg3);border:1px solid var(--line-l);border-radius:var(--r);padding:14px 20px;z-index:10000;font-size:13px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.4);display:none}
+.toast.show{display:block;animation:slideIn .3s ease-out}
+.toast.ok{border-color:var(--green)}.toast.ok::before{content:'\2713 ';color:var(--green);font-weight:600}
+.toast.err{border-color:var(--red)}.toast.err::before{content:'! ';color:var(--red);font-weight:600}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @media(max-width:768px){.dash{grid-template-columns:1fr}.side{display:none}.main{padding:20px}.bcard-top{grid-template-columns:1fr}.bcard-img{aspect-ratio:16/9}.bcard-acts{flex-direction:row;border-left:none;border-top:1px solid var(--line);padding:16px}.nav{padding:12px 20px}.fav-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
+
 <div id="authPage" class="auth">
 <div class="auth-box">
 <h1>Urban Luxe</h1>
@@ -108,9 +117,9 @@ input:focus,textarea:focus{border-color:var(--gold-d)}
 <nav class="nav"><a href="/">Urban Luxe</a><div class="nav__r"><span id="uName"></span><a href="/" style="color:var(--ink-d);font-size:11px;letter-spacing:.12em;text-transform:uppercase">На сайт</a><button class="btn btn-s btn-o" onclick="doLogout()">Выйти</button></div></nav>
 <div class="dash">
 <div class="side">
-<a href="#" class="a" onclick="go('bookings',this)">&#128203; Мои поездки</a>
-<a href="#" onclick="go('favorites',this)">&#10084; Избранное</a>
-<a href="#" onclick="go('profile',this)">&#128100; Профиль</a>
+<a href="#" class="a" onclick="go('bookings',this);return false">&#128203; Мои поездки</a>
+<a href="#" onclick="go('favorites',this);return false">&#10084; Избранное</a>
+<a href="#" onclick="go('profile',this);return false">&#128100; Профиль</a>
 </div>
 <div class="main">
 <!-- BOOKINGS -->
@@ -148,39 +157,144 @@ input:focus,textarea:focus{border-color:var(--gold-d)}
 <!-- Review modal -->
 <div class="mdl" id="revM"><div class="mdl-box"><h2>Оставить отзыв</h2><p style="color:var(--ink-d);margin-bottom:16px" id="revApt"></p><div class="stars" id="revStars"><span onclick="setRating(1)">&#9733;</span><span onclick="setRating(2)">&#9733;</span><span onclick="setRating(3)">&#9733;</span><span onclick="setRating(4)">&#9733;</span><span onclick="setRating(5)">&#9733;</span></div><label>Ваш отзыв</label><textarea id="revText" rows="4" placeholder="Расскажите о вашем пребывании..."></textarea><div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end"><button class="btn btn-o" onclick="closeRev()">Отмена</button><button class="btn" onclick="submitRev()">Отправить</button></div></div></div>
 
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
 <script>
 const SB='https://sebvfvtofiysbywxjqut.supabase.co',SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 const sb=supabase.createClient(SB,SK);
-let user=null,profile=null,bookings=[],apts={},modBId=null,canBId=null,revBId=null,revRating=5,chatSubs={},curFilter='upcoming';
+
+let user=null,profile=null,bookings=[],apts={},modBId=null,canBId=null,revBId=null,revRating=5,chatSubs={},curFilter='upcoming',isInitialized=false;
 
 function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fmtShow(s){if(!s)return'—';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'})}
 function fmtShort(s){if(!s)return'—';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('ru',{day:'numeric',month:'short'})}
-function timeAgo(s){const d=new Date(s),n=Date.now()-d.getTime(),m=Math.floor(n/6e4);if(m<60)return m+'м';const h=Math.floor(m/60);if(h<24)return h+'ч';return Math.floor(h/24)+'д'}
+
+function showToast(msg, type){
+  const el = document.getElementById('toast');
+  el.className = 'toast show ' + (type || 'ok');
+  el.textContent = msg;
+  setTimeout(() => { el.className = 'toast'; }, 4000);
+}
 
 // Auth
 function showTab(t){document.getElementById('loginF').style.display=t==='login'?'block':'none';document.getElementById('regF').style.display=t==='reg'?'block':'none';document.querySelectorAll('.auth-tabs button').forEach((b,i)=>b.className=(t==='login'&&i===0)||(t==='reg'&&i===1)?'a':'')}
-async function doLogin(){const e=document.getElementById('aE').value,p=document.getElementById('aP').value,err=document.getElementById('aErr');err.style.display='none';const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});if(error){err.textContent=error.message;err.style.display='block';return}init(data.user)}
-async function doReg(){const n=document.getElementById('rN').value.trim(),ph=document.getElementById('rPh').value.trim(),e=document.getElementById('rE').value,p=document.getElementById('rP').value,err=document.getElementById('aErr');err.style.display='none';if(!n){err.textContent='Введите имя';err.style.display='block';return}const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n}}});if(error){err.textContent=error.message;err.style.display='block';return}if(data.user){await sb.from('guest_profiles').insert({user_id:data.user.id,name:n,phone:ph});init(data.user)}}
-async function doLogout(){Object.values(chatSubs).forEach(s=>s.unsubscribe());await sb.auth.signOut();user=null;document.getElementById('authPage').style.display='flex';document.getElementById('dashPage').style.display='none'}
 
-async function init(u){user=u;document.getElementById('authPage').style.display='none';document.getElementById('dashPage').style.display='block';document.getElementById('uName').textContent=u.user_metadata?.name||u.email;
-  const{data:p}=await sb.from('guest_profiles').select('*').eq('user_id',u.id).single();profile=p;
-  if(profile){document.getElementById('pN').value=profile.name||'';document.getElementById('pPh').value=profile.phone||''}
+async function doLogin(){
+  const e=document.getElementById('aE').value.trim(),p=document.getElementById('aP').value,err=document.getElementById('aErr');
+  err.style.display='none';
+  if(!e||!p){err.textContent='Введите email и пароль';err.style.display='block';return}
+  const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  init(data.user);
+}
+
+async function doReg(){
+  const n=document.getElementById('rN').value.trim(),ph=document.getElementById('rPh').value.trim(),e=document.getElementById('rE').value.trim(),p=document.getElementById('rP').value,err=document.getElementById('aErr');
+  err.style.display='none';
+  if(!n){err.textContent='Введите имя';err.style.display='block';return}
+  if(!e||!p){err.textContent='Введите email и пароль';err.style.display='block';return}
+  const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n}}});
+  if(error){err.textContent=error.message;err.style.display='block';return}
+  if(data.user){
+    try{await sb.from('guest_profiles').insert({user_id:data.user.id,name:n,phone:ph})}catch(e){}
+    init(data.user);
+  }
+}
+
+async function doLogout(){
+  Object.values(chatSubs).forEach(s=>{try{s.unsubscribe()}catch(e){}});
+  chatSubs={};
+  await sb.auth.signOut();
+  user=null;profile=null;bookings=[];apts={};isInitialized=false;
+  document.getElementById('authPage').style.display='flex';
+  document.getElementById('dashPage').style.display='none';
+}
+
+async function init(u){
+  user=u;
+  document.getElementById('authPage').style.display='none';
+  document.getElementById('dashPage').style.display='block';
+  document.getElementById('uName').textContent=u.user_metadata?.name||u.email;
+
+  // Профиль через maybeSingle (не падает если записи нет)
+  try{
+    const{data:p}=await sb.from('guest_profiles').select('*').eq('user_id',u.id).maybeSingle();
+    profile=p;
+  }catch(e){profile=null}
+
+  if(profile){
+    document.getElementById('pN').value=profile.name||'';
+    document.getElementById('pPh').value=profile.phone||'';
+  }
   document.getElementById('pE').value=u.email;
-  const{data:ad}=await sb.from('apartments').select('id,name,complex,floor,photo_url,style,weekday_price');
-  (ad||[]).forEach(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}a._cover=ph[0]||'';apts[a.id]=a});
-  loadBookings();loadFavorites()}
 
-// Bookings
+  // Список апартаментов
+  try{
+    const{data:ad}=await sb.from('apartments').select('id,name,complex,floor,photo_url,style,weekday_price');
+    (ad||[]).forEach(a=>{
+      let ph=[];
+      try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}
+      a._cover=ph[0]||'';
+      apts[a.id]=a;
+    });
+  }catch(e){console.error('apts load failed',e)}
+
+  isInitialized=true;
+  loadBookings();
+  loadFavorites();
+}
+
+// ===== Bookings — поиск по user_id, booker_email, guest_email/phone =====
 async function loadBookings(){
-  const{data}=await sb.from('bookings').select('*').or(`guest_email.eq.${user.email},guest_phone.eq.${profile?.phone||'__'}`).order('created_at',{ascending:false});
-  bookings=data||[];renderBookings()}
+  if(!user){return}
+  const sub=document.getElementById('bSub');
+  sub.textContent='Загрузка...';
 
-function filterB(f,el){curFilter=f;document.querySelectorAll('#bTabs button').forEach(b=>b.className='');el.className='a';renderBookings()}
+  // Стратегия: сначала ищем по user_id (новые брони), потом по контактам (старые брони)
+  // Делаем 3 параллельных запроса и объединяем по id (без дубликатов)
+  const allBookings = new Map();
+
+  try{
+    // 1. По user_id
+    const{data:byUser}=await sb.from('bookings').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+    (byUser||[]).forEach(b=>allBookings.set(b.id,b));
+
+    // 2. По booker_email
+    if(user.email){
+      const{data:byBooker}=await sb.from('bookings').select('*').eq('booker_email',user.email).order('created_at',{ascending:false});
+      (byBooker||[]).forEach(b=>allBookings.set(b.id,b));
+    }
+
+    // 3. По guest_email (для старых броней без user_id, где email = текущий)
+    if(user.email){
+      const{data:byGuest}=await sb.from('bookings').select('*').eq('guest_email',user.email).order('created_at',{ascending:false});
+      (byGuest||[]).forEach(b=>allBookings.set(b.id,b));
+    }
+
+    // 4. По guest_phone (если профиль с телефоном) — для очень старых броней
+    if(profile?.phone){
+      const{data:byPhone}=await sb.from('bookings').select('*').eq('guest_phone',profile.phone).order('created_at',{ascending:false});
+      (byPhone||[]).forEach(b=>allBookings.set(b.id,b));
+    }
+
+    bookings=Array.from(allBookings.values()).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    renderBookings();
+  }catch(e){
+    console.error('loadBookings failed',e);
+    sub.textContent='Ошибка загрузки. Попробуйте перезагрузить страницу.';
+  }
+}
+
+function filterB(f,el){
+  curFilter=f;
+  document.querySelectorAll('#bTabs button').forEach(b=>b.className='');
+  if(el)el.className='a';
+  renderBookings();
+}
 
 function renderBookings(){
   const now=new Date(),list=document.getElementById('bList'),sub=document.getElementById('bSub');
@@ -188,23 +302,34 @@ function renderBookings(){
   if(curFilter==='upcoming')filtered=bookings.filter(b=>new Date(b.check_out+'T12:00:00')>=now&&b.status!=='cancelled');
   else if(curFilter==='past')filtered=bookings.filter(b=>new Date(b.check_out+'T12:00:00')<now&&b.status!=='cancelled');
   else if(curFilter==='cancelled')filtered=bookings.filter(b=>b.status==='cancelled');
-  
+
   const active=bookings.filter(b=>b.status!=='cancelled');
   sub.textContent=`${active.length} активных · ${bookings.length} всего`;
-  
-  if(!filtered.length){list.innerHTML='<div class="empty"><h3>'+{upcoming:'Нет предстоящих поездок',past:'Нет завершённых поездок',cancelled:'Нет отменённых бронирований'}[curFilter]+'</h3><p>Забронируйте апартамент на нашем сайте</p><a href="/#booking" class="btn">Забронировать</a></div>';return}
-  
+
+  if(!filtered.length){
+    const titles={upcoming:'Нет предстоящих поездок',past:'Нет завершённых поездок',cancelled:'Нет отменённых бронирований'};
+    list.innerHTML='<div class="empty"><h3>'+titles[curFilter]+'</h3><p>Забронируйте апартамент на нашем сайте</p><a href="/#booking" class="btn">Забронировать</a></div>';
+    return;
+  }
+
   list.innerHTML=filtered.map(b=>{
-    const a=apts[b.apartment_id]||{};const sc=b.status==='confirmed'?'confirmed':b.status==='cancelled'?'cancelled':b.status==='completed'?'completed':'pending';
+    const a=apts[b.apartment_id]||{};
+    const sc=b.status==='confirmed'?'confirmed':b.status==='cancelled'?'cancelled':b.status==='completed'?'completed':'pending';
     const st=b.status==='confirmed'?'Подтверждено':b.status==='cancelled'?'Отменено':b.status==='completed'?'Завершено':'Ожидает';
-    const isPast=new Date(b.check_out+'T12:00:00')<now;const canMod=!isPast&&b.status!=='cancelled';
+    const isPast=new Date(b.check_out+'T12:00:00')<now;
+    const canMod=!isPast&&b.status!=='cancelled';
     const showReview=isPast&&b.status!=='cancelled'&&!b.review_rating;
-    
+    const ref=b.booking_ref||'';
+    const isForOther=b.booker_email===user.email && b.guest_email!==user.email && b.guest_name!==profile?.name;
+    const tagFor=isForOther?`<span class="bcard-tag" title="Бронь оформлена вами для гостя ${b.guest_name||''}">для другого</span>`:'';
+    const refBadge=ref?`<span class="bcard-ref">${ref}</span>`:'';
+
     return`<div class="bcard" id="bc-${b.id}"><div class="bcard-top">
       <div class="bcard-img">${a._cover?`<img src="${a._cover}" alt="${a.name||''}">`:`<div style="height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg3);min-height:120px;color:var(--ink-d);font-size:12px">Фото скоро</div>`}</div>
       <div class="bcard-info">
+        ${refBadge}${tagFor}
         <div class="bcard-name">${a.name||b.apartment_id}</div>
-        <div class="bcard-sub">${a.complex||''} ${a.floor?'· Этаж '+a.floor:''} · <span class="status s-${sc}">${st}</span></div>
+        <div class="bcard-sub">${a.complex||''} ${a.floor?'· Этаж '+a.floor:''} · <span class="status s-${sc}">${st}</span>${isForOther?' · Гость заезда: '+(b.guest_name||'—'):''}</div>
         <div class="bcard-dates">
           <div class="bcard-dt"><span class="l">Заезд</span><span class="v">${fmtShort(b.check_in)}</span></div>
           <div class="bcard-dt"><span class="l">Выезд</span><span class="v">${fmtShort(b.check_out)}</span></div>
@@ -214,8 +339,8 @@ function renderBookings(){
       </div>
       <div class="bcard-acts">
         <button class="btn btn-s btn-o" onclick="toggleChat('${b.id}')">&#128172; Чат</button>
-        ${canMod?`<button class="btn btn-s btn-o" onclick="openMod('${b.id}','${b.check_in}','${b.check_out}')">Изменить даты</button><button class="btn btn-s btn-d" onclick="openCan('${b.id}','${a.name||b.apartment_id}')">Отменить</button>`:''}
-        ${showReview?`<button class="btn btn-s" onclick="openRev('${b.id}','${a.name||''}')">&#9733; Оставить отзыв</button>`:''}
+        ${canMod?`<button class="btn btn-s btn-o" onclick="openMod('${b.id}','${b.check_in}','${b.check_out}')">Изменить даты</button><button class="btn btn-s btn-d" onclick="openCan('${b.id}','${(a.name||b.apartment_id).replace(/'/g,'&#39;')}')">Отменить</button>`:''}
+        ${showReview?`<button class="btn btn-s" onclick="openRev('${b.id}','${(a.name||'').replace(/'/g,'&#39;')}')">&#9733; Оставить отзыв</button>`:''}
       </div>
     </div>
     <div class="bcard-chat" id="chat-${b.id}">
@@ -223,87 +348,198 @@ function renderBookings(){
       <div class="chat-msgs" id="msgs-${b.id}"></div>
       <div class="chat-bar"><input type="text" id="inp-${b.id}" placeholder="Написать..." onkeydown="if(event.key==='Enter')sendMsg('${b.id}')"><button onclick="sendMsg('${b.id}')">&#10148;</button></div>
     </div></div>`;
-  }).join('')}
+  }).join('');
+}
 
-// Chat per booking
+// ===== Chat per booking =====
 async function toggleChat(bid){
   const el=document.getElementById('chat-'+bid);
+  if(!el)return;
   if(el.classList.contains('open')){el.classList.remove('open');return}
-  el.classList.add('open');loadMsgs(bid);subscribeMsgs(bid)}
+  el.classList.add('open');
+  loadMsgs(bid);
+  subscribeMsgs(bid);
+}
 
 async function loadMsgs(bid){
-  const{data}=await sb.from('messages').select('*').eq('conversation_id',bid).order('created_at',{ascending:true});
-  const el=document.getElementById('msgs-'+bid);
-  if(!data||!data.length){el.innerHTML='<div style="text-align:center;color:var(--ink-d);padding:20px;font-size:13px">Напишите нам по этому бронированию</div>';return}
-  el.innerHTML=data.map(m=>{const me=m.sender_role==='guest';const t=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-    return`<div class="msg msg-${me?'me':'them'}"><div class="msg-b"><div>${m.content}</div><div class="msg-t">${t}</div></div></div>`}).join('');
-  el.scrollTop=el.scrollHeight;
-  await sb.from('messages').update({is_read:true}).eq('conversation_id',bid).eq('sender_role','admin').eq('is_read',false)}
+  try{
+    const{data}=await sb.from('messages').select('*').eq('conversation_id',bid).order('created_at',{ascending:true});
+    const el=document.getElementById('msgs-'+bid);
+    if(!el)return;
+    if(!data||!data.length){
+      el.innerHTML='<div style="text-align:center;color:var(--ink-d);padding:20px;font-size:13px">Напишите нам по этому бронированию</div>';
+      return;
+    }
+    el.innerHTML=data.map(m=>{
+      const me=m.sender_role==='guest';
+      const t=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+      return`<div class="msg msg-${me?'me':'them'}"><div class="msg-b"><div>${m.content}</div><div class="msg-t">${t}</div></div></div>`;
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+    try{await sb.from('messages').update({is_read:true}).eq('conversation_id',bid).eq('sender_role','admin').eq('is_read',false)}catch(e){}
+  }catch(e){console.error('loadMsgs failed',e)}
+}
 
-async function sendMsg(bid){const inp=document.getElementById('inp-'+bid);const t=inp.value.trim();if(!t||!user)return;inp.value='';
-  await sb.from('messages').insert({conversation_id:bid,sender_id:user.id,sender_role:'guest',content:t});loadMsgs(bid);
-  const bk=bookings.find(b=>b.id===bid);const a=apts[bk?.apartment_id]||{};
-  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'message',guest_name:profile?.name||user.email,apartment:a.name||'',message:t})}).catch(()=>{})}
+async function sendMsg(bid){
+  const inp=document.getElementById('inp-'+bid);
+  if(!inp)return;
+  const t=inp.value.trim();
+  if(!t||!user)return;
+  inp.value='';
+  try{
+    await sb.from('messages').insert({conversation_id:bid,sender_id:user.id,sender_role:'guest',content:t});
+    loadMsgs(bid);
+    const bk=bookings.find(b=>b.id===bid);
+    const a=apts[bk?.apartment_id]||{};
+    fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'message',guest_name:profile?.name||user.email,apartment:a.name||'',message:t})}).catch(()=>{});
+  }catch(e){console.error('sendMsg failed',e)}
+}
 
-function subscribeMsgs(bid){if(chatSubs[bid])return;
-  chatSubs[bid]=sb.channel('chat-'+bid).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+bid},()=>loadMsgs(bid)).subscribe()}
+function subscribeMsgs(bid){
+  if(chatSubs[bid])return;
+  try{
+    chatSubs[bid]=sb.channel('chat-'+bid).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+bid},()=>loadMsgs(bid)).subscribe();
+  }catch(e){console.error('subscribe failed',e)}
+}
 
-// Modify
+// ===== Modify =====
 let fpMI,fpMO;
-function openMod(id,ci,co){modBId=id;document.getElementById('modM').classList.add('show');document.getElementById('mSt').textContent='';
-  if(fpMI)fpMI.destroy();if(fpMO)fpMO.destroy();
-  fpMI=flatpickr('#mCI',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',defaultDate:ci,onChange(d){if(d[0]){const n=new Date(d[0]);n.setDate(n.getDate()+1);fpMO.set('minDate',n)}}});
-  fpMO=flatpickr('#mCO',{locale:'ru',minDate:new Date(ci),dateFormat:'d.m.Y',defaultDate:co})}
+function openMod(id,ci,co){
+  modBId=id;
+  document.getElementById('modM').classList.add('show');
+  document.getElementById('mSt').textContent='';
+  if(fpMI){try{fpMI.destroy()}catch(e){}}
+  if(fpMO){try{fpMO.destroy()}catch(e){}}
+  fpMI=flatpickr('#mCI',{locale:'ru',minDate:'today',dateFormat:'d.m.Y',defaultDate:ci,onChange(d){
+    if(d[0]){const n=new Date(d[0]);n.setDate(n.getDate()+1);fpMO.set('minDate',n)}
+  }});
+  fpMO=flatpickr('#mCO',{locale:'ru',minDate:new Date(ci),dateFormat:'d.m.Y',defaultDate:co});
+}
 function closeMod(){document.getElementById('modM').classList.remove('show');modBId=null}
-async function submitMod(){if(!modBId)return;const ci=fpMI.selectedDates[0],co=fpMO.selectedDates[0];
+
+async function submitMod(){
+  if(!modBId)return;
+  const ci=fpMI.selectedDates[0],co=fpMO.selectedDates[0];
   if(!ci||!co){document.getElementById('mSt').innerHTML='<span style="color:var(--red)">Выберите обе даты</span>';return}
   const{error}=await sb.from('bookings').update({check_in:fmtD(ci),check_out:fmtD(co),nights:Math.round((co-ci)/864e5),status:'pending',updated_at:new Date().toISOString()}).eq('id',modBId);
   if(error){document.getElementById('mSt').innerHTML='<span style="color:var(--red)">'+error.message+'</span>';return}
-  const bk=bookings.find(b=>b.id===modBId);const a=apts[bk?.apartment_id]||{};
+  const bk=bookings.find(b=>b.id===modBId);
+  const a=apts[bk?.apartment_id]||{};
   fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'modify',guest_name:profile?.name||'',apartment:a.name||'',check_in:fmtD(ci),check_out:fmtD(co)})}).catch(()=>{});
-  closeMod();loadBookings()}
+  closeMod();
+  showToast('Запрос на изменение отправлен — ждите подтверждения', 'ok');
+  loadBookings();
+}
 
-// Cancel
-function openCan(id,name){canBId=id;document.getElementById('canTxt').textContent='Вы уверены, что хотите отменить бронирование «'+name+'»?';document.getElementById('canM').classList.add('show')}
+// ===== Cancel =====
+function openCan(id,name){
+  canBId=id;
+  document.getElementById('canTxt').textContent='Вы уверены, что хотите отменить бронирование «'+name+'»?';
+  document.getElementById('canM').classList.add('show');
+}
 function closeCan(){document.getElementById('canM').classList.remove('show');canBId=null}
-async function confirmCan(){if(!canBId)return;await sb.from('bookings').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',canBId);
-  const bk=bookings.find(b=>b.id===canBId);const a=apts[bk?.apartment_id]||{};
-  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'cancel',guest_name:bk?.guest_name||profile?.name||'',apartment:a.name||'',check_in:bk?.check_in,check_out:bk?.check_out})}).catch(()=>{});
-  closeCan();loadBookings()}
 
-// Review
-function openRev(bid,name){revBId=bid;revRating=5;document.getElementById('revApt').textContent=name;setRating(5);document.getElementById('revText').value='';document.getElementById('revM').classList.add('show')}
+async function confirmCan(){
+  if(!canBId)return;
+  const{error}=await sb.from('bookings').update({status:'cancelled',updated_at:new Date().toISOString()}).eq('id',canBId);
+  if(error){showToast('Ошибка: '+error.message,'err');return}
+  const bk=bookings.find(b=>b.id===canBId);
+  const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'cancel',guest_name:bk?.guest_name||profile?.name||'',apartment:a.name||'',check_in:bk?.check_in,check_out:bk?.check_out,booking_ref:bk?.booking_ref||''})}).catch(()=>{});
+  closeCan();
+  showToast('Бронирование отменено','ok');
+  loadBookings();
+}
+
+// ===== Review =====
+function openRev(bid,name){
+  revBId=bid;revRating=5;
+  document.getElementById('revApt').textContent=name;
+  setRating(5);
+  document.getElementById('revText').value='';
+  document.getElementById('revM').classList.add('show');
+}
 function closeRev(){document.getElementById('revM').classList.remove('show');revBId=null}
 function setRating(n){revRating=n;document.querySelectorAll('#revStars span').forEach((s,i)=>s.className=i<n?'on':'')}
-async function submitRev(){if(!revBId)return;const text=document.getElementById('revText').value.trim();
-  await sb.from('bookings').update({review_rating:revRating,review_text:text,updated_at:new Date().toISOString()}).eq('id',revBId);
-  const bk=bookings.find(b=>b.id===revBId);const a=apts[bk?.apartment_id]||{};
-  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'review',guest_name:profile?.name||'',apartment:a.name||'',rating:revRating,message:text})}).catch(()=>{});
-  closeRev();loadBookings()}
 
-// Favorites
+async function submitRev(){
+  if(!revBId)return;
+  const text=document.getElementById('revText').value.trim();
+  await sb.from('bookings').update({review_rating:revRating,review_text:text,updated_at:new Date().toISOString()}).eq('id',revBId);
+  const bk=bookings.find(b=>b.id===revBId);
+  const a=apts[bk?.apartment_id]||{};
+  fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'review',guest_name:profile?.name||'',apartment:a.name||'',rating:revRating,message:text})}).catch(()=>{});
+  closeRev();
+  showToast('Спасибо за отзыв!','ok');
+  loadBookings();
+}
+
+// ===== Favorites =====
 async function loadFavorites(){
   const list=document.getElementById('favList');
+  if(!list)return;
   const favIds=JSON.parse(localStorage.getItem('ul_favs')||'[]');
-  if(!favIds.length){list.innerHTML='<div class="empty" style="grid-column:1/-1"><h3>Нет избранных</h3><p>Нажмите &#10084; на карточке апартамента на сайте</p><a href="/#apartments" class="btn">Смотреть апартаменты</a></div>';return}
-  list.innerHTML=favIds.map(id=>{const a=apts[id];if(!a)return'';
-    return`<div class="fav-card" onclick="window.location='/?apt=${id}'"><div class="fav-img">${a._cover?`<img src="${a._cover}">`:''}</div><div class="fav-info"><div class="fav-name">${a.name}</div><div style="font-size:12px;color:var(--ink-d);margin-bottom:8px">${a.complex} · Этаж ${a.floor}</div><div class="fav-price">от $${a.weekday_price}/ночь</div></div></div>`}).join('')}
+  if(!favIds.length){
+    list.innerHTML='<div class="empty" style="grid-column:1/-1"><h3>Нет избранных</h3><p>Нажмите &#10084; на карточке апартамента на сайте</p><a href="/#apartments" class="btn">Смотреть апартаменты</a></div>';
+    return;
+  }
+  list.innerHTML=favIds.map(id=>{
+    const a=apts[id];
+    if(!a)return'';
+    return`<div class="fav-card" onclick="window.location='/?apt=${id}'"><div class="fav-img">${a._cover?`<img src="${a._cover}">`:''}</div><div class="fav-info"><div class="fav-name">${a.name||id}</div><div style="font-size:12px;color:var(--ink-d);margin-bottom:8px">${a.complex||''} ${a.floor?'· Этаж '+a.floor:''}</div><div class="fav-price">от $${a.weekday_price||0}/ночь</div></div></div>`;
+  }).filter(Boolean).join('') || '<div class="empty" style="grid-column:1/-1"><h3>Избранные не найдены</h3><p>Возможно, эти апартаменты больше не доступны</p></div>';
+}
 
-// Profile
-async function savePro(){const n=document.getElementById('pN').value.trim(),ph=document.getElementById('pPh').value.trim();
-  if(!profile)await sb.from('guest_profiles').insert({user_id:user.id,name:n,phone:ph});
-  else await sb.from('guest_profiles').update({name:n,phone:ph}).eq('user_id',user.id);
-  document.getElementById('pSt').innerHTML='<span style="color:var(--green)">&#10003; Сохранено</span>';
-  document.getElementById('uName').textContent=n||user.email;setTimeout(()=>document.getElementById('pSt').textContent='',3000)}
+// ===== Profile =====
+async function savePro(){
+  const n=document.getElementById('pN').value.trim(),ph=document.getElementById('pPh').value.trim();
+  try{
+    if(!profile){
+      const{data}=await sb.from('guest_profiles').insert({user_id:user.id,name:n,phone:ph}).select().single();
+      profile=data;
+    }else{
+      await sb.from('guest_profiles').update({name:n,phone:ph}).eq('user_id',user.id);
+      profile.name=n;profile.phone=ph;
+    }
+    document.getElementById('pSt').innerHTML='<span style="color:var(--green)">&#10003; Сохранено</span>';
+    document.getElementById('uName').textContent=n||user.email;
+    setTimeout(()=>document.getElementById('pSt').textContent='',3000);
+  }catch(e){
+    document.getElementById('pSt').innerHTML='<span style="color:var(--red)">Ошибка: '+(e.message||'не удалось сохранить')+'</span>';
+  }
+}
 
-// Navigation
-function go(s,el){document.querySelectorAll('.side a').forEach(a=>a.classList.remove('a'));if(el)el.classList.add('a');
+// ===== Navigation =====
+function go(s,el){
+  // Защита: если init ещё не закончился — ждём
+  if(!isInitialized){
+    setTimeout(()=>go(s,el),200);
+    return;
+  }
+  document.querySelectorAll('.side a').forEach(a=>a.classList.remove('a'));
+  if(el)el.classList.add('a');
   document.getElementById('secBookings').style.display=s==='bookings'?'block':'none';
   document.getElementById('secFavorites').style.display=s==='favorites'?'block':'none';
   document.getElementById('secProfile').style.display=s==='profile'?'block':'none';
-  if(s==='bookings')loadBookings();if(s==='favorites')loadFavorites()}
+  if(s==='bookings')loadBookings();
+  if(s==='favorites')loadFavorites();
+}
 
-(async()=>{const{data:{user:u}}=await sb.auth.getUser();if(u)init(u)})();
+// Auto-login on page load if session exists
+(async()=>{
+  try{
+    const{data:{user:u}}=await sb.auth.getUser();
+    if(u)init(u);
+  }catch(e){console.error('auto-login failed',e)}
+})();
+
+// Обновлять данные при возвращении на вкладку (если бронь была сделана в другой вкладке)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&user&&isInitialized){
+    loadBookings();
+  }
+});
 </script>
+
 </body>
 </html>
