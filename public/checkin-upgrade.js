@@ -36,65 +36,94 @@ function removeOldPanels(){const old=document.getElementById('ci-panels');if(old
 async function injectCheckinToggles(){
   removeOldPanels();
   const today=new Date().toISOString().split('T')[0];
+  const allApts=window._allApts||[];
+
+  // Fetch existing check-in statuses from bookings table
   const[arrRes,depRes]=await Promise.all([
     sb.from('bookings').select('id,apartment_id,checked_in,check_in_time').eq('check_in',today).neq('status','cancelled'),
     sb.from('bookings').select('id,apartment_id,checked_out').eq('check_out',today).neq('status','cancelled')
   ]);
-  const arrivals=arrRes.data||[];const departures=depRes.data||[];const allApts=window._allApts||[];
+  const dbArrivals=arrRes.data||[];
+  const dbDepartures=depRes.data||[];
 
-  const ciContainer=document.getElementById('todayCheckins');
-  if(ciContainer){
-    const rows=[...ciContainer.querySelectorAll('div[style*="cursor:pointer"]')];
+  // Helper: find or create booking record for iCal arrivals
+  async function ensureBooking(aptId, date, type){
+    // Check if DB booking exists
+    const existing = type==='in'
+      ? dbArrivals.find(b=>b.apartment_id===aptId)
+      : dbDepartures.find(b=>b.apartment_id===aptId);
+    if(existing) return existing;
+    // No DB record — this is an iCal-only booking, insert minimal record
+    const co = type==='in' ? undefined : date;
+    const ci = type==='in' ? date : undefined;
+    // Don't create — just use localStorage fallback
+    return null;
+  }
+
+  function addToggle(container, type){
+    if(!container) return;
+    const rows=[...container.querySelectorAll('div[style*="cursor:pointer"]')];
     rows.forEach(row=>{
       if(row.querySelector('.ci-toggle'))return;
-      const text=row.textContent;const aptMatch=text.match(/Апартамент\s+(\d+)/);
+      const nameEl=row.querySelector('strong');
+      if(!nameEl)return;
+      const nameText=nameEl.textContent.trim();
+      const aptMatch=nameText.match(/Апартамент\s+(\d+)/);
       if(!aptMatch)return;
       const aptNum=aptMatch[1];
-      const apt=allApts.find(a=>a.name&&a.name.includes(aptNum));
-      const booking=apt?arrivals.find(b=>b.apartment_id===apt.id):null;
-      if(!booking)return;
-      const isIn=booking.checked_in||false;const timeVal=booking.check_in_time||'';
+      const apt=allApts.find(a=>a.name==='Апартамент '+aptNum);
+      if(!apt)return;
+
+      const dbRecord = type==='in'
+        ? dbArrivals.find(b=>b.apartment_id===apt.id)
+        : dbDepartures.find(b=>b.apartment_id===apt.id);
+
+      // State: prefer DB, fallback to localStorage
+      const lsKey=`ci_${type}_${apt.id}_${today}`;
+      const lsTimeKey=`ci_time_${apt.id}_${today}`;
+      const isActive = dbRecord
+        ? (type==='in' ? dbRecord.checked_in : dbRecord.checked_out)
+        : localStorage.getItem(lsKey)==='1';
+      const timeVal = dbRecord?.check_in_time || localStorage.getItem(lsTimeKey) || '';
+
       const w=document.createElement('span');
       w.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;';
-      w.innerHTML=`<input type="time" class="ci-time-input" value="${timeVal}" title="Время заезда" onclick="event.stopPropagation()" onchange="window._ciSetTime2('${booking.id}',this.value)"><label class="ci-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${isIn?'checked':''} onchange="window._ciToggle2('${booking.id}',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isIn?'in':'wait'}">${isIn?'✅ Заселён':'⏳ Ждём'}</span>`;
-      row.appendChild(w);row.setAttribute('data-ci-row',booking.id);if(isIn)row.classList.add('ci-done');
+      
+      if(type==='in'){
+        w.innerHTML=`<input type="time" class="ci-time-input" value="${timeVal}" title="Время заезда" onclick="event.stopPropagation()" onchange="window._ciSetTime3('${apt.id}','${dbRecord?.id||''}',this.value)"><label class="ci-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${isActive?'checked':''} onchange="window._ciToggle3('${apt.id}','${dbRecord?.id||''}','in',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isActive?'in':'wait'}">${isActive?'✅ Заселён':'⏳ Ждём'}</span>`;
+      } else {
+        w.innerHTML=`<label class="ci-toggle co" onclick="event.stopPropagation()"><input type="checkbox" ${isActive?'checked':''} onchange="window._ciToggle3('${apt.id}','${dbRecord?.id||''}','out',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isActive?'out':'wait'}">${isActive?'✅ Выехал':'🏠 Здесь'}</span>`;
+      }
+      row.appendChild(w);
+      row.setAttribute('data-ci-row',apt.id);
+      if(isActive)row.classList.add('ci-done');
     });
   }
 
-  const coContainer=document.getElementById('todayCheckouts');
-  if(coContainer){
-    const rows=[...coContainer.querySelectorAll('div[style*="cursor:pointer"]')];
-    rows.forEach(row=>{
-      if(row.querySelector('.ci-toggle'))return;
-      const text=row.textContent;const aptMatch=text.match(/Апартамент\s+(\d+)/);
-      if(!aptMatch)return;
-      const aptNum=aptMatch[1];
-      const apt=allApts.find(a=>a.name&&a.name.includes(aptNum));
-      const booking=apt?departures.find(b=>b.apartment_id===apt.id):null;
-      if(!booking)return;
-      const isDone=booking.checked_out||false;
-      const w=document.createElement('span');
-      w.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;';
-      w.innerHTML=`<label class="ci-toggle co" onclick="event.stopPropagation()"><input type="checkbox" ${isDone?'checked':''} onchange="window._ciToggleOut2('${booking.id}',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isDone?'out':'wait'}">${isDone?'✅ Выехал':'🏠 Здесь'}</span>`;
-      row.appendChild(w);row.setAttribute('data-ci-row',booking.id);if(isDone)row.classList.add('ci-done');
-    });
-  }
+  addToggle(document.getElementById('todayCheckins'), 'in');
+  addToggle(document.getElementById('todayCheckouts'), 'out');
 }
 
-window._ciToggle2=async function(id,val,el){
-  const{error}=await sb.from('bookings').update({checked_in:val,updated_at:new Date().toISOString()}).eq('id',id);
-  if(error){alert('Ошибка: '+error.message);return}
+window._ciToggle3=async function(aptId,dbId,type,val,el){
+  const today=new Date().toISOString().split('T')[0];
+  const lsKey=`ci_${type}_${aptId}_${today}`;
+  localStorage.setItem(lsKey,val?'1':'0');
+  if(dbId){
+    const field=type==='in'?'checked_in':'checked_out';
+    await sb.from('bookings').update({[field]:val,updated_at:new Date().toISOString()}).eq('id',dbId);
+  }
   const row=el.closest('[data-ci-row]');const status=row?.querySelector('.ci-status');
-  if(status){status.className='ci-status '+(val?'in':'wait');status.textContent=val?'✅ Заселён':'⏳ Ждём'}
+  if(type==='in'){
+    if(status){status.className='ci-status '+(val?'in':'wait');status.textContent=val?'✅ Заселён':'⏳ Ждём'}
+  } else {
+    if(status){status.className='ci-status '+(val?'out':'wait');status.textContent=val?'✅ Выехал':'🏠 Здесь'}
+  }
   if(row)row.classList.toggle('ci-done',val);
 };
-window._ciSetTime2=async function(id,time){await sb.from('bookings').update({check_in_time:time,updated_at:new Date().toISOString()}).eq('id',id)};
-window._ciToggleOut2=async function(id,val,el){
-  const{error}=await sb.from('bookings').update({checked_out:val,updated_at:new Date().toISOString()}).eq('id',id);
-  if(error){alert('Ошибка: '+error.message);return}
-  const row=el.closest('[data-ci-row]');const status=row?.querySelector('.ci-status');
-  if(status){status.className='ci-status '+(val?'out':'wait');status.textContent=val?'✅ Выехал':'🏠 Здесь'}
-  if(row)row.classList.toggle('ci-done',val);
+window._ciSetTime3=async function(aptId,dbId,time){
+  const today=new Date().toISOString().split('T')[0];
+  localStorage.setItem(`ci_time_${aptId}_${today}`,time);
+  if(dbId) await sb.from('bookings').update({check_in_time:time,updated_at:new Date().toISOString()}).eq('id',dbId);
 };
 
 const origRDash=window.rDash;
