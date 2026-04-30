@@ -126,14 +126,39 @@ window._ciSetTime3=async function(aptId,dbId,time){
   if(dbId) await sb.from('bookings').update({check_in_time:time,updated_at:new Date().toISOString()}).eq('id',dbId);
 };
 
-const origRDash=window.rDash;
-window.rDash=function(){
-  if(origRDash)origRDash.apply(this,arguments);
-  setTimeout(injectCheckinToggles,800);
-};
+// Use MutationObserver to detect when todayCheckins/todayCheckouts get populated
+let injectTimeout = null;
+function scheduleInject() {
+  if (injectTimeout) clearTimeout(injectTimeout);
+  injectTimeout = setTimeout(injectCheckinToggles, 600);
+}
+
+function setupObserver() {
+  const ci = document.getElementById('todayCheckins');
+  const co = document.getElementById('todayCheckouts');
+  const observer = new MutationObserver(scheduleInject);
+  if (ci) observer.observe(ci, {childList: true, subtree: true});
+  if (co) observer.observe(co, {childList: true, subtree: true});
+}
+
+// Watch for todayCheckins to appear in DOM
+const bodyObserver = new MutationObserver(() => {
+  if (document.getElementById('todayCheckins')) {
+    bodyObserver.disconnect();
+    setupObserver();
+    scheduleInject();
+  }
+});
+if (document.getElementById('todayCheckins')) {
+  setupObserver();
+  scheduleInject();
+} else {
+  bodyObserver.observe(document.body, {childList: true, subtree: true});
+}
+
+// Also re-inject on tab switch
 const origSwitch=window.switchTab;
-if(origSwitch){window.switchTab=function(tab){origSwitch.apply(this,arguments);if(tab==='dash')setTimeout(injectCheckinToggles,1200)}}
-setTimeout(injectCheckinToggles,4000);
+if(origSwitch){window.switchTab=function(tab){origSwitch.apply(this,arguments);if(tab==='dash'){setTimeout(()=>{setupObserver();scheduleInject()},1500)}}}
 
 console.log('[Check-in Upgrade v2] Ползунки заселения загружены ✓');
 })();
