@@ -41,20 +41,11 @@ function injectMonthNav() {
   if (!dashTab) return;
   if (dashTab.querySelector('.du-month-nav')) return;
 
-  // Find the stats cards row (ДОХОД ЗА МЕСЯЦ etc)
-  const statCards = dashTab.querySelectorAll('[style*="grid"]');
-  let targetRow = null;
-  statCards.forEach(el => {
-    if (el.textContent.includes('ДОХОД ЗА МЕСЯЦ') || el.textContent.includes('БРОНИРОВАНИЙ')) {
-      targetRow = el;
-    }
-  });
-  if (!targetRow) {
-    // Fallback: find by looking for $0 or fmt$ pattern
-    const allDivs = [...dashTab.querySelectorAll('div')];
-    targetRow = allDivs.find(d => d.textContent.includes('ДОХОД ЗА МЕСЯЦ') && d.children.length > 3);
-  }
-  if (!targetRow) return;
+  // Find the stats row by locating dR (revenue card) and going up to parent row
+  const dR = document.getElementById('dR');
+  if (!dR) return;
+  const statsRow = dR.parentElement?.parentElement;
+  if (!statsRow || statsRow.id === 'tab-dash') return;
 
   const nav = document.createElement('div');
   nav.className = 'du-month-nav';
@@ -65,7 +56,7 @@ function injectMonthNav() {
     <button class="du-month-today" onclick="window._duGoToday()">Сегодня</button>
   `;
 
-  targetRow.parentElement.insertBefore(nav, targetRow);
+  statsRow.parentElement.insertBefore(nav, statsRow);
 }
 
 // ===== CHANGE MONTH =====
@@ -166,8 +157,7 @@ function updateOccupancyForMonth() {
 // ===== INIT =====
 // Wait for dashboard to render, then inject
 function tryInject() {
-  const dashTab = document.getElementById('tab-dash');
-  if (dashTab && dashTab.textContent.includes('ДОХОД')) {
+  if (document.getElementById('dR') && !document.querySelector('.du-month-nav')) {
     injectMonthNav();
   } else {
     setTimeout(tryInject, 1000);
@@ -178,7 +168,7 @@ function tryInject() {
 const dashTab = document.getElementById('tab-dash');
 if (dashTab) {
   const obs = new MutationObserver(() => {
-    if (!dashTab.querySelector('.du-month-nav') && dashTab.textContent.includes('ДОХОД')) {
+    if (document.getElementById('dR') && !document.querySelector('.du-month-nav')) {
       injectMonthNav();
     }
   });
