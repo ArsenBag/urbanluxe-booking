@@ -118,8 +118,8 @@ css.textContent = `
   /* Larger close buttons */
   .modal-close,[class*="close"]{min-width:44px!important;min-height:44px!important;display:flex!important;align-items:center!important;justify-content:center!important}
 
-  /* Chat button */
-  .chat-fab,[class*="chat-btn"],[class*="fab"]{width:52px!important;height:52px!important;bottom:80px!important;right:16px!important}
+  /* Chat button — move above sticky CTA */
+  .chat-fab,[class*="chat-btn"],[class*="fab"],#chatWidget{width:52px!important;height:52px!important;bottom:80px!important;right:16px!important}
 
   /* Input fields — prevent zoom on iOS */
   input,select,textarea{font-size:16px!important}
