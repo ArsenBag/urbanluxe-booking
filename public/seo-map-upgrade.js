@@ -186,9 +186,9 @@ const COMPLEXES = [
   {
     id: 'nest_one',
     name: 'Nest One',
-    address: 'ул. Батыра Закирова 1А, Tashkent City',
-    lat: 41.3115,
-    lng: 69.2712,
+    address: 'ул. Батыра Закирова 1А, Шайхантахурский район',
+    lat: 41.312058,
+    lng: 69.251817,
     color: '#2ecc71',
     desc: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамный вид на город.',
     apts: 5,
@@ -198,11 +198,11 @@ const COMPLEXES = [
   {
     id: 'utower',
     name: 'U-Tower NRG',
-    address: 'ул. Шота Руставели, Tashkent City',
-    lat: 41.3088,
-    lng: 69.2735,
+    address: 'мкр. Бешагач 1/1, Шайхантахурский район',
+    lat: 41.311097,
+    lng: 69.239303,
     color: '#3498db',
-    desc: 'Современный жилой комплекс бизнес-класса. Тренажёрный зал, бассейн.',
+    desc: 'Современный жилой комплекс бизнес-класса. 30 этажей, Smart Home.',
     apts: 12,
     price: 'от $85',
     filter: 'utower'
@@ -210,9 +210,9 @@ const COMPLEXES = [
   {
     id: 'mirabad',
     name: 'Mirabad Avenue',
-    address: 'ул. Мирабад, Мирабадский район',
-    lat: 41.2995,
-    lng: 69.2688,
+    address: 'ул. Айбек 38А, Мирабадский район',
+    lat: 41.3070,
+    lng: 69.2795,
     color: '#e67e22',
     desc: 'Престижный район в центре. Рядом парки, рестораны, метро.',
     apts: 2,
@@ -222,11 +222,11 @@ const COMPLEXES = [
   {
     id: 'kislorod',
     name: 'Kislorod',
-    address: 'ул. Нукусская, Чиланзарский район',
-    lat: 41.3180,
-    lng: 69.2400,
+    address: 'ул. Бурижар 1, Яккасарайский район',
+    lat: 41.2940,
+    lng: 69.2590,
     color: '#e74c3c',
-    desc: 'Эко-комплекс с зелёным двором. Свежий воздух, тишина, комфорт.',
+    desc: 'Эко-комплекс с зелёным двором вдоль реки. Тишина и комфорт.',
     apts: 3,
     price: 'от $105',
     filter: 'kislorod'
@@ -316,9 +316,7 @@ function insertMap(){
     </div>
     <div class="map-grid">
       <div class="map-embed" id="mapEmbed">
-        <iframe id="mapFrame"
-          src="https://www.openstreetmap.org/export/embed.html?bbox=${centerLng-0.04}%2C${centerLat-0.02}%2C${centerLng+0.04}%2C${centerLat+0.02}&layer=mapnik&marker=${centerLat}%2C${centerLng}"
-          loading="lazy" title="Карта комплексов Urban Luxe в Ташкенте"></iframe>
+        <div id="mapPlaceholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-d,#6b665e);font-size:13px;cursor:pointer" onclick="window._mapLoadIframe()">📍 Нажмите чтобы загрузить карту</div>
       </div>
       <div class="map-cards">
         ${cardsHTML}
@@ -327,7 +325,30 @@ function insertMap(){
   `;
 
   insertBefore.parentElement.insertBefore(section, insertBefore);
+
+  // Lazy-load map when section becomes visible
+  const mapObs = new IntersectionObserver(entries => {
+    if(entries[0].isIntersecting){
+      mapObs.disconnect();
+      window._mapLoadIframe();
+    }
+  }, {threshold: 0.1});
+  mapObs.observe(section);
 }
+
+window._mapLoadIframe = function(){
+  const embed = document.getElementById('mapEmbed');
+  const placeholder = document.getElementById('mapPlaceholder');
+  if(!embed || embed.querySelector('iframe')) return;
+  const centerLat = 41.306, centerLng = 69.258;
+  const iframe = document.createElement('iframe');
+  iframe.id = 'mapFrame';
+  iframe.loading = 'lazy';
+  iframe.title = 'Карта комплексов Urban Luxe в Ташкенте';
+  iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng-0.03}%2C${centerLat-0.015}%2C${centerLng+0.03}%2C${centerLat+0.015}&layer=mapnik&marker=${centerLat}%2C${centerLng}`;
+  embed.innerHTML = '';
+  embed.appendChild(iframe);
+};
 
 // Map interactions
 window._mapSelect = function(cxId) {
