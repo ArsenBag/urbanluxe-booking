@@ -211,8 +211,8 @@ const COMPLEXES = [
     id: 'mirabad',
     name: 'Mirabad Avenue',
     address: 'ул. Айбек 38А, Мирабадский район',
-    lat: 41.3070,
-    lng: 69.2795,
+    lat: 41.291499,
+    lng: 69.271517,
     color: '#e67e22',
     desc: 'Престижный район в центре. Рядом парки, рестораны, метро.',
     apts: 2,
@@ -223,8 +223,8 @@ const COMPLEXES = [
     id: 'kislorod',
     name: 'Kislorod',
     address: 'ул. Бурижар 1, Яккасарайский район',
-    lat: 41.2940,
-    lng: 69.2590,
+    lat: 41.296878,
+    lng: 69.242924,
     color: '#e74c3c',
     desc: 'Эко-комплекс с зелёным двором вдоль реки. Тишина и комфорт.',
     apts: 3,
@@ -340,7 +340,7 @@ window._mapLoadIframe = function(){
   const embed = document.getElementById('mapEmbed');
   const placeholder = document.getElementById('mapPlaceholder');
   if(!embed || embed.querySelector('iframe')) return;
-  const centerLat = 41.306, centerLng = 69.258;
+  const centerLat = 41.303, centerLng = 69.252;
   const iframe = document.createElement('iframe');
   iframe.id = 'mapFrame';
   iframe.loading = 'lazy';
