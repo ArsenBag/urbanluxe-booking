@@ -1,227 +1,110 @@
-/* checkin-upgrade.js — Учёт заселения/выселения для Urban Luxe admin.html
+/* checkin-upgrade.js v2 — Toggle заселения прямо в строках заездов/выездов
    Подключение: <script src="/checkin-upgrade.js"></script> перед </body>
    
-   Добавляет:
-   - Панель заездов сегодня с кнопками «Заселён» / «Ожидает»
-   - Указание времени заезда
-   - Панель выездов с кнопкой «Выехал»
-   - Цветовая индикация статуса
-   - Обновление в реальном времени
+   Инжектит:
+   - Toggle «Заселён» в каждую строку заездов
+   - Поле времени заезда
+   - Toggle «Выехал» в каждую строку выездов
+   - Цветовую индикацию
+   НЕ создаёт отдельных панелей
 */
 (function(){
 'use strict';
 
 const css = document.createElement('style');
 css.textContent = `
-/* Check-in Panel */
-.ci-panel{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
-.ci-title{font-size:13px;font-weight:500;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.ci-title .ci-badge{background:var(--gold);color:var(--bg);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
-.ci-list{display:flex;flex-direction:column;gap:6px}
-.ci-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--line);transition:border-color .2s}
-.ci-row:hover{border-color:rgba(201,169,97,.3)}
-.ci-row.checked-in{border-left:3px solid var(--green,#2ecc71);background:rgba(46,204,113,.03)}
-.ci-row.waiting{border-left:3px solid var(--gold,#c9a961)}
-.ci-row.checked-out{border-left:3px solid var(--ink-d,#6b665e);opacity:.6}
-.ci-apt{font-size:12px;font-weight:500;min-width:110px;color:var(--ink)}
-.ci-guest{font-size:11px;color:var(--ink-m);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ci-source{font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(201,169,97,.1);color:var(--ink-d)}
-.ci-time{display:flex;align-items:center;gap:4px}
-.ci-time input{width:70px;padding:4px 6px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-size:11px;font-family:inherit;border-radius:4px;text-align:center}
-.ci-time input:focus{border-color:var(--gold);outline:none}
-.ci-btn{padding:4px 10px;border:1px solid var(--line);background:none;color:var(--ink-m);font-size:10px;font-family:inherit;border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.05em}
-.ci-btn:hover{border-color:var(--gold);color:var(--gold)}
-.ci-btn.active{background:var(--green,#2ecc71);color:#fff;border-color:var(--green,#2ecc71)}
-.ci-btn.out-active{background:var(--ink-d,#6b665e);color:#fff;border-color:var(--ink-d)}
-.ci-empty{color:var(--ink-d);font-size:12px;text-align:center;padding:16px}
-.ci-summary{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--ink-d)}
-.ci-summary strong{color:var(--ink)}
+.ci-toggle{position:relative;width:34px;height:18px;flex-shrink:0;cursor:pointer}
+.ci-toggle input{opacity:0;width:0;height:0;position:absolute}
+.ci-toggle .ci-slider{position:absolute;inset:0;background:var(--line);border-radius:9px;transition:background .3s}
+.ci-toggle .ci-slider::before{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:#888;border-radius:50%;transition:transform .3s,background .3s}
+.ci-toggle input:checked+.ci-slider{background:rgba(46,204,113,.3)}
+.ci-toggle input:checked+.ci-slider::before{transform:translateX(16px);background:#2ecc71}
+.ci-toggle.co input:checked+.ci-slider{background:rgba(107,102,94,.3)}
+.ci-toggle.co input:checked+.ci-slider::before{background:#6b665e}
+.ci-time-input{width:58px;padding:2px 4px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:10px;font-family:inherit;border-radius:3px;text-align:center;flex-shrink:0}
+.ci-time-input:focus{border-color:var(--gold);outline:none}
+.ci-status{font-size:9px;min-width:52px;text-align:center;padding:2px 4px;border-radius:3px;flex-shrink:0}
+.ci-status.in{background:rgba(46,204,113,.12);color:#2ecc71}
+.ci-status.wait{background:rgba(201,169,97,.12);color:var(--gold)}
+.ci-status.out{background:rgba(107,102,94,.12);color:#999}
+[data-ci-row].ci-done{opacity:.5}
 `;
 document.head.appendChild(css);
 
-// ========== RENDER CHECK-IN PANEL ==========
-async function renderCheckInPanel() {
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Fetch today's check-ins and check-outs
-  const [arrivals, departures] = await Promise.all([
-    sb.from('bookings')
-      .select('id, apartment_id, guest_name, guest_phone, check_in, check_out, source, checked_in, check_in_time, booking_ref, nights, total_price')
-      .eq('check_in', today)
-      .neq('status', 'cancelled')
-      .order('check_in_time', {ascending: true, nullsFirst: false}),
-    sb.from('bookings')
-      .select('id, apartment_id, guest_name, check_out, checked_out, source, booking_ref')
-      .eq('check_out', today)
-      .neq('status', 'cancelled')
+function removeOldPanels(){const old=document.getElementById('ci-panels');if(old)old.remove()}
+
+async function injectCheckinToggles(){
+  removeOldPanels();
+  const today=new Date().toISOString().split('T')[0];
+  const[arrRes,depRes]=await Promise.all([
+    sb.from('bookings').select('id,apartment_id,checked_in,check_in_time').eq('check_in',today).neq('status','cancelled'),
+    sb.from('bookings').select('id,apartment_id,checked_out').eq('check_out',today).neq('status','cancelled')
   ]);
+  const arrivals=arrRes.data||[];const departures=depRes.data||[];const allApts=window._allApts||[];
 
-  const arrData = arrivals.data || [];
-  const depData = departures.data || [];
-  const allApts = window._allApts || [];
-
-  // Find the check-in container in dashboard
-  let container = document.getElementById('ci-arrivals');
-  if (!container) {
-    // Create the panel after the first row of dashboard cards
-    const dashTab = document.getElementById('tab-dash');
-    if (!dashTab) return;
-    
-    // Find the first row of stat cards (Заезды, Выезды, Сообщения, Загрузка)
-    const firstRow = dashTab.querySelector('.drow, .d-row, [style*="grid"], [style*="flex"]');
-    
-    // Create check-in/out panels
-    const panelHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0" id="ci-panels">
-        <div class="ci-panel" id="ci-arrivals"></div>
-        <div class="ci-panel" id="ci-departures"></div>
-      </div>
-    `;
-    
-    // Insert after first row
-    if (firstRow) {
-      firstRow.insertAdjacentHTML('afterend', panelHTML);
-    } else {
-      dashTab.insertAdjacentHTML('afterbegin', panelHTML);
-    }
-    container = document.getElementById('ci-arrivals');
-  }
-
-  const depContainer = document.getElementById('ci-departures');
-  
-  // ===== ARRIVALS =====
-  const checkedCount = arrData.filter(b => b.checked_in).length;
-  const waitingCount = arrData.length - checkedCount;
-  
-  let arrHTML = `
-    <div class="ci-title">
-      ✈️ Заезды сегодня 
-      <span class="ci-badge">${arrData.length}</span>
-      ${waitingCount > 0 ? `<span style="color:var(--gold);font-size:10px">⏳ ${waitingCount} ожидают</span>` : ''}
-      ${checkedCount > 0 ? `<span style="color:var(--green,#2ecc71);font-size:10px">✅ ${checkedCount} заселены</span>` : ''}
-    </div>
-    <div class="ci-list">
-  `;
-  
-  if (arrData.length === 0) {
-    arrHTML += '<div class="ci-empty">Нет заездов сегодня</div>';
-  } else {
-    arrData.forEach(bk => {
-      const apt = allApts.find(a => a.id === bk.apartment_id);
-      const aptName = apt ? apt.name : bk.apartment_id;
-      const isCheckedIn = bk.checked_in;
-      const rowClass = isCheckedIn ? 'checked-in' : 'waiting';
-      const srcLabel = {airbnb:'Airbnb',booking:'Booking',ostrovok:'Ostrovok',website:'Сайт',phone:'Тел'}[bk.source] || bk.source || '';
-      
-      arrHTML += `
-        <div class="ci-row ${rowClass}" data-id="${bk.id}">
-          <div class="ci-apt">${aptName}</div>
-          <div class="ci-guest">${bk.guest_name || '—'} ${bk.guest_phone ? '· ' + bk.guest_phone : ''}</div>
-          <div class="ci-source">${srcLabel}</div>
-          <div class="ci-time">
-            <span style="font-size:10px;color:var(--ink-d)">🕐</span>
-            <input type="time" value="${bk.check_in_time || ''}" placeholder="14:00" 
-              onchange="window._ciSetTime('${bk.id}', this.value)" 
-              title="Время заезда">
-          </div>
-          <button class="ci-btn ${isCheckedIn ? 'active' : ''}" 
-            onclick="window._ciToggle('${bk.id}', ${!isCheckedIn})">
-            ${isCheckedIn ? '✅ Заселён' : '⏳ Ожидает'}
-          </button>
-        </div>
-      `;
+  const ciContainer=document.getElementById('todayCheckins');
+  if(ciContainer){
+    const rows=[...ciContainer.querySelectorAll('div[style*="cursor:pointer"]')];
+    rows.forEach(row=>{
+      if(row.querySelector('.ci-toggle'))return;
+      const text=row.textContent;const aptMatch=text.match(/Апартамент\s+(\d+)/);
+      if(!aptMatch)return;
+      const aptNum=aptMatch[1];
+      const apt=allApts.find(a=>a.name&&a.name.includes(aptNum));
+      const booking=apt?arrivals.find(b=>b.apartment_id===apt.id):null;
+      if(!booking)return;
+      const isIn=booking.checked_in||false;const timeVal=booking.check_in_time||'';
+      const w=document.createElement('span');
+      w.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;';
+      w.innerHTML=`<input type="time" class="ci-time-input" value="${timeVal}" title="Время заезда" onclick="event.stopPropagation()" onchange="window._ciSetTime2('${booking.id}',this.value)"><label class="ci-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${isIn?'checked':''} onchange="window._ciToggle2('${booking.id}',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isIn?'in':'wait'}">${isIn?'✅ Заселён':'⏳ Ждём'}</span>`;
+      row.appendChild(w);row.setAttribute('data-ci-row',booking.id);if(isIn)row.classList.add('ci-done');
     });
   }
-  arrHTML += '</div>';
-  container.innerHTML = arrHTML;
 
-  // ===== DEPARTURES =====
-  const doneCount = depData.filter(b => b.checked_out).length;
-  
-  let depHTML = `
-    <div class="ci-title">
-      🚪 Выезды сегодня 
-      <span class="ci-badge">${depData.length}</span>
-      ${doneCount > 0 ? `<span style="color:var(--ink-d);font-size:10px">✅ ${doneCount} выехали</span>` : ''}
-    </div>
-    <div class="ci-list">
-  `;
-  
-  if (depData.length === 0) {
-    depHTML += '<div class="ci-empty">Нет выездов сегодня</div>';
-  } else {
-    depData.forEach(bk => {
-      const apt = allApts.find(a => a.id === bk.apartment_id);
-      const aptName = apt ? apt.name : bk.apartment_id;
-      const isDone = bk.checked_out;
-      const rowClass = isDone ? 'checked-out' : '';
-      const srcLabel = {airbnb:'Airbnb',booking:'Booking',ostrovok:'Ostrovok',website:'Сайт'}[bk.source] || bk.source || '';
-      
-      depHTML += `
-        <div class="ci-row ${rowClass}" data-id="${bk.id}">
-          <div class="ci-apt">${aptName}</div>
-          <div class="ci-guest">${bk.guest_name || '—'}</div>
-          <div class="ci-source">${srcLabel}</div>
-          <button class="ci-btn ${isDone ? 'out-active' : ''}" 
-            onclick="window._ciToggleOut('${bk.id}', ${!isDone})">
-            ${isDone ? '✅ Выехал' : '🏠 В квартире'}
-          </button>
-        </div>
-      `;
+  const coContainer=document.getElementById('todayCheckouts');
+  if(coContainer){
+    const rows=[...coContainer.querySelectorAll('div[style*="cursor:pointer"]')];
+    rows.forEach(row=>{
+      if(row.querySelector('.ci-toggle'))return;
+      const text=row.textContent;const aptMatch=text.match(/Апартамент\s+(\d+)/);
+      if(!aptMatch)return;
+      const aptNum=aptMatch[1];
+      const apt=allApts.find(a=>a.name&&a.name.includes(aptNum));
+      const booking=apt?departures.find(b=>b.apartment_id===apt.id):null;
+      if(!booking)return;
+      const isDone=booking.checked_out||false;
+      const w=document.createElement('span');
+      w.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;';
+      w.innerHTML=`<label class="ci-toggle co" onclick="event.stopPropagation()"><input type="checkbox" ${isDone?'checked':''} onchange="window._ciToggleOut2('${booking.id}',this.checked,this)"><span class="ci-slider"></span></label><span class="ci-status ${isDone?'out':'wait'}">${isDone?'✅ Выехал':'🏠 Здесь'}</span>`;
+      row.appendChild(w);row.setAttribute('data-ci-row',booking.id);if(isDone)row.classList.add('ci-done');
     });
   }
-  depHTML += '</div>';
-  if (depContainer) depContainer.innerHTML = depHTML;
 }
 
-// ========== ACTIONS ==========
-window._ciToggle = async function(id, val) {
-  const { error } = await sb.from('bookings').update({
-    checked_in: val,
-    updated_at: new Date().toISOString()
-  }).eq('id', id);
-  if (error) { alert('Ошибка: ' + error.message); return; }
-  renderCheckInPanel();
+window._ciToggle2=async function(id,val,el){
+  const{error}=await sb.from('bookings').update({checked_in:val,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Ошибка: '+error.message);return}
+  const row=el.closest('[data-ci-row]');const status=row?.querySelector('.ci-status');
+  if(status){status.className='ci-status '+(val?'in':'wait');status.textContent=val?'✅ Заселён':'⏳ Ждём'}
+  if(row)row.classList.toggle('ci-done',val);
+};
+window._ciSetTime2=async function(id,time){await sb.from('bookings').update({check_in_time:time,updated_at:new Date().toISOString()}).eq('id',id)};
+window._ciToggleOut2=async function(id,val,el){
+  const{error}=await sb.from('bookings').update({checked_out:val,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Ошибка: '+error.message);return}
+  const row=el.closest('[data-ci-row]');const status=row?.querySelector('.ci-status');
+  if(status){status.className='ci-status '+(val?'out':'wait');status.textContent=val?'✅ Выехал':'🏠 Здесь'}
+  if(row)row.classList.toggle('ci-done',val);
 };
 
-window._ciSetTime = async function(id, time) {
-  const { error } = await sb.from('bookings').update({
-    check_in_time: time,
-    updated_at: new Date().toISOString()
-  }).eq('id', id);
-  if (error) alert('Ошибка: ' + error.message);
+const origRDash=window.rDash;
+window.rDash=function(){
+  if(origRDash)origRDash.apply(this,arguments);
+  setTimeout(injectCheckinToggles,800);
 };
+const origSwitch=window.switchTab;
+if(origSwitch){window.switchTab=function(tab){origSwitch.apply(this,arguments);if(tab==='dash')setTimeout(injectCheckinToggles,1200)}}
+setTimeout(injectCheckinToggles,4000);
 
-window._ciToggleOut = async function(id, val) {
-  const { error } = await sb.from('bookings').update({
-    checked_out: val,
-    updated_at: new Date().toISOString()
-  }).eq('id', id);
-  if (error) { alert('Ошибка: ' + error.message); return; }
-  renderCheckInPanel();
-};
-
-// ========== INIT ==========
-// Wait for data to load, then render
-const origRDash = window.rDash;
-if (origRDash) {
-  window.rDash = function() {
-    origRDash.apply(this, arguments);
-    setTimeout(renderCheckInPanel, 500);
-  };
-}
-
-// Also render on tab switch to dashboard
-const origSwitchTab = window.switchTab;
-if (origSwitchTab) {
-  window.switchTab = function(tab) {
-    origSwitchTab.apply(this, arguments);
-    if (tab === 'dash') setTimeout(renderCheckInPanel, 800);
-  };
-}
-
-// Initial render after page load
-setTimeout(renderCheckInPanel, 3000);
-
-console.log('[Check-in Upgrade] Учёт заселения загружен ✓');
+console.log('[Check-in Upgrade v2] Ползунки заселения загружены ✓');
 })();
