@@ -18,13 +18,21 @@ const css = document.createElement('style');
 css.textContent = `
 /* ===== STICKY CTA BUTTON ===== */
 @media(max-width:900px){
-  #mu-sticky-cta{position:fixed;bottom:0;left:0;right:0;z-index:900;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(9,8,7,.95) 30%);display:flex;gap:8px;pointer-events:none}
-  #mu-sticky-cta a,#mu-sticky-cta button{pointer-events:all;flex:1;text-align:center;padding:14px 20px;font-size:14px;font-family:inherit;font-weight:500;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer;text-decoration:none;display:block;transition:all .2s}
-  #mu-sticky-cta .mu-cta-primary{background:var(--gold,#c9a961);color:#0a0a0a;border:none}
-  #mu-sticky-cta .mu-cta-secondary{background:transparent;color:var(--ink,#e8e2d6);border:1px solid rgba(201,169,97,.3)}
+  #mu-sticky-cta{position:fixed;bottom:0;left:0;right:0;z-index:900;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(9,8,7,.95) 30%);display:flex;gap:8px;pointer-events:none;align-items:center}
+  #mu-sticky-cta a,#mu-sticky-cta button{pointer-events:all;text-align:center;font-size:14px;font-family:inherit;font-weight:500;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all .2s}
+  #mu-sticky-cta .mu-cta-primary{flex:1;padding:14px 20px;background:var(--gold,#c9a961);color:#0a0a0a;border:none}
+  #mu-sticky-cta .mu-cta-call{width:48px;height:48px;flex-shrink:0;background:transparent;color:var(--ink,#e8e2d6);border:1px solid rgba(201,169,97,.3);font-size:18px;letter-spacing:0;padding:0}
   body{padding-bottom:70px}
 }
 @media(min-width:901px){#mu-sticky-cta{display:none}}
+
+/* ===== FLOATING CONTACTS (desktop) ===== */
+#mu-contacts-float{display:none}
+@media(min-width:901px){
+  #mu-contacts-float{display:flex;position:fixed;bottom:20px;left:20px;z-index:800;flex-direction:column;gap:6px}
+  #mu-contacts-float a{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(9,8,7,.85);backdrop-filter:blur(12px);border:1px solid rgba(201,169,97,.15);border-radius:8px;color:var(--ink-m,#a8a096);font-size:12px;text-decoration:none;font-family:inherit;transition:all .2s}
+  #mu-contacts-float a:hover{border-color:var(--gold,#c9a961);color:var(--gold,#c9a961)}
+}
 
 /* ===== SMALL SCREENS (480px) ===== */
 @media(max-width:480px){
@@ -175,9 +183,21 @@ if(!document.getElementById('mu-sticky-cta')){
   cta.id = 'mu-sticky-cta';
   cta.innerHTML = `
     <a href="#booking" class="mu-cta-primary">Забронировать</a>
-    <a href="tel:+998932062891" class="mu-cta-secondary">📞 Позвонить</a>
+    <a href="tel:+998936900044" class="mu-cta-call" title="+998 93 690 00 44">📞</a>
+    <a href="tel:+998999579485" class="mu-cta-call" title="+998 99 957 94 85">📞</a>
   `;
   document.body.appendChild(cta);
+
+  // Desktop floating contacts
+  if(!document.getElementById('mu-contacts-float')){
+    const contacts = document.createElement('div');
+    contacts.id = 'mu-contacts-float';
+    contacts.innerHTML = `
+      <a href="tel:+998936900044">📞 +998 93 690 00 44</a>
+      <a href="tel:+998999579485">📞 +998 99 957 94 85</a>
+    `;
+    document.body.appendChild(contacts);
+  }
 
   // Hide sticky CTA when booking section is visible
   const bookingSection = document.getElementById('booking');
