@@ -126,11 +126,32 @@ window._ciSetTime3=async function(aptId,dbId,time){
   if(dbId) await sb.from('bookings').update({check_in_time:time,updated_at:new Date().toISOString()}).eq('id',dbId);
 };
 
+// Fix duplicate IDs between check-ins and check-outs
+function fixDuplicateIds(){
+  const co=document.getElementById('todayCheckouts');
+  if(!co)return;
+  co.querySelectorAll('[id^="td_"]').forEach(el=>{
+    const oldId=el.id;
+    if(!oldId.endsWith('_co')){
+      const newId=oldId+'_co';
+      el.id=newId;
+      // Fix onclick on the sibling row that references this ID
+      const prev=el.previousElementSibling;
+      if(prev){
+        const onclick=prev.getAttribute('onclick');
+        if(onclick&&onclick.includes(oldId)){
+          prev.setAttribute('onclick',onclick.split(oldId).join(newId));
+        }
+      }
+    }
+  });
+}
+
 // Use MutationObserver to detect when todayCheckins/todayCheckouts get populated
 let injectTimeout = null;
 function scheduleInject() {
   if (injectTimeout) clearTimeout(injectTimeout);
-  injectTimeout = setTimeout(injectCheckinToggles, 600);
+  injectTimeout = setTimeout(()=>{fixDuplicateIds();injectCheckinToggles()}, 600);
 }
 
 function setupObserver() {
