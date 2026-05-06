@@ -1565,22 +1565,22 @@ async function loadGuests(){
     if(b.guest_name&&(!g.name||g.name==='—'))g.name=b.guest_name;
     if(b.guest_email&&!g.email)g.email=b.guest_email;
     if(b.guest_phone&&!g.phone)g.phone=b.guest_phone;
-    if(b.status==='cancelled'){g.cancelled++;return}
+    if(b.status==='cancelled'){g.cancelled++;g.spent+=b.total_price||0;}else{
     g.bookings++;
-    g.spent+=b.total_price||0;
+    g.spent+=b.total_price||0;}
     if(b.review_rating)g.rating=b.review_rating;
-    if(b.check_out>g.lastVisit)g.lastVisit=b.check_out;
-    if(b.check_in<g.firstVisit)g.firstVisit=b.check_in;
+    if(b.check_out&&(!g.lastVisit||b.check_out>g.lastVisit))g.lastVisit=b.check_out;
+    if(b.check_in&&(!g.firstVisit||b.check_in<g.firstVisit))g.firstVisit=b.check_in;
     if(b.apartment_id)g.apartments.add(b.apartment_id);
     if(b.source)g.sources.add(b.source);
   });
-  const list=Object.values(guests).filter(g=>g.bookings>0).sort((a,b)=>b.spent-a.spent);
+  const list=Object.values(guests).sort((a,b)=>b.spent-a.spent||b.bookings-a.bookings||(b.cancelled||0)-(a.cancelled||0));
   const returning=list.filter(g=>g.bookings>1).length;
   document.getElementById('gTotal').textContent=list.length;
-  document.getElementById('gBookings').textContent=bookings.filter(b=>b.status!=='cancelled').length;
+  document.getElementById('gBookings').textContent=bookings.length;
   const totalRev=list.reduce((s,g)=>s+g.spent,0);
   document.getElementById('gRevenue').textContent='$'+totalRev.toLocaleString();
-  document.getElementById('gAvgCheck').textContent='$'+Math.round(totalRev/(bookings.filter(b=>b.status!=='cancelled').length||1));
+  document.getElementById('gAvgCheck').textContent='$'+Math.round(totalRev/(bookings.length||1));
   // Add returning guests stat if not exists
   let retEl=document.getElementById('gReturning');
   if(!retEl){
@@ -1597,8 +1597,10 @@ async function loadGuests(){
   const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};
   document.getElementById('gT').innerHTML=list.map(g=>{
     const srcIcons=[...g.sources].map(s=>srcMap[s]||'📋').join('');
-    const badge=g.bookings>1?`<span style="display:inline-block;background:rgba(201,169,97,.15);color:var(--gold);font-size:9px;padding:2px 6px;border-radius:10px;margin-left:6px">×${g.bookings}</span>`:'';
-    return`<tr><td><strong>${g.name||'—'}</strong>${badge}</td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${g.bookings}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'} ${srcIcons}</td></tr>`;
+    const total=g.bookings+(g.cancelled||0);
+    const badge=total>1?`<span style="display:inline-block;background:rgba(201,169,97,.15);color:var(--gold);font-size:9px;padding:2px 6px;border-radius:10px;margin-left:6px">×${total}</span>`:'';
+    const cancelBadge=g.cancelled?` <span style="display:inline-block;background:rgba(231,76,60,.15);color:var(--red);font-size:9px;padding:2px 6px;border-radius:10px">${g.cancelled} отм.</span>`:'';
+    return`<tr><td><strong>${g.name||'—'}</strong>${badge}</td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${total}${cancelBadge}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'} ${srcIcons}</td></tr>`;
   }).join('')||'<tr><td colspan="7">Нет данных</td></tr>';
 }
 
