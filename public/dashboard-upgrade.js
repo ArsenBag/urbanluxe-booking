@@ -181,6 +181,10 @@ setTimeout(tryInject, 3000);
 const origSwitch = window.switchTab;
 if (origSwitch) {
   window.switchTab = function(tab) {
+    // Restore original Date when leaving analytics tab
+    if (tab !== 'analytics' && window._OrigDateClass) {
+      window.Date = window._OrigDateClass;
+    }
     origSwitch.apply(this, arguments);
     if (tab === 'dash') setTimeout(injectMonthNav, 500);
     if (tab === 'analytics') setTimeout(injectAnalyticsMonthNav, 800);
@@ -216,12 +220,24 @@ function injectAnalyticsMonthNav() {
 function runWithFakeDate(year, month, fn) {
   const OrigDate = window._OrigDateClass || Date;
   if (!window._OrigDateClass) window._OrigDateClass = Date;
-  const target = new OrigDate(year, month, 15);
-  const Fake = function(...a) { return a.length === 0 ? new OrigDate(target.getTime()) : new OrigDate(...a) };
-  Fake.now = () => OrigDate.now(); Fake.parse = OrigDate.parse; Fake.UTC = OrigDate.UTC; Fake.prototype = OrigDate.prototype;
-  window.Date = Fake;
+  
+  const now = new OrigDate();
+  const isCurrentMonth = (year === now.getFullYear() && month === now.getMonth());
+  
+  if (isCurrentMonth) {
+    // Restore original Date
+    window.Date = OrigDate;
+  } else {
+    // Override Date to return selected month
+    const target = new OrigDate(year, month, 15);
+    const Fake = function(...a) { return a.length === 0 ? new OrigDate(target.getTime()) : new OrigDate(...a) };
+    Fake.now = () => OrigDate.now(); Fake.parse = OrigDate.parse; Fake.UTC = OrigDate.UTC; Fake.prototype = OrigDate.prototype;
+    window.Date = Fake;
+  }
+  
   try { fn(); } catch(e) { console.error('Date override error:', e); }
-  setTimeout(() => { window.Date = window._OrigDateClass || OrigDate; }, 15000);
+  // Do NOT restore Date — keep it overridden so filters/sorts work correctly
+  // Date is restored only when user clicks "Сегодня" or navigates to current month
 }
 
 window._duAnalyticsChange = function(delta) {
