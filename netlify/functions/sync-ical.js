@@ -43,8 +43,9 @@ function parseIcalEvents(icalData) {
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i].split('END:VEVENT')[0];
     const lines = block.split(/\r?\n/);
-    let dtstart = '', dtend = '', summary = '', uid = '';
-    for (const line of lines) {
+    let dtstart = '', dtend = '', summary = '', uid = '', description = '';
+    for (let j = 0; j < lines.length; j++) {
+      const line = lines[j];
       if (line.startsWith('DTSTART')) {
         const m = line.match(/(\d{4})(\d{2})(\d{2})/);
         if (m) dtstart = `${m[1]}-${m[2]}-${m[3]}`;
@@ -55,10 +56,40 @@ function parseIcalEvents(icalData) {
       }
       if (line.startsWith('SUMMARY')) summary = line.replace('SUMMARY:', '').trim();
       if (line.startsWith('UID')) uid = line.replace('UID:', '').trim();
+      if (line.startsWith('DESCRIPTION')) {
+        description = line.replace('DESCRIPTION:', '').trim();
+        // Handle multi-line DESCRIPTION (lines starting with space/tab are continuations)
+        while (j + 1 < lines.length && (lines[j + 1].startsWith(' ') || lines[j + 1].startsWith('\t'))) {
+          j++;
+          description += lines[j].trim();
+        }
+        // Unescape iCal
+        description = description.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\\\/g, '\\');
+      }
     }
-    if (dtstart && dtend) events.push({ dtstart, dtend, summary, uid });
+    if (dtstart && dtend) events.push({ dtstart, dtend, summary, uid, description });
   }
   return events;
+}
+
+// Extract guest name from DESCRIPTION or SUMMARY
+function extractGuestName(summary, description) {
+  // Try DESCRIPTION first — RC format: "Гость: Имя Фамилия" or "Guest: Name"
+  if (description) {
+    const guestMatch = description.match(/(?:Гость|Guest|Имя|Name|ФИО|Заказчик)\s*[:=]\s*([^\n,;]+)/i);
+    if (guestMatch) return guestMatch[1].trim();
+    // Try first line if it looks like a name (2+ words, no special chars)
+    const firstLine = description.split('\n')[0]?.trim();
+    if (firstLine && /^[А-Яа-яA-Za-zёЁ\s\-]{3,40}$/.test(firstLine) && firstLine.includes(' ')) {
+      return firstLine;
+    }
+  }
+  // Try SUMMARY — sometimes format is "Booking.com - Имя Гостя"
+  if (summary) {
+    const dashMatch = summary.match(/\s[-–]\s+(.+)/);
+    if (dashMatch && !/RC\(/.test(dashMatch[1])) return dashMatch[1].trim();
+  }
+  return '';
 }
 
 function detectSource(summary) {
@@ -96,8 +127,9 @@ exports.handler = async (event) => {
         // Only include current/future bookings (not past)
         if (ev.dtend < today) continue;
         
-        const source = detectSource(ev.summary);
+        const source = detectSource(ev.summary + ' ' + (ev.description || ''));
         const nights = Math.round((new Date(ev.dtend) - new Date(ev.dtstart)) / 864e5);
+        const guestName = extractGuestName(ev.summary, ev.description);
         
         allBookings.push({
           apartment_id: aptId,
@@ -106,6 +138,7 @@ exports.handler = async (event) => {
           nights,
           source,
           summary: ev.summary || '',
+          guest_name: guestName,
           uid: ev.uid || '',
         });
       }
