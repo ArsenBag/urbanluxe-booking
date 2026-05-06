@@ -42,6 +42,13 @@ function goToSlide(carousel,idx){
   carousel._cur=idx;
   carousel.querySelector('.sf-track').style.transform=`translateX(-${idx*100}%)`;
   carousel.querySelectorAll('.sf-dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
+  // Lazy load current and adjacent images
+  const imgs=carousel.querySelectorAll('.sf-track img');
+  [idx-1,idx,idx+1].forEach(j=>{
+    if(j>=0&&j<imgs.length&&!imgs[j].src&&imgs[j].dataset.src){
+      imgs[j].src=imgs[j].dataset.src;
+    }
+  });
 }
 
 function initCarousels(){
@@ -66,8 +73,10 @@ function initCarousels(){
     track.className='sf-track';
     photos.forEach((url,i)=>{
       const img=document.createElement('img');
-      img.src=i<3?url:'';img.dataset.src=url;img.alt='';img.style.height=imgH+'px';
-      img.loading=i<3?'eager':'lazy';
+      // Only first image loads immediately, rest are lazy
+      if(i===0){img.src=url;}else{img.dataset.src=url;img.src='';}
+      img.alt='';img.style.height=imgH+'px';
+      img.loading=i===0?'eager':'lazy';
       track.appendChild(img);
     });
 

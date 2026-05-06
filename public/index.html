@@ -451,20 +451,36 @@ async function loadApartments(){
 function renderAptGrid(apts){
   const favs=JSON.parse(localStorage.getItem('ul_favs')||'[]');
   const g=document.getElementById('aptGrid');
-  g.innerHTML=apts.map((a,i)=>{
+  const INITIAL_SHOW=8;
+  const cards=apts.map((a,i)=>{
     const cx=a.complex==='U-Tower 2'?'U-Tower':a.complex;
     const delay=Math.min(i*50,400);
     const isFav=favs.includes(a.id);
     const photoCount=a._photos.length;
     const heartBtn=`<button onclick="event.stopPropagation();toggleFav('${a.id}')" style="position:absolute;top:14px;right:14px;z-index:5;background:rgba(0,0,0,.4);border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .3s" id="fav-${a.id}">${isFav?'&#10084;&#65039;':'&#9825;'}</button>`;
     const photoTag=photoCount>1?`<div style="position:absolute;bottom:14px;right:14px;z-index:5;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:10px;color:#fff;letter-spacing:.05em">&#128247; ${photoCount}</div>`:'';
+    const hidden=i>=INITIAL_SHOW?' style="display:none" data-hidden="1"':'';
     if(a._cover){
       const cardImg=a._thumb||a._cover;
-      return`<div class="card reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img"><img src="${cardImg}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
+      return`<div class="card reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img"><img src="${i<INITIAL_SHOW?cardImg:''}" data-src="${cardImg}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
     }
-    return`<div class="card card--nophoto reveal" style="transition-delay:${delay}ms" onclick="openModal('${a.id}')"><div class="card__img" data-nophoto="${t('apt_nophoto')}"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
-  }).join('');
-  document.querySelectorAll('#aptGrid .reveal').forEach(el=>revealObs.observe(el));
+    return`<div class="card card--nophoto reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img" data-nophoto="${t('apt_nophoto')}"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
+  });
+  const showMoreBtn=apts.length>INITIAL_SHOW?`<div id="showMoreWrap" style="grid-column:1/-1;text-align:center;padding:20px 0"><button class="btn btn-outline" onclick="showAllApts()" style="padding:14px 48px;font-size:13px">Показать все ${apts.length} апартаментов</button></div>`:'';
+  g.innerHTML=cards.join('')+showMoreBtn;
+  document.querySelectorAll('#aptGrid .reveal:not([data-hidden])').forEach(el=>revealObs.observe(el));
+}
+
+function showAllApts(){
+  document.querySelectorAll('#aptGrid .card[data-hidden]').forEach(el=>{
+    el.style.display='';el.removeAttribute('data-hidden');
+    // Load images
+    const img=el.querySelector('img[data-src]');
+    if(img&&!img.src)img.src=img.dataset.src;
+    revealObs.observe(el);
+  });
+  const wrap=document.getElementById('showMoreWrap');
+  if(wrap)wrap.remove();
 }
 
 function toggleFav(id){
