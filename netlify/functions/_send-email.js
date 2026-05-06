@@ -157,4 +157,51 @@ function bookingConfirmEmail({ guestName, bookingRef, apartmentName, checkIn, ch
   return { subject, text, html };
 }
 
-module.exports = { sendEmail, cancelCodeEmail, bookingConfirmEmail };
+// Шаблон письма — бронь отменена
+function bookingCancelledEmail({ guestName, bookingRef, apartmentName, checkIn, checkOut, total }) {
+  const subject = `Бронирование отменено · ${bookingRef}`;
+  const text =
+    `Здравствуйте${guestName ? ', ' + guestName : ''}!\n\n` +
+    `Ваше бронирование ${bookingRef} успешно отменено.\n\n` +
+    `${apartmentName}\n${checkIn} – ${checkOut}\n` +
+    `Сумма: $${total}\n\n` +
+    `Если вы хотите забронировать снова — добро пожаловать на urbanluxe.cc\n\n` +
+    `Urban Luxe · urbanluxe.cc`;
+
+  const html = `
+<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#090807;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ede8df">
+  <div style="max-width:560px;margin:0 auto;padding:48px 32px">
+    <div style="font-family:Georgia,serif;font-size:28px;color:#c9a961;letter-spacing:.15em;margin-bottom:32px;text-align:center">URBAN LUXE</div>
+    <h1 style="font-family:Georgia,serif;font-weight:300;font-size:24px;margin:0 0 16px">Бронирование отменено</h1>
+    <p style="color:#a09888;font-size:15px;line-height:1.6">
+      Здравствуйте${guestName ? ', <strong style="color:#ede8df">' + guestName + '</strong>' : ''}!<br>
+      Ваше бронирование <strong style="color:#c9a961">${bookingRef}</strong> успешно отменено.
+    </p>
+    <div style="background:#171512;border:1px solid rgba(201,169,97,.15);border-radius:12px;padding:24px;margin:24px 0">
+      <div style="font-size:16px;color:#ede8df;margin-bottom:6px">${apartmentName}</div>
+      <div style="font-size:13px;color:#a09888;margin-bottom:16px">${checkIn} → ${checkOut}</div>
+      <div style="border-top:1px solid rgba(201,169,97,.1);padding-top:16px;display:flex;justify-content:space-between">
+        <span style="color:#a09888;font-size:13px">Сумма</span>
+        <span style="color:#635c52;font-size:18px;text-decoration:line-through">$${total}</span>
+      </div>
+    </div>
+    <div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-radius:12px;padding:20px;text-align:center;margin:24px 0">
+      <div style="font-size:14px;color:#e74c3c">❌ Отменено</div>
+    </div>
+    <p style="color:#a09888;font-size:14px;line-height:1.6;margin:24px 0">
+      Хотите забронировать снова? Мы всегда рады видеть вас!
+    </p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="https://urbanluxe.cc" style="display:inline-block;padding:14px 40px;background:#c9a961;color:#090807;text-decoration:none;font-weight:600;border-radius:8px;font-size:14px">Забронировать</a>
+    </div>
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(201,169,97,.1);text-align:center;font-size:12px;color:#635c52">
+      Urban Luxe · <a href="https://urbanluxe.cc" style="color:#c9a961;text-decoration:none">urbanluxe.cc</a>
+    </div>
+  </div>
+</body></html>`;
+
+  return { subject, text, html };
+}
+
+module.exports = { sendEmail, cancelCodeEmail, bookingConfirmEmail, bookingCancelledEmail };

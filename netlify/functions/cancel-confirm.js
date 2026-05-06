@@ -3,6 +3,7 @@
 // Проверяет код + срок действия, ставит status='cancelled', чистит код.
 
 const https = require('https');
+const { sendEmail, bookingCancelledEmail } = require('./_send-email');
 
 function httpsRequest(url, options, postData) {
   return new Promise((resolve, reject) => {
@@ -130,6 +131,21 @@ exports.handler = async (event) => {
       } catch (e) {
         console.error('[CANCEL-CONFIRM] Telegram error:', e.message);
       }
+    }
+
+    // Email уведомление гостю об отмене
+    const emailTo = booking.guest_email || booking.booker_email;
+    if (emailTo) {
+      const tpl = bookingCancelledEmail({
+        guestName: booking.guest_name,
+        bookingRef: ref,
+        apartmentName: aptName,
+        checkIn: booking.check_in,
+        checkOut: booking.check_out,
+        total: booking.total_price || 0,
+      });
+      await sendEmail({ to: emailTo, subject: tpl.subject, html: tpl.html, text: tpl.text });
+      console.log('[CANCEL-CONFIRM] Cancellation email sent to', emailTo);
     }
 
     return {

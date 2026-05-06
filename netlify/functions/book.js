@@ -1,4 +1,5 @@
 const https = require('https');
+const { sendEmail, bookingConfirmEmail } = require('./_send-email');
 
 const APARTMENTS = {
   'nest_15':    { name: 'Nest One — Кв. 15',    weekday: 90,  weekend: 100 },
@@ -90,6 +91,7 @@ exports.handler = async (event) => {
       apartment_id,
       guest_name, guest_phone, guest_email,
       check_in, check_out, guests_count, notes,
+      citizenship,
       user_id,
       booker_name, booker_phone, booker_email,
     } = data;
@@ -122,7 +124,7 @@ exports.handler = async (event) => {
       check_in,
       check_out,
       guests_count: guests_count || 1,
-      notes: notes || null,
+      notes: [notes, citizenship ? `Гражданство: ${citizenship}` : ''].filter(Boolean).join(' | ') || null,
       total_price: total,
       nights,
       status: 'pending',
@@ -208,6 +210,22 @@ exports.handler = async (event) => {
       } catch (e) {
         console.error('[BOOK] Telegram error:', e.message);
       }
+    }
+
+    // Email подтверждение гостю
+    const emailTo = guest_email || booker_email;
+    if (emailTo) {
+      const tpl = bookingConfirmEmail({
+        guestName: guest_name,
+        bookingRef: booking_ref,
+        apartmentName: apt.name,
+        checkIn: check_in,
+        checkOut: check_out,
+        nights,
+        total,
+      });
+      await sendEmail({ to: emailTo, subject: tpl.subject, html: tpl.html, text: tpl.text });
+      console.log('[BOOK] Confirmation email sent to', emailTo);
     }
 
     return {
