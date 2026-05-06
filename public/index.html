@@ -467,7 +467,8 @@ function renderAptGrid(apts){
     const hidden=i>=INITIAL_SHOW?' style="display:none" data-hidden="1"':'';
     if(a._cover){
       const cardImg=a._thumb||a._cover;
-      return`<div class="card reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img"><img src="${i<INITIAL_SHOW?cardImg:''}" data-src="${cardImg}" alt="${a.name}" loading="lazy" decoding="async" onload="this.parentElement.style.setProperty('--loaded','1');this.parentElement.classList.add('img-loaded')"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
+      const imgAttr=i<INITIAL_SHOW?`src="${cardImg}"`:`data-lazy-src="${cardImg}"`;
+      return`<div class="card reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img"><img ${imgAttr} data-src="${cardImg}" alt="${a.name}" loading="lazy" decoding="async" onload="this.parentElement.classList.add('img-loaded')"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
     }
     return`<div class="card card--nophoto reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img" data-nophoto="${t('apt_nophoto')}"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
   });
@@ -479,9 +480,9 @@ function renderAptGrid(apts){
 function showAllApts(){
   document.querySelectorAll('#aptGrid .card[data-hidden]').forEach(el=>{
     el.style.display='';el.removeAttribute('data-hidden');
-    // Load images
-    const img=el.querySelector('img[data-src]');
-    if(img&&!img.src)img.src=img.dataset.src;
+    // Load cover image from data-lazy-src
+    const img=el.querySelector('img[data-lazy-src]');
+    if(img){img.src=img.getAttribute('data-lazy-src');img.removeAttribute('data-lazy-src');}
     revealObs.observe(el);
   });
   const wrap=document.getElementById('showMoreWrap');
