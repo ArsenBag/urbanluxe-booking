@@ -176,6 +176,10 @@ section{padding:140px 80px}
 
 .hamburger{display:none;background:none;border:none;color:var(--gold);font-size:24px;cursor:pointer}
 @media(max-width:900px){.hero{padding:0 32px 60px}.hero__stats{position:static;margin-top:40px;justify-content:flex-start;gap:32px}section{padding:80px 24px}.sh{flex-direction:column;align-items:flex-start;gap:16px}.grid{grid-template-columns:1fr}.philosophy{grid-template-columns:1fr;gap:40px}.booking-grid{grid-template-columns:1fr;gap:40px}.footer{grid-template-columns:1fr 1fr;gap:32px}.nav{padding:16px 24px}.nav__menu{display:none;position:absolute;top:100%;left:0;right:0;background:rgba(9,8,7,.95);backdrop-filter:blur(24px);flex-direction:column;padding:20px 24px;gap:16px;border-bottom:1px solid var(--line)}.nav__menu.open{display:flex}.hamburger{display:block}#resultsList{grid-template-columns:1fr}.modal{width:95%}.modal-body{padding:24px}.divider{margin:0 24px}.hero__btns{flex-direction:column;align-items:flex-start;gap:12px}.steps{grid-template-columns:1fr}.reviews{grid-template-columns:1fr}}
+details[open] summary span{transform:rotate(45deg)}
+details summary::-webkit-details-marker{display:none}
+details p{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -186,6 +190,7 @@ section{padding:140px 80px}
 <li><a href="#amenities" data-i18n="nav_amenities">Удобства</a></li>
 <li><a href="#booking" data-i18n="nav_booking">Бронирование</a></li>
 <li><a href="#contacts" data-i18n="nav_contacts">Контакты</a></li>
+<li><a href="#faq">FAQ</a></li>
 </ul>
 <a href="#booking" class="nav__cta" data-i18n="nav_book">Забронировать</a>
 <div class="lang-switch"><button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button><button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button><button class="lang-btn" data-lang="uz" onclick="setLang('uz')">UZ</button></div>
@@ -318,6 +323,48 @@ section{padding:140px 80px}
 </div>
 </div>
 <div id="searchResults"><div id="resultsList"></div></div>
+</section>
+
+<!-- TRUST SIGNALS -->
+<section style="padding:100px 80px;background:var(--bg2)">
+<div class="sh"><div><div class="label">Нам доверяют</div><h2 class="heading">Более <em>500 гостей</em> из 30 стран.</h2></div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-top:48px">
+<div style="background:var(--bg);border:1px solid var(--line);padding:32px;border-radius:12px;text-align:center"><div style="font-family:var(--fd);font-size:36px;color:var(--gold-l)">4.9</div><div style="font-size:11px;color:var(--ink-d);letter-spacing:.08em;margin-top:4px">РЕЙТИНГ ГОСТЕЙ</div><div style="color:var(--gold);margin-top:8px">★★★★★</div></div>
+<div style="background:var(--bg);border:1px solid var(--line);padding:32px;border-radius:12px;text-align:center"><div style="font-family:var(--fd);font-size:36px;color:var(--gold-l)">22</div><div style="font-size:11px;color:var(--ink-d);letter-spacing:.08em;margin-top:4px">РЕЗИДЕНЦИИ В 4 ЖК</div></div>
+<div style="background:var(--bg);border:1px solid var(--line);padding:32px;border-radius:12px;text-align:center"><div style="font-family:var(--fd);font-size:36px;color:var(--gold-l)">24/7</div><div style="font-size:11px;color:var(--ink-d);letter-spacing:.08em;margin-top:4px">ПОДДЕРЖКА И ЗАЕЗД</div></div>
+<div style="background:var(--bg);border:1px solid var(--line);padding:32px;border-radius:12px;text-align:center"><div style="font-family:var(--fd);font-size:36px;color:var(--gold-l)">15 мин</div><div style="font-size:11px;color:var(--ink-d);letter-spacing:.08em;margin-top:4px">ПОДТВЕРЖДЕНИЕ БРОНИ</div></div>
+</div>
+<div style="display:flex;gap:32px;margin-top:48px;justify-content:center;align-items:center;flex-wrap:wrap">
+<span style="font-size:12px;color:var(--ink-d);letter-spacing:.1em">БРОНИРУЙТЕ НА:</span>
+<a href="#" style="color:var(--ink-m);text-decoration:none;font-size:13px;padding:8px 16px;border:1px solid var(--line);border-radius:20px;transition:all .3s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--ink-m)'">Booking.com</a>
+<a href="#" style="color:var(--ink-m);text-decoration:none;font-size:13px;padding:8px 16px;border:1px solid var(--line);border-radius:20px;transition:all .3s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--ink-m)'">Airbnb</a>
+<a href="#" style="color:var(--ink-m);text-decoration:none;font-size:13px;padding:8px 16px;border:1px solid var(--line);border-radius:20px;transition:all .3s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--ink-m)'">Ostrovok</a>
+<a href="https://urbanluxe.cc" style="color:var(--gold);text-decoration:none;font-size:13px;padding:8px 16px;border:1px solid var(--gold);border-radius:20px;background:rgba(201,169,97,.08)">urbanluxe.cc — лучшая цена</a>
+</div>
+</section>
+
+<!-- SERVICES -->
+<section style="padding:100px 80px">
+<div class="sh"><div><div class="label">Дополнительно</div><h2 class="heading">Сервис, который <em>решает</em> всё.</h2></div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:48px">
+<div style="background:var(--bg2);border:1px solid var(--line);padding:32px;border-radius:12px"><div style="font-size:24px;margin-bottom:12px">🚗</div><h3 style="font-family:var(--fd);font-size:16px;font-weight:400;margin-bottom:8px">Трансфер из аэропорта</h3><p style="font-size:13px;color:var(--ink-d);line-height:1.7">Встретим в аэропорту Ташкента или на вокзале. Комфортный автомобиль, водитель с табличкой.</p><div style="font-size:13px;color:var(--gold);margin-top:12px">от $15</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:32px;border-radius:12px"><div style="font-size:24px;margin-bottom:12px">📋</div><h3 style="font-family:var(--fd);font-size:16px;font-weight:400;margin-bottom:8px">Временная регистрация</h3><p style="font-size:13px;color:var(--ink-d);line-height:1.7">Оформляем временную регистрацию для иностранных граждан на весь срок проживания.</p><div style="font-size:13px;color:var(--green);margin-top:12px">Бесплатно</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:32px;border-radius:12px"><div style="font-size:24px;margin-bottom:12px">📅</div><h3 style="font-family:var(--fd);font-size:16px;font-weight:400;margin-bottom:8px">Long-stay скидки</h3><p style="font-size:13px;color:var(--ink-d);line-height:1.7">Проживание от 7 ночей — скидка 10%. От 30 ночей — индивидуальный тариф.</p><div style="font-size:13px;color:var(--gold);margin-top:12px">до -20%</div></div>
+<div style="background:var(--bg2);border:1px solid var(--line);padding:32px;border-radius:12px"><div style="font-size:24px;margin-bottom:12px">🧹</div><h3 style="font-family:var(--fd);font-size:16px;font-weight:400;margin-bottom:8px">Ежедневная уборка</h3><p style="font-size:13px;color:var(--ink-d);line-height:1.7">Профессиональный клининг по расписанию или по запросу. Свежие полотенца и бельё.</p><div style="font-size:13px;color:var(--green);margin-top:12px">Включено</div></div>
+</div>
+</section>
+
+<!-- FAQ -->
+<section style="padding:100px 80px;background:var(--bg2)" id="faq">
+<div class="sh"><div><div class="label">Вопросы</div><h2 class="heading">Часто <em>задаваемые</em> вопросы.</h2></div></div>
+<div style="max-width:800px;margin:48px auto 0">
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Как происходит заселение?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Заезд круглосуточный. После подтверждения бронирования вы получите адрес, код от двери и инструкцию. Консьерж встретит вас на месте или ключи будут в сейф-боксе. Среднее время заселения — 5 минут.</p></details>
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Какие способы оплаты?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Наличные (USD, UZS), банковские карты (Visa, Mastercard, Humo, UzCard), переводы. При бронировании через сайт предоплата не требуется — оплата при заселении.</p></details>
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Можно ли отменить бронирование?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Да, бесплатная отмена до 18:00 дня заезда. Вы получите email с подтверждением отмены. Для отмены используйте ссылку из письма-подтверждения или напишите в Telegram.</p></details>
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Предоставляете ли вы отчётные документы?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Да, предоставляем полный пакет отчётных документов для командировочных: договор, акт, чек. Запрашивайте при бронировании.</p></details>
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Есть ли скидки при длительном проживании?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Да! 7+ ночей — скидка 10%, 14+ ночей — 15%, 30+ ночей — индивидуальный тариф. Напишите нам для расчёта.</p></details>
+<details style="border-bottom:1px solid var(--line);padding:20px 0;cursor:pointer"><summary style="font-size:15px;font-weight:400;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center">Оформляете ли временную регистрацию?<span style="color:var(--gold);font-size:18px;transition:transform .3s">+</span></summary><p style="font-size:13px;color:var(--ink-d);line-height:1.8;margin-top:12px;padding-right:40px">Да, оформляем временную регистрацию для всех иностранных граждан на весь срок проживания. Это бесплатно и входит в стоимость.</p></details>
+</div>
 </section>
 
 <footer class="footer" id="contacts">
