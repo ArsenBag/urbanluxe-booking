@@ -7,7 +7,7 @@
 <meta name="description" content="Частные резиденции в лучших комплексах Ташкента. Nest One, U-Tower, Mirabad, Kislorod. Бронируйте онлайн.">
 <meta property="og:title" content="Urban Luxe — Премиальные апартаменты в Ташкенте">
 <meta property="og:description" content="22 частных резиденции в лучших комплексах Ташкента. Заезд 24/7, консьерж, полная кухня.">
-<meta property="og:image" content="https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg">
+<meta property="og:image" content="https://urbanluxe.cc/img/apartments/hero/IMG_6080.jpg">
 <meta property="og:url" content="https://urbanluxe.cc">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;point
 
 /* HERO */
 .hero{min-height:100vh;display:flex;align-items:flex-end;padding:0 80px 100px;position:relative;overflow:hidden}
-.hero__bg{position:absolute;inset:0;background:url('https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg') center/cover;transform:scale(1.05);animation:heroZoom 20s ease-in-out infinite alternate}
+.hero__bg{position:absolute;inset:0;background:url('/img/apartments/hero/IMG_6080.jpg') center/cover;transform:scale(1.05);animation:heroZoom 20s ease-in-out infinite alternate}
 @keyframes heroZoom{0%{transform:scale(1.05)}100%{transform:scale(1.12)}}
 .hero__overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(9,8,7,.85) 0%,rgba(9,8,7,.4) 50%,rgba(9,8,7,.7) 100%)}
 .hero__content{position:relative;z-index:2;max-width:650px;animation:fadeUp 1.2s cubic-bezier(.16,1,.3,1)}
@@ -227,7 +227,7 @@ details p{animation:fadeIn .3s ease}
 <p>NEST One, U-Tower NRG, Mirabad Avenue, Kislorod &mdash; мы выбираем самые новые, самые продуманные комплексы города. Заезд круглосуточный. Уборка по расписанию. Консьерж в одном сообщении.</p>
 </div>
 <div class="philosophy__img reveal reveal-d2" id="philoImg">
-<img src="https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg" alt="Urban Luxe интерьер" loading="lazy">
+<img src="/img/apartments/hero/IMG_6080.jpg" alt="Urban Luxe интерьер" loading="lazy">
 </div>
 </div>
 </section>
@@ -441,7 +441,10 @@ const fpOut=flatpickr('#searchCheckOut',{locale:'ru',minDate:nx,dateFormat:'d.m.
 async function loadApartments(){
   const{data}=await sb.from('apartments').select('*').eq('is_active',true).order('complex');
   if(!data)return;
-  allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}
+  // Convert Supabase URLs to Netlify CDN proxy for faster loading
+  const SB_PREFIX='https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/';
+  function cdnUrl(url){return url&&url.startsWith(SB_PREFIX)?'/img/'+url.slice(SB_PREFIX.length):url}
+  allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p.map(cdnUrl)}catch(e){if(a.photo_url)ph=[cdnUrl(a.photo_url)]}
     let desc=(a.description||'').replace(/\[VIDEO:.*?\]/g,'').trim(),vid=null;const vm=(a.description||'').match(/\[VIDEO:(.*?)\]/);if(vm)vid=vm[1];
     return{...a,_photos:ph,_cover:ph[0]||'',_thumb:ph[0]?(ph[0]+(ph[0].includes('?')?'&':'?')+'width=400&height=300&resize=cover'):'',_desc:desc,_video:vid}});
   renderAptGrid(allApts);
