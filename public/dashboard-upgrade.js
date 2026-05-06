@@ -183,8 +183,90 @@ if (origSwitch) {
   window.switchTab = function(tab) {
     origSwitch.apply(this, arguments);
     if (tab === 'dash') setTimeout(injectMonthNav, 500);
+    if (tab === 'analytics') setTimeout(injectAnalyticsMonthNav, 800);
   };
 }
+
+// ===== ANALYTICS MONTH NAVIGATION =====
+let analyticsYear = new Date().getFullYear();
+let analyticsMonth = new Date().getMonth();
+
+function injectAnalyticsMonthNav() {
+  const tabBiz = document.getElementById('tab-analytics');
+  if (!tabBiz) return;
+  if (tabBiz.querySelector('.du-month-nav')) return;
+
+  // Find the header "Аналитика" 
+  const header = tabBiz.querySelector('h2, h3, [style*="font-size:2"]');
+  if (!header) return;
+
+  const nav = document.createElement('div');
+  nav.className = 'du-month-nav';
+  nav.style.marginTop = '12px';
+  nav.innerHTML = `
+    <button class="du-month-btn" onclick="window._duAnalyticsChange(-1)">← Пред</button>
+    <span class="du-month-label" id="duAnalyticsLabel">${getMonthLabel(analyticsYear, analyticsMonth)}</span>
+    <button class="du-month-btn" onclick="window._duAnalyticsChange(1)">След →</button>
+    <button class="du-month-today" onclick="window._duAnalyticsToday()">Сегодня</button>
+  `;
+
+  header.parentElement.insertBefore(nav, header.nextSibling);
+}
+
+window._duAnalyticsChange = function(delta) {
+  analyticsMonth += delta;
+  if (analyticsMonth > 11) { analyticsMonth = 0; analyticsYear++; }
+  if (analyticsMonth < 0) { analyticsMonth = 11; analyticsYear--; }
+  updateAnalyticsForMonth();
+};
+
+window._duAnalyticsToday = function() {
+  analyticsYear = new Date().getFullYear();
+  analyticsMonth = new Date().getMonth();
+  updateAnalyticsForMonth();
+};
+
+function updateAnalyticsForMonth() {
+  const label = document.getElementById('duAnalyticsLabel');
+  if (label) label.textContent = getMonthLabel(analyticsYear, analyticsMonth);
+
+  // Monkey-patch Date to return selected month for loadBizAnalytics
+  const OrigDate = window._origDate || Date;
+  if (!window._origDate) window._origDate = Date;
+
+  const targetDate = new Date(analyticsYear, analyticsMonth, 15);
+
+  // Temporary override
+  window.Date = function(...args) {
+    if (args.length === 0) return targetDate;
+    return new OrigDate(...args);
+  };
+  window.Date.now = OrigDate.now;
+  window.Date.parse = OrigDate.parse;
+  window.Date.UTC = OrigDate.UTC;
+  window.Date.prototype = OrigDate.prototype;
+
+  // Re-run analytics
+  if (typeof loadBizAnalytics === 'function') {
+    loadBizAnalytics();
+  }
+
+  // Restore Date after a delay
+  setTimeout(() => { window.Date = OrigDate; }, 3000);
+}
+
+// Init analytics nav
+setTimeout(() => {
+  const tabBiz = document.getElementById('tab-analytics');
+  if (tabBiz) {
+    const obs = new MutationObserver(() => {
+      if (!tabBiz.querySelector('.du-month-nav') && tabBiz.querySelector('h2, h3')) {
+        injectAnalyticsMonthNav();
+      }
+    });
+    obs.observe(tabBiz, { childList: true, subtree: true });
+  }
+}, 2000);
 
 console.log('[Dashboard Upgrade] Переключатель месяцев загружен ✓');
 })();
