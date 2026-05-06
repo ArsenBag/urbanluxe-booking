@@ -213,6 +213,17 @@ function injectAnalyticsMonthNav() {
   header.parentElement.insertBefore(nav, header.nextSibling);
 }
 
+function runWithFakeDate(year, month, fn) {
+  const OrigDate = window._OrigDateClass || Date;
+  if (!window._OrigDateClass) window._OrigDateClass = Date;
+  const target = new OrigDate(year, month, 15);
+  const Fake = function(...a) { return a.length === 0 ? new OrigDate(target.getTime()) : new OrigDate(...a) };
+  Fake.now = () => OrigDate.now(); Fake.parse = OrigDate.parse; Fake.UTC = OrigDate.UTC; Fake.prototype = OrigDate.prototype;
+  window.Date = Fake;
+  try { fn(); } catch(e) { console.error('Date override error:', e); }
+  setTimeout(() => { window.Date = window._OrigDateClass || OrigDate; }, 5000);
+}
+
 window._duAnalyticsChange = function(delta) {
   analyticsMonth += delta;
   if (analyticsMonth > 11) { analyticsMonth = 0; analyticsYear++; }
@@ -229,30 +240,10 @@ window._duAnalyticsToday = function() {
 function updateAnalyticsForMonth() {
   const label = document.getElementById('duAnalyticsLabel');
   if (label) label.textContent = getMonthLabel(analyticsYear, analyticsMonth);
-
-  // Monkey-patch Date to return selected month for loadBizAnalytics
-  const OrigDate = window._origDate || Date;
-  if (!window._origDate) window._origDate = Date;
-
-  const targetDate = new Date(analyticsYear, analyticsMonth, 15);
-
-  // Temporary override
-  window.Date = function(...args) {
-    if (args.length === 0) return targetDate;
-    return new OrigDate(...args);
-  };
-  window.Date.now = OrigDate.now;
-  window.Date.parse = OrigDate.parse;
-  window.Date.UTC = OrigDate.UTC;
-  window.Date.prototype = OrigDate.prototype;
-
-  // Re-run analytics
-  if (typeof loadBizAnalytics === 'function') {
-    loadBizAnalytics();
-  }
-
-  // Restore Date after a delay
-  setTimeout(() => { window.Date = OrigDate; }, 3000);
+  runWithFakeDate(analyticsYear, analyticsMonth, () => {
+    if (typeof loadBizAnalytics === 'function') loadBizAnalytics();
+    if (typeof loadAptSheets === 'function') loadAptSheets();
+  });
 }
 
 // Init analytics nav
