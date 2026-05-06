@@ -71,14 +71,26 @@ function addD(ds,n){const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISO
 
 // ===== MERGE BOOKINGS =====
 function mergedBookings(aptId){
-  const db=(chessDbData||[]).filter(b=>b.apartment_id===aptId);
+  const db=(chessDbData||[]).filter(b=>b.apartment_id===aptId&&b.status!=='cancelled');
   const ic=(chessIcalData||[]).filter(b=>b.apartment_id===aptId);
   const m=[...db];
   ic.forEach(i=>{
     if(!db.some(d=>d.check_in===i.check_in))
-      m.push({id:'ical_'+i.check_in+'_'+aptId,apartment_id:aptId,guest_name:i.summary||'',check_in:i.check_in,check_out:i.check_out,total_price:null,source:i.source||'other',status:'confirmed',nights:i.nights||1,_ical:true});
+      m.push({id:'ical_'+i.check_in+'_'+aptId,apartment_id:aptId,guest_name:i.guest_name||'',check_in:i.check_in,check_out:i.check_out,total_price:null,source:i.source||'other',status:'confirmed',nights:i.nights||1,_ical:true,_summary:i.summary||''});
   });
   return m;
+}
+
+// Format label for chess bar
+function barLabel(bk){
+  if(bk.guest_name&&bk.guest_name.length>1) return bk.guest_name;
+  // Parse RC summary — show short form
+  if(bk._summary){
+    const rc=bk._summary.match(/RC\((\d+)\)/);
+    if(rc) return '#'+rc[1].slice(-4);
+    return bk._summary.slice(0,12);
+  }
+  return bk.guest_name||'—';
 }
 
 // ===== OVERRIDE renderChessGrid =====
@@ -158,10 +170,10 @@ window.renderChessGrid = function(){
       bar.style.width=`calc(${span} * 100% + ${(span-1)}px)`;
       bar.dataset.bid=bk.id;bar.dataset.apt=apt.id;bar.dataset.ci=bk.check_in;bar.dataset.co=bk.check_out;bar.dataset.ical=bk._ical?'1':'0';
 
-      const guest=bk.guest_name||'';
-      const ref=bk.booking_ref||'';
+      const guest=barLabel(bk);
       const pn=bk.total_price&&bk.nights?Math.round(bk.total_price/bk.nights):null;
-      bar.innerHTML=`<span class="cb-label">${ref?ref+' ':''}${guest}</span>${pn?'<span class="cb-price">$'+pn+'</span>':''}${bk._ical?'':'<div class="cb-resize"></div>'}`;
+      const priceStr=bk.total_price?'<span class="cb-price">$'+bk.total_price+'</span>':'';
+      bar.innerHTML=`<span class="cb-label">${guest}</span>${priceStr}${bk._ical?'':'<div class="cb-resize"></div>'}`;
 
       // Events
       bar.addEventListener('mouseenter',e=>_cbShowTT(e,bk,apt));
