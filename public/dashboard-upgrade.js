@@ -188,6 +188,7 @@ if (origSwitch) {
     origSwitch.apply(this, arguments);
     if (tab === 'dash') setTimeout(injectMonthNav, 500);
     if (tab === 'analytics') setTimeout(injectAnalyticsMonthNav, 800);
+    if (tab === 'finance') setTimeout(injectFinanceMonthNav, 500);
   };
 }
 
@@ -274,6 +275,88 @@ setTimeout(() => {
       }
     });
     obs.observe(tabBiz, { childList: true, subtree: true });
+  }
+}, 2000);
+
+// ===== FINANCE MONTH NAVIGATION =====
+let financeYear = new Date().getFullYear();
+let financeMonth = new Date().getMonth();
+
+function injectFinanceMonthNav() {
+  const tabFin = document.getElementById('tab-finance');
+  if (!tabFin) return;
+  if (tabFin.querySelector('.du-month-nav')) return;
+
+  const header = tabFin.querySelector('h2');
+  if (!header) return;
+
+  const nav = document.createElement('div');
+  nav.className = 'du-month-nav';
+  nav.style.marginTop = '12px';
+  nav.innerHTML = `
+    <button class="du-month-btn" onclick="window._duFinanceChange(-1)">← Пред</button>
+    <span class="du-month-label" id="duFinanceLabel">${getMonthLabel(financeYear, financeMonth)}</span>
+    <button class="du-month-btn" onclick="window._duFinanceChange(1)">След →</button>
+    <button class="du-month-today" onclick="window._duFinanceToday()">Сегодня</button>
+  `;
+
+  header.parentElement.insertBefore(nav, header.nextSibling);
+}
+
+window._duFinanceChange = function(delta) {
+  financeMonth += delta;
+  if (financeMonth > 11) { financeMonth = 0; financeYear++; }
+  if (financeMonth < 0) { financeMonth = 11; financeYear--; }
+  updateFinanceForMonth();
+};
+
+window._duFinanceToday = function() {
+  financeYear = new Date().getFullYear();
+  financeMonth = new Date().getMonth();
+  updateFinanceForMonth();
+};
+
+function updateFinanceForMonth() {
+  const label = document.getElementById('duFinanceLabel');
+  if (label) label.textContent = getMonthLabel(financeYear, financeMonth);
+
+  // Override curMonthLabel to return selected month
+  const origCurMonth = window.curMonthLabel;
+  window.curMonthLabel = function() {
+    return MONTHS_RU[financeMonth];
+  };
+
+  // For P&L — gSV needs to use the right month label
+  const origGSV = window.gSV;
+  if (origGSV) {
+    window.gSV = function(key, monthLabel) {
+      // If monthLabel is undefined, use our selected month
+      return origGSV(key, monthLabel || MONTHS_RU[financeMonth]);
+    };
+  }
+
+  // Re-render finance
+  if (typeof rFin === 'function') {
+    rFin(window.currentPeriod || 'month');
+  }
+
+  // Restore after render
+  setTimeout(() => {
+    if (origCurMonth) window.curMonthLabel = origCurMonth;
+    if (origGSV) window.gSV = origGSV;
+  }, 500);
+}
+
+// Init finance nav
+setTimeout(() => {
+  const tabFin = document.getElementById('tab-finance');
+  if (tabFin) {
+    const obs = new MutationObserver(() => {
+      if (!tabFin.querySelector('.du-month-nav') && tabFin.querySelector('h2')) {
+        injectFinanceMonthNav();
+      }
+    });
+    obs.observe(tabFin, { childList: true, subtree: true });
   }
 }, 2000);
 
