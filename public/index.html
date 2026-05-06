@@ -448,7 +448,7 @@ async function loadApartments(){
   if(!data)return;
   allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}
     let desc=(a.description||'').replace(/\[VIDEO:.*?\]/g,'').trim(),vid=null;const vm=(a.description||'').match(/\[VIDEO:(.*?)\]/);if(vm)vid=vm[1];
-    return{...a,_photos:ph,_cover:ph[0]||'',_thumb:ph[0]?(ph[0]+(ph[0].includes('?')?'&':'?')+'width=400&height=300&resize=cover'):'',_desc:desc,_video:vid}});
+    return{...a,_photos:ph,_cover:ph[0]||'',_thumb:ph[0]?'/.netlify/functions/thumb?url='+encodeURIComponent(ph[0]):'',_desc:desc,_video:vid}});
   renderAptGrid(allApts);
   document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs.observe(el));
 }
