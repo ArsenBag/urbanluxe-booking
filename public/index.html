@@ -7,7 +7,7 @@
 <meta name="description" content="Частные резиденции в лучших комплексах Ташкента. Nest One, U-Tower, Mirabad, Kislorod. Бронируйте онлайн.">
 <meta property="og:title" content="Urban Luxe — Премиальные апартаменты в Ташкенте">
 <meta property="og:description" content="22 частных резиденции в лучших комплексах Ташкента. Заезд 24/7, консьерж, полная кухня.">
-<meta property="og:image" content="https://urbanluxe.cc/img/apartments/hero/IMG_6080.jpg">
+<meta property="og:image" content="https://urbanluxe.cchttps://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg">
 <meta property="og:url" content="https://urbanluxe.cc">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;point
 
 /* HERO */
 .hero{min-height:100vh;display:flex;align-items:flex-end;padding:0 80px 100px;position:relative;overflow:hidden}
-.hero__bg{position:absolute;inset:0;background:url('/img/apartments/hero/IMG_6080.jpg') center/cover;transform:scale(1.05);animation:heroZoom 20s ease-in-out infinite alternate}
+.hero__bg{position:absolute;inset:0;background:url('https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg') center/cover;transform:scale(1.05);animation:heroZoom 20s ease-in-out infinite alternate}
 @keyframes heroZoom{0%{transform:scale(1.05)}100%{transform:scale(1.12)}}
 .hero__overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(9,8,7,.85) 0%,rgba(9,8,7,.4) 50%,rgba(9,8,7,.7) 100%)}
 .hero__content{position:relative;z-index:2;max-width:650px;animation:fadeUp 1.2s cubic-bezier(.16,1,.3,1)}
@@ -94,7 +94,10 @@ section{padding:140px 80px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:24px}
 .card{position:relative;overflow:hidden;cursor:pointer;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);transition:transform .5s cubic-bezier(.16,1,.3,1),box-shadow .5s,border-color .5s}
 .card:hover{transform:translateY(-6px);box-shadow:0 16px 48px rgba(0,0,0,.5);border-color:var(--line-l)}
-.card__img{position:relative;overflow:hidden;background:var(--bg3)}
+.card__img{position:relative;overflow:hidden;background:var(--bg3);aspect-ratio:4/3}
+.card__img::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(201,169,97,.04) 50%,transparent 100%);animation:shimmer 1.5s infinite;z-index:1}
+.card__img.img-loaded::before{display:none}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 .card__img img{width:100%;height:auto;max-height:400px;object-fit:contain;background:var(--bg3);transition:transform 1s cubic-bezier(.16,1,.3,1)}.card:hover .card__img img{transform:scale(1.04)}
 .card__img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(9,8,7,.3));pointer-events:none}
 .card__badge{position:absolute;top:14px;left:14px;padding:6px 14px;background:rgba(9,8,7,.65);backdrop-filter:blur(12px);font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);z-index:3;border:1px solid var(--line);border-radius:2px}
@@ -227,7 +230,7 @@ details p{animation:fadeIn .3s ease}
 <p>NEST One, U-Tower NRG, Mirabad Avenue, Kislorod &mdash; мы выбираем самые новые, самые продуманные комплексы города. Заезд круглосуточный. Уборка по расписанию. Консьерж в одном сообщении.</p>
 </div>
 <div class="philosophy__img reveal reveal-d2" id="philoImg">
-<img src="/img/apartments/hero/IMG_6080.jpg" alt="Urban Luxe интерьер" loading="lazy">
+<img src="https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg" alt="Urban Luxe интерьер" loading="lazy">
 </div>
 </div>
 </section>
@@ -441,10 +444,7 @@ const fpOut=flatpickr('#searchCheckOut',{locale:'ru',minDate:nx,dateFormat:'d.m.
 async function loadApartments(){
   const{data}=await sb.from('apartments').select('*').eq('is_active',true).order('complex');
   if(!data)return;
-  // Convert Supabase URLs to Netlify CDN proxy for faster loading
-  const SB_PREFIX='https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/';
-  function cdnUrl(url){return url&&url.startsWith(SB_PREFIX)?'/img/'+url.slice(SB_PREFIX.length):url}
-  allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p.map(cdnUrl)}catch(e){if(a.photo_url)ph=[cdnUrl(a.photo_url)]}
+  allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}
     let desc=(a.description||'').replace(/\[VIDEO:.*?\]/g,'').trim(),vid=null;const vm=(a.description||'').match(/\[VIDEO:(.*?)\]/);if(vm)vid=vm[1];
     return{...a,_photos:ph,_cover:ph[0]||'',_thumb:ph[0]?(ph[0]+(ph[0].includes('?')?'&':'?')+'width=400&height=300&resize=cover'):'',_desc:desc,_video:vid}});
   renderAptGrid(allApts);
@@ -465,7 +465,7 @@ function renderAptGrid(apts){
     const hidden=i>=INITIAL_SHOW?' style="display:none" data-hidden="1"':'';
     if(a._cover){
       const cardImg=a._thumb||a._cover;
-      return`<div class="card reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img"><img src="${i<INITIAL_SHOW?cardImg:''}" data-src="${cardImg}" alt="${a.name}" loading="lazy"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
+      return`<div class="card reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img"><img src="${i<INITIAL_SHOW?cardImg:''}" data-src="${cardImg}" alt="${a.name}" loading="lazy" decoding="async" onload="this.parentElement.style.setProperty('--loaded','1');this.parentElement.classList.add('img-loaded')"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}${photoTag}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
     }
     return`<div class="card card--nophoto reveal"${hidden} onclick="openModal('${a.id}')"><div class="card__img" data-nophoto="${t('apt_nophoto')}"><div class="card__badge">${cx} · ${t('apt_floor')} ${a.floor}</div>${heartBtn}</div><div class="card__info"><h3 class="card__title">${a.name}</h3><p class="card__sub">${a.style||a.rooms||'Studio'}</p><div class="card__price"><span>от $${a.weekday_price}${t('apt_per_night')}</span><span>${a.rooms||'Studio'}</span></div></div></div>`;
   });

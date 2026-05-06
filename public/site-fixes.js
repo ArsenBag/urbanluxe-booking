@@ -29,10 +29,8 @@ let aptPhotos={};
 async function loadPhotoData(){
   try{
     const{data}=await sb.from('apartments').select('id,photo_url').eq('is_active',true);
-    const SB_PFX='https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/';
-    const cdn=u=>u&&u.startsWith(SB_PFX)?'/img/'+u.slice(SB_PFX.length):u;
     (data||[]).forEach(a=>{
-      try{const p=JSON.parse(a.photo_url);if(Array.isArray(p)&&p.length>1)aptPhotos[a.id]=p.map(cdn)}catch(e){}
+      try{const p=JSON.parse(a.photo_url);if(Array.isArray(p)&&p.length>1)aptPhotos[a.id]=p}catch(e){}
     });
   }catch(e){}
 }
