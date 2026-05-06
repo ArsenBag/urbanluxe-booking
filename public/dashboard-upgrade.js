@@ -221,7 +221,7 @@ function runWithFakeDate(year, month, fn) {
   Fake.now = () => OrigDate.now(); Fake.parse = OrigDate.parse; Fake.UTC = OrigDate.UTC; Fake.prototype = OrigDate.prototype;
   window.Date = Fake;
   try { fn(); } catch(e) { console.error('Date override error:', e); }
-  setTimeout(() => { window.Date = window._OrigDateClass || OrigDate; }, 5000);
+  setTimeout(() => { window.Date = window._OrigDateClass || OrigDate; }, 15000);
 }
 
 window._duAnalyticsChange = function(delta) {
@@ -232,8 +232,10 @@ window._duAnalyticsChange = function(delta) {
 };
 
 window._duAnalyticsToday = function() {
-  analyticsYear = new Date().getFullYear();
-  analyticsMonth = new Date().getMonth();
+  const D = window._OrigDateClass || Date;
+  const now = new D();
+  analyticsYear = now.getFullYear();
+  analyticsMonth = now.getMonth();
   updateAnalyticsForMonth();
 };
 
