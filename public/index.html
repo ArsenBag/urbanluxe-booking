@@ -462,7 +462,12 @@ function openModal(id){const a=allApts.find(x=>x.id===id);if(!a)return;modalAptI
       <div id="modalGuestFields" style="display:none;margin-bottom:16px">
         <input type="text" id="modalGuestName" placeholder="Ваше имя" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
         <input type="text" id="modalGuestPhone" placeholder="Телефон" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
-        <input type="email" id="modalGuestEmail" placeholder="Email (для подтверждения)" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
+        <input type="email" id="modalGuestEmail" placeholder="Email (для подтверждения)" style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;margin-bottom:8px;outline:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select id="modalGuestsCount" style="flex:1;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none"><option value="1">1 гость</option><option value="2" selected>2 гостя</option><option value="3">3 гостя</option><option value="4">4 гостя</option></select>
+          <select id="modalCitizenship" style="flex:1;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none"><option value="">Гражданство</option><option value="UZ">Узбекистан</option><option value="RU">Россия</option><option value="KZ">Казахстан</option><option value="KG">Кыргызстан</option><option value="TJ">Таджикистан</option><option value="TM">Туркменистан</option><option value="OTHER">Другое</option></select>
+        </div>
+        <input type="text" id="modalGuestNotes" placeholder="Время заезда, пожелания..." style="width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;font-family:var(--fb);border-radius:6px;outline:none">
       </div>
       <div id="modalForOtherWrap" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--ink-m)">
@@ -680,6 +685,10 @@ async function modalBook(){
     if(!guestName||!guestPhone){st.innerHTML='<span style="color:var(--red)">Введите имя и телефон</span>';return}
   }
 
+  const guestsCount=parseInt(document.getElementById('modalGuestsCount')?.value)||2;
+  const citizenship=document.getElementById('modalCitizenship')?.value||'';
+  const guestNotes=document.getElementById('modalGuestNotes')?.value?.trim()||'';
+
   btn.disabled=true;btn.textContent='Бронирование...';
   st.innerHTML='';
   try{
@@ -692,7 +701,9 @@ async function modalBook(){
       check_out:modalBookData.checkOut,
       nights:modalBookData.nights,
       total_price:modalBookData.total,
-      guests_count:2,
+      guests_count:guestsCount,
+      citizenship:citizenship,
+      notes:guestNotes,
       user_id:userId,
       booker_name:bookerName,
       booker_phone:bookerPhone,

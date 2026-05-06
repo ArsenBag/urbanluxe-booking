@@ -179,6 +179,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Выезд</label><input type="date" id="mbCheckOut" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:4px"></div>
 <div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Сумма ($)</label><input type="number" id="mbPrice" placeholder="200" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:4px"></div>
 <div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Источник</label><select id="mbSource" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;border-radius:4px"><option value="website">Сайт</option><option value="airbnb">Airbnb</option><option value="booking">Booking.com</option><option value="telegram">Telegram</option><option value="phone">Звонок</option><option value="other">Другое</option></select></div>
+<div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Гостей</label><select id="mbGuests" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;border-radius:4px"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></div>
 <div><label style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-d);display:block;margin-bottom:4px">Заметки</label><input type="text" id="mbNotes" placeholder="Время заезда, пожелания..." style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13px;border-radius:4px"></div>
 </div>
 <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
@@ -187,7 +188,7 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 </div>
 <div id="mbStatus" style="margin-top:8px;font-size:12px"></div>
 </div>
-<div class="table-wrap"><table><thead><tr><th>Апартамент</th><th>Гость</th><th>Телефон</th><th>Заезд</th><th>Выезд</th><th>Ночей</th><th>Сумма</th><th>Источник</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="bT"><tr><td colspan="10" class="loading">Загрузка...</td></tr></tbody></table></div></div>
+<div class="table-wrap"><table><thead><tr><th>Апартамент</th><th>Гость</th><th>Телефон</th><th>Email</th><th>Заезд</th><th>Выезд</th><th>Ночей</th><th>Гостей</th><th>Сумма</th><th>Источник</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="bT"><tr><td colspan="12" class="loading">Загрузка...</td></tr></tbody></table></div></div>
 <div class="section" id="tab-finance"><h2 style="font-size:20px;font-weight:400;margin-bottom:24px">Финансовая аналитика <span class="data-src data-src-sheets">Google Sheets — реальные данные</span></h2><div class="ps"><button class="pb" onclick="setP('day',this)">По дням</button><button class="pb" onclick="setP('week',this)">По неделям</button><button class="pb active" onclick="setP('month',this)">По месяцам</button><button class="pb" onclick="setP('pnl',this)">P&L отчёт</button></div><div class="stats" id="fS"></div><div class="chart-box" style="margin-bottom:24px"><h3 id="fT">Доход по месяцам</h3><div class="chart-wrap"><canvas id="cFin"></canvas></div></div><div class="table-wrap"><table><thead><tr><th>Период</th><th>Поступления</th><th>Аренда</th><th>Комиссия</th><th>Расходы</th><th>Клининг</th><th>Зарплата</th><th>Маркетинг</th><th>Чистыми</th></tr></thead><tbody id="fTB"></tbody></table></div></div>
 <!-- CHAT -->
 <div class="section" id="tab-chat">
@@ -1169,7 +1170,7 @@ function rApt(){document.getElementById('aT').innerHTML=AA.map(a=>{
   const photoEl=thumb?`<img src="${thumb}" style="width:40px;height:30px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:8px" onerror="this.style.display='none'">`:'';
   return`<tr><td style="font-family:monospace;font-size:12px;color:var(--ink-d)">${a.id}</td><td>${photoEl}<strong>${a.name}</strong>${hasDesc?' 📝':''}</td><td>${a.complex}</td><td>${a.floor}</td><td>${a.rooms||'—'}</td><td>$${a.weekday_price}</td><td>$${a.weekend_price}</td><td><span class="badge ${a.is_active?'badge-active':'badge-inactive'}">${a.is_active?'Активен':'Выкл'}</span>${hasAmen?' <span style="font-size:10px;color:var(--ink-d)">'+a.amenities.length+' удобств</span>':''}</td><td><button class="btn btn-sm btn-outline" onclick="edA('${a.id}')" style="margin-right:4px">✎</button><button class="btn btn-sm btn-danger" onclick="delA('${a.id}')">✗</button></td></tr>`}).join('')}
 
-function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="10" class="loading">Нет бронирований</td></tr>';return}const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтв.':b.status==='cancelled'?'Отмен.':b.status==='completed'?'Заверш.':'Ожид.';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';const src=(srcMap[b.source]||'🌐')+' '+(b.source||'website');return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td style="font-size:11px">${src}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 8px;font-size:9px">✓</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 8px;font-size:9px">✗</button>`:''}</td></tr>`}).join('')}
+function rBook(){if(!AB.length){document.getElementById('bT').innerHTML='<tr><td colspan="12" class="loading">Нет бронирований</td></tr>';return}const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};document.getElementById('bT').innerHTML=AB.map(b=>{const sc=b.status==='confirmed'?'badge-confirmed':b.status==='cancelled'?'badge-cancelled':b.status==='completed'?'badge-active':'badge-pending',st=b.status==='confirmed'?'Подтв.':b.status==='cancelled'?'Отмен.':b.status==='completed'?'Заверш.':'Ожид.';const aptName=window._allApts?.find(a=>a.id===b.apartment_id)?.name||b.apartment_id;const canAct=b.status!=='cancelled';const src=(srcMap[b.source]||'🌐')+' '+(b.source||'website');return`<tr><td><strong>${aptName}</strong></td><td>${b.guest_name}</td><td>${b.guest_phone||'—'}</td><td style="font-size:11px">${b.guest_email||'—'}</td><td>${b.check_in}</td><td>${b.check_out}</td><td>${b.nights||'—'}</td><td>${b.guests_count||'—'}</td><td style="color:var(--gold)">$${b.total_price||'—'}</td><td style="font-size:11px">${src}</td><td><span class="badge ${sc}">${st}</span></td><td style="white-space:nowrap">${canAct&&b.status!=='confirmed'?`<button class="btn btn-sm" onclick="setBookingStatus('${b.id}','confirmed')" style="margin:2px;padding:4px 8px;font-size:9px">✓</button>`:''} ${canAct&&b.status!=='cancelled'?`<button class="btn btn-sm btn-danger" onclick="setBookingStatus('${b.id}','cancelled')" style="margin:2px;padding:4px 8px;font-size:9px">✗</button>`:''}</td></tr>`}).join('')}
 
 async function setBookingStatus(id,s){if(!confirm(s==='confirmed'?'Подтвердить бронь?':'Отменить бронь?'))return;const{error}=await sb.from('bookings').update({status:s,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert('Ошибка: '+error.message);await loadAll()}
 function openAM(a){document.getElementById('aptM').classList.add('show');document.getElementById('amT').textContent=a?'Редактировать':'Добавить';document.getElementById('amE').value=a?a.id:'';document.getElementById('amI').value=a?a.id:'';document.getElementById('amI').disabled=!!a;document.getElementById('amN').value=a?a.name:'';document.getElementById('amC').value=a?a.complex:'Nest One';document.getElementById('amF').value=a?a.floor:'';document.getElementById('amW').value=a?a.weekday_price:'';document.getElementById('amWe').value=a?a.weekend_price:'';document.getElementById('amR').value=a?(a.rooms||''):'Студия';document.getElementById('amS').value=a?(a.style||''):'';document.getElementById('amU').value=a?(a.ical_export_url||''):'';document.getElementById('amG').value=a?(a.max_guests||3):3;document.getElementById('amA').value=a?String(a.is_active):'true';document.getElementById('amDiscWeek').value=a?(a.discount_week||10):10;document.getElementById('amDiscMonth').value=a?(a.discount_month||25):25;document.getElementById('amMinNights').value=a?(a.min_nights||1):1;document.getElementById('amMaxGuests').value=a?(a.max_guests||2):2;
@@ -1550,25 +1551,55 @@ async function loadTodayWidget(){
 
 // ============ GUESTS TAB ============
 async function loadGuests(){
-  const{data:bookings}=await sb.from('bookings').select('guest_name,guest_phone,guest_email,total_price,check_out,review_rating,status').neq('status','cancelled').order('created_at',{ascending:false});
+  const{data:bookings}=await sb.from('bookings').select('guest_name,guest_phone,guest_email,total_price,check_out,check_in,review_rating,status,apartment_id,guests_count,notes,source').order('created_at',{ascending:false});
   if(!bookings)return;
-  // Group by guest (by phone or email)
+  // Group by guest (by phone or email, normalize phone for matching)
+  const normPhone=p=>(p||'').replace(/[^\d]/g,'').slice(-9);
   const guests={};
   bookings.forEach(b=>{
-    const key=b.guest_email||b.guest_phone||b.guest_name;
-    if(!guests[key])guests[key]={name:b.guest_name,phone:b.guest_phone,email:b.guest_email,bookings:0,spent:0,lastVisit:b.check_out,rating:null};
-    guests[key].bookings++;
-    guests[key].spent+=b.total_price||0;
-    if(b.review_rating)guests[key].rating=b.review_rating;
-    if(b.check_out>guests[key].lastVisit)guests[key].lastVisit=b.check_out;
+    const phoneKey=normPhone(b.guest_phone);
+    const key=b.guest_email||(phoneKey.length>=7?phoneKey:'')||b.guest_name||'unknown';
+    if(!guests[key])guests[key]={name:b.guest_name,phone:b.guest_phone,email:b.guest_email,bookings:0,cancelled:0,spent:0,lastVisit:b.check_out,firstVisit:b.check_in,rating:null,apartments:new Set(),sources:new Set()};
+    const g=guests[key];
+    // Update name/email if better data
+    if(b.guest_name&&(!g.name||g.name==='—'))g.name=b.guest_name;
+    if(b.guest_email&&!g.email)g.email=b.guest_email;
+    if(b.guest_phone&&!g.phone)g.phone=b.guest_phone;
+    if(b.status==='cancelled'){g.cancelled++;return}
+    g.bookings++;
+    g.spent+=b.total_price||0;
+    if(b.review_rating)g.rating=b.review_rating;
+    if(b.check_out>g.lastVisit)g.lastVisit=b.check_out;
+    if(b.check_in<g.firstVisit)g.firstVisit=b.check_in;
+    if(b.apartment_id)g.apartments.add(b.apartment_id);
+    if(b.source)g.sources.add(b.source);
   });
-  const list=Object.values(guests).sort((a,b)=>b.spent-a.spent);
+  const list=Object.values(guests).filter(g=>g.bookings>0).sort((a,b)=>b.spent-a.spent);
+  const returning=list.filter(g=>g.bookings>1).length;
   document.getElementById('gTotal').textContent=list.length;
-  document.getElementById('gBookings').textContent=bookings.length;
+  document.getElementById('gBookings').textContent=bookings.filter(b=>b.status!=='cancelled').length;
   const totalRev=list.reduce((s,g)=>s+g.spent,0);
   document.getElementById('gRevenue').textContent='$'+totalRev.toLocaleString();
-  document.getElementById('gAvgCheck').textContent='$'+Math.round(totalRev/bookings.length||0);
-  document.getElementById('gT').innerHTML=list.map(g=>`<tr><td><strong>${g.name||'—'}</strong></td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${g.bookings}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'}</td></tr>`).join('')||'<tr><td colspan="7">Нет данных</td></tr>';
+  document.getElementById('gAvgCheck').textContent='$'+Math.round(totalRev/(bookings.filter(b=>b.status!=='cancelled').length||1));
+  // Add returning guests stat if not exists
+  let retEl=document.getElementById('gReturning');
+  if(!retEl){
+    const statsDiv=document.getElementById('guestStats');
+    if(statsDiv){
+      const s=document.createElement('div');s.className='stat';
+      s.innerHTML='<div class="stat-label">Повторные гости</div><div class="stat-value" id="gReturning">—</div>';
+      statsDiv.appendChild(s);
+      retEl=document.getElementById('gReturning');
+    }
+  }
+  if(retEl)retEl.textContent=returning+' ('+Math.round(returning/list.length*100||0)+'%)';
+  
+  const srcMap={website:'🌐',airbnb:'🏠',booking:'📘',telegram:'📱',phone:'📞',other:'📋'};
+  document.getElementById('gT').innerHTML=list.map(g=>{
+    const srcIcons=[...g.sources].map(s=>srcMap[s]||'📋').join('');
+    const badge=g.bookings>1?`<span style="display:inline-block;background:rgba(201,169,97,.15);color:var(--gold);font-size:9px;padding:2px 6px;border-radius:10px;margin-left:6px">×${g.bookings}</span>`:'';
+    return`<tr><td><strong>${g.name||'—'}</strong>${badge}</td><td>${g.phone||'—'}</td><td>${g.email||'—'}</td><td>${g.bookings}</td><td style="color:var(--gold)">$${g.spent.toLocaleString()}</td><td>${g.lastVisit||'—'}</td><td>${g.rating?'&#9733;'.repeat(g.rating):'—'} ${srcIcons}</td></tr>`;
+  }).join('')||'<tr><td colspan="7">Нет данных</td></tr>';
 }
 
 // ============ BOOKING ACTIONS (moved to main setBookingStatus above) ============
@@ -1821,8 +1852,11 @@ async function loadBizAnalytics(){
   try{const r=await fetch('/.netlify/functions/sync-ical');const d=await r.json();icalData=d.all_bookings||[]}catch(e){console.log('sync-ical error:',e)}
   
   const now=new Date();const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-  const daysPassed=now.getDate();
-  const totalRooms=22;
+  // Use full month for heatmap (iCal has future bookings too)
+  const realNow=window._OrigDateClass?new window._OrigDateClass():new Date();
+  const isCurrentMonth=(now.getFullYear()===realNow.getFullYear()&&now.getMonth()===realNow.getMonth());
+  const daysPassed=isCurrentMonth?realNow.getDate():daysInMonth;
+  const totalRooms=(window._allApts||[]).length||22;
   const monthStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   
   // Calculate occupied room-nights this month from iCal
@@ -1831,7 +1865,8 @@ async function loadBizAnalytics(){
   const dayOccupancy=Array(7).fill(0);
   const dayTotal=Array(7).fill(0);
   
-  for(let d=1;d<=daysPassed;d++){
+  // For heatmap use FULL month (including future) so all days of week are represented
+  for(let d=1;d<=daysInMonth;d++){
     const dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const dow=new Date(now.getFullYear(),now.getMonth(),d).getDay();
     dayTotal[dow]++;
@@ -1839,7 +1874,7 @@ async function loadBizAnalytics(){
     (window._allApts||[]).forEach(apt=>{
       const booked=icalData.some(b=>b.apartment_id===apt.id&&b.check_in<=dateStr&&b.check_out>dateStr);
       if(booked){
-        occupiedNights++;
+        if(d<=daysPassed)occupiedNights++;
         aptOccupancy[apt.id]=(aptOccupancy[apt.id]||0)+1;
         dayOccupancy[dow]++;
       }
@@ -2023,10 +2058,11 @@ async function submitManualBooking(){
   const price=parseInt(document.getElementById('mbPrice').value)||0;
   const source=document.getElementById('mbSource').value;
   const notes=document.getElementById('mbNotes').value.trim();
+  const guestsCount=parseInt(document.getElementById('mbGuests').value)||2;
   const st=document.getElementById('mbStatus');
   if(!apt||!name||!ci||!co){st.innerHTML='<span style="color:var(--red)">Заполните обязательные поля</span>';return}
   const nights=Math.round((new Date(co)-new Date(ci))/864e5);
-  const{error}=await sb.from('bookings').insert({apartment_id:apt,guest_name:name,guest_phone:phone,guest_email:email,check_in:ci,check_out:co,nights,total_price:price,status:'confirmed',source,admin_notes:notes});
+  const{error}=await sb.from('bookings').insert({apartment_id:apt,guest_name:name,guest_phone:phone,guest_email:email,check_in:ci,check_out:co,nights,total_price:price,guests_count:guestsCount,status:'confirmed',source,admin_notes:notes});
   if(error){st.innerHTML='<span style="color:var(--red)">'+error.message+'</span>';return}
   st.innerHTML='<span style="color:var(--green)">✓ Бронирование создано</span>';
   setTimeout(()=>{closeManualBooking();loadAll()},1000);
