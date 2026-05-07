@@ -448,7 +448,9 @@ async function loadApartments(){
   if(!data)return;
   allApts=data.map(a=>{let ph=[];try{const p=JSON.parse(a.photo_url);if(Array.isArray(p))ph=p}catch(e){if(a.photo_url)ph=[a.photo_url]}
     let desc=(a.description||'').replace(/\[VIDEO:.*?\]/g,'').trim(),vid=null;const vm=(a.description||'').match(/\[VIDEO:(.*?)\]/);if(vm)vid=vm[1];
-    return{...a,_photos:ph,_cover:ph[0]||'',_thumb:ph[0]?'/.netlify/functions/thumb?url='+encodeURIComponent(ph[0]):'',_desc:desc,_video:vid}});
+    // Use pre-compressed 800px WebP thumbnails for cards (65KB avg vs 3-5MB originals)
+    const SB_THUMB='https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/thumbs/';
+    return{...a,_photos:ph,_cover:ph[0]||'',_thumb:SB_THUMB+a.id+'_thumb.webp',_desc:desc,_video:vid}});
   renderAptGrid(allApts);
   document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs.observe(el));
 }
