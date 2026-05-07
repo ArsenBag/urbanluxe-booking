@@ -54,9 +54,9 @@ function setupReveal() {
     });
   }, {threshold: 0.08, rootMargin: '0px 0px -40px 0px'});
 
-  const targets = document.querySelectorAll('section > *, .card, .step, .review, .amenity, .amenity-item, .sh, .philosophy__text, .philosophy__img, footer > *');
+  const targets = document.querySelectorAll('section:not(.hero) > *, .card, .step, .review, .amenity, .amenity-item, .sh, .philosophy__text, .philosophy__img, footer > *');
   targets.forEach((el, i) => {
-    if (el.classList.contains('iu-visible')) return;
+    if (el.classList.contains('iu-visible') || el.closest('.hero')) return;
     el.classList.add('iu-hidden');
     const parent = el.parentElement;
     const siblings = [...parent.children];
