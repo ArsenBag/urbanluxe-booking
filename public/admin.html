@@ -593,15 +593,12 @@ function findMonthInSheets(monthName){
 }
 
 function getSummaryValue(key,monthLabel){
-  // Try sheetsData.summary first
   if(sheetsData?.summary?.[key]?.[monthLabel]) return sheetsData.summary[key][monthLabel];
-  // Fallback: calculate from aptSheetsData
-  if(window.aptSheetsData?.length){
-    const keyMap = {total_revenue:'revenue', net_profit:'profit', bookings_count:'occupancy', rent:'rent', commission:'commission'};
-    const field = keyMap[key] || key;
-    let sum = 0;
-    aptSheetsData.forEach(a => { sum += a.monthly?.[monthLabel]?.[field] || 0; });
-    if(sum) return sum;
+  if(aptSheetsData?.length){
+    const km={total_revenue:'revenue',net_profit:'profit',bookings_count:'occupancy',rent:'rent',commission:'commission'};
+    const f=km[key]||key;let s=0;
+    for(let i=0;i<aptSheetsData.length;i++) s+=(aptSheetsData[i].monthly?.[monthLabel]?.[f])||0;
+    if(s)return s;
   }
   return 0;
 }
