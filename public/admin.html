@@ -368,6 +368,11 @@ async function loadAll(){
   const st=document.getElementById('dataStatus');
   st.textContent='⟳ Загрузка...';st.className='data-src data-src-sheets pulse';
   
+  // Auto-sync apartments from Google Sheets (silent, non-blocking)
+  fetch('/.netlify/functions/sync-sheets-apts').then(r=>r.json()).then(d=>{
+    if(d.synced>0){console.log('[SYNC] Added '+d.synced+' new apartments:',d.added);location.reload()}
+  }).catch(()=>{});
+  
   // Параллельная загрузка из 3 источников
   const [sbResult, shResult, icalResult, wkResult, aptResult] = await Promise.allSettled([
     loadSupabase(),
@@ -588,8 +593,17 @@ function findMonthInSheets(monthName){
 }
 
 function getSummaryValue(key,monthLabel){
-  if(!sheetsData||!sheetsData.summary||!sheetsData.summary[key])return 0;
-  return sheetsData.summary[key][monthLabel]||0;
+  // Try sheetsData.summary first
+  if(sheetsData?.summary?.[key]?.[monthLabel]) return sheetsData.summary[key][monthLabel];
+  // Fallback: calculate from aptSheetsData
+  if(window.aptSheetsData?.length){
+    const keyMap = {total_revenue:'revenue', net_profit:'profit', bookings_count:'occupancy', rent:'rent', commission:'commission'};
+    const field = keyMap[key] || key;
+    let sum = 0;
+    aptSheetsData.forEach(a => { sum += a.monthly?.[monthLabel]?.[field] || 0; });
+    if(sum) return sum;
+  }
+  return 0;
 }
 
 function fmt$(v){return'$'+Math.round(v).toLocaleString()}
