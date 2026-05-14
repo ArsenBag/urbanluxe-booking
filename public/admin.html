@@ -400,8 +400,8 @@ async function loadSheets(){
   const MONTH_SHEET=encodeURIComponent('Месяц');
   
   try{
-    // Запрашиваем только итоговые строки (113-122) — там все нужные данные
-    const summaryUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}&range=A113:G122`;
+    // Запрашиваем итоговые строки — A128:G140 (после всех апартаментов)
+    const summaryUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MONTH_SHEET}&range=A128:G140`;
     const r=await fetch(summaryUrl);
     if(r.ok){
       const csv=await r.text();
@@ -1025,7 +1025,7 @@ function rFinMonthly(){
 // ============ APT SHEETS DATA ============
 async function loadAptSheets(){
   try{
-    const r=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Месяц')}&range=A1:G112`);
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Месяц')}&range=A1:G127`);
     if(!r.ok)return;
     const csv=await r.text();
     aptSheetsData=parseAptCSV(csv);
