@@ -34,38 +34,45 @@ function parseCSVRow(line) {
   return cells;
 }
 
-// Parse apartment name from Sheets format
-// "MA - 8 -111 - 1300$ /Бронь" → {prefix:'MA', floor:8, number:111, rent:1300, complex:'Mirabad'}
-// "NO-13-249 - 1200$ /Бронь" → {prefix:'NO', floor:13, number:249, rent:1200, complex:'Nest One'}
-// "U-13-207 - 1500$ /Бронь" → {prefix:'U', floor:13, number:207, rent:1500, complex:'U-Tower'}
-// "Kislorod Apartment 58 1200$" → {prefix:'K', number:58, rent:1200, complex:'Kislorod'}
+// Parse apartment name from Sheets format - extract LAST multi-digit number as apt number
+// "MA - 8 -111 - 1300$ /Бронь" → number:111, floor:8, complex:Mirabad
+// "NO-13-249 - 1200$ /Бронь" → number:249, floor:13, complex:Nest One
+// "NO-3B-15 - 1000$ /Бронь" → number:15, floor:3, complex:Nest One
+// "U-13-207 - 1500$ /Бронь" → number:207, floor:13, complex:U-Tower
+// "Kislorod Apartment 58 1200$" → number:58, complex:Kislorod
 function parseAptName(name) {
   if (!name) return null;
   const clean = name.replace(/"/g, '').trim();
   
-  // Kislorod format
-  let m = clean.match(/Kislorod\s+Apartment\s+(\d+)\s+(\d+)\$/i);
-  if (m) return { number: parseInt(m[1]), complex: 'Kislorod', rent: parseInt(m[2]), id: 'kislorod_' + m[1] };
+  // Kislorod format: "Kislorod Apartment 58 1200$"
+  let m = clean.match(/Kislorod\s+Apartment\s+0*(\d+)/i);
+  if (m) return { number: parseInt(m[1]), complex: 'Kislorod', id: 'kislorod_' + parseInt(m[1]) };
   
-  // Мирабад format
-  m = clean.match(/Мирабад\s+(?:Авеню\s+)?(\d+)\s*(\d+)?\$/i);
-  if (m) return { number: parseInt(m[1]), complex: 'Mirabad', rent: m[2] ? parseInt(m[2]) : 0, id: 'mirabad_' + m[1] };
+  // Мирабад format: "Мирабад Авеню 205 1000$"
+  m = clean.match(/Мирабад\s+(?:Авеню\s+)?(\d+)/i);
+  if (m) return { number: parseInt(m[1]), complex: 'Mirabad', id: 'mirabad_' + parseInt(m[1]) };
   
-  // Nest One format (NO or Nest One)
-  m = clean.match(/(?:NO|Nest\s*One)[_\-\s]*(\d+)?[_\-\s]*(\d+)/i);
+  // Nest One format: "Nest One 353" or "NO_9_163" or "NO-3B-15" or "NO-13-249 - 1200$"
+  // First try "Nest One NNN" format (number right after Nest One)
+  m = clean.match(/Nest\s*One\s+(\d{2,})/i);
+  if (m) return { number: parseInt(m[1]), complex: 'Nest One', id: 'nest_' + parseInt(m[1]) };
+  // Then try NO-floor-number format
+  m = clean.match(/NO[_\-\s]+(?:\d+[A-Za-z]?[_\-\s]+)?(\d{2,})/i);
   if (m) {
-    const floor = m[1] ? parseInt(m[1]) : null;
-    const num = parseInt(m[2]);
-    return { number: num, floor, complex: 'Nest One', id: 'nest_' + num };
+    const num = parseInt(m[1]);
+    // Try to get floor from prefix
+    const floorMatch = clean.match(/(?:NO|Nest\s*One)[_\-\s]+(\d+)/i);
+    const floor = floorMatch ? parseInt(floorMatch[1]) : null;
+    return { number: num, floor: floor !== num ? floor : null, complex: 'Nest One', id: 'nest_' + num };
   }
   
-  // U-Tower format
+  // U-Tower format: "U-13-207 - 1500$" or "U -7-92"
   m = clean.match(/U\s*[\-_]\s*(\d+)\s*[\-_]\s*(\d+)/i);
-  if (m) return { number: parseInt(m[2]), floor: parseInt(m[1]), complex: 'U-Tower', id: 'utower_' + m[2] };
+  if (m) return { number: parseInt(m[2]), floor: parseInt(m[1]), complex: 'U-Tower', id: 'utower_' + parseInt(m[2]) };
   
-  // MA (Mirabad) format
+  // MA (Mirabad) format: "MA - 8 -111 - 1300$"
   m = clean.match(/MA\s*[\-_]\s*(\d+)\s*[\-_]\s*(\d+)/i);
-  if (m) return { number: parseInt(m[2]), floor: parseInt(m[1]), complex: 'Mirabad', id: 'mirabad_' + m[2] };
+  if (m) return { number: parseInt(m[2]), floor: parseInt(m[1]), complex: 'Mirabad', id: 'mirabad_' + parseInt(m[2]) };
   
   return null;
 }
