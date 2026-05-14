@@ -91,8 +91,8 @@ table{width:100%;border-collapse:collapse}th{padding:12px 16px;text-align:left;f
 <div id="todaySourceBar" style="display:none;background:var(--bg2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;font-size:11px;color:var(--ink-m)"></div>
 </div>
 <div id="notifBar" style="background:var(--bg2);border:1px solid var(--line);padding:12px 24px;margin-bottom:24px;display:none;flex-wrap:wrap;gap:8px;align-items:center"></div>
-<div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
-<div class="chart-grid"><div class="chart-box"><h3>Доход по месяцам <span class="data-src data-src-sheets">Google Sheets</span></h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
+<div class="stats"><div class="stat"><div class="stat-label">Доход за месяц <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dR">—</div><div class="stat-sub" id="dRS"></div></div><div class="stat"><div class="stat-label">Бронирований <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dB">—</div></div><div class="stat"><div class="stat-label">Средний чек</div><div class="stat-value" id="dA">—</div></div><div class="stat"><div class="stat-label">Загрузка <span class="data-src data-src-ical">iCal</span></div><div class="stat-value" id="dO">—</div></div><div class="stat"><div class="stat-label">Чистая прибыль <span class="data-src data-src-sheets">Sheets</span></div><div class="stat-value" id="dP">—</div></div><div class="stat"><div class="stat-label">Маржа</div><div class="stat-value" id="dMargin">—</div></div><div class="stat"><div class="stat-label">Апартаментов</div><div class="stat-value" id="dAp">—</div></div></div>
+<div class="chart-grid"><div class="chart-box"><h3>Доход и прибыль по месяцам <span class="data-src data-src-sheets">Google Sheets</span></h3><div class="chart-wrap"><canvas id="cRev"></canvas></div></div><div class="chart-box"><h3>По комплексам</h3><div class="chart-wrap"><canvas id="cComp"></canvas></div></div></div>
 <div id="cplxBars" class="cplx"></div>
 <div class="chart-grid"><div class="feed"><h3>Последние бронирования <span class="data-src data-src-supabase">Supabase</span></h3><div id="feedL"><div class="loading">Загрузка...</div></div></div><div class="chart-box"><h3>Доход по дням недели <span class="data-src data-src-sheets">Sheets</span></h3><div class="chart-wrap"><canvas id="cWd"></canvas></div></div></div>
 <div class="occ-grid"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3>Календарь занятости <span class="data-src data-src-ical">iCal</span></h3><div style="display:flex;gap:6px;align-items:center"><button class="btn btn-sm btn-outline" onclick="occCalChangeMonth(-1)">←</button><span id="occCalMonthLabel" style="min-width:120px;text-align:center;font-size:13px"></span><button class="btn btn-sm btn-outline" onclick="occCalChangeMonth(1)">→</button></div></div><div id="occCal"><div class="loading pulse">Загрузка...</div></div></div>
@@ -648,6 +648,9 @@ function rDash(){
     document.getElementById('dA').textContent=avg?fmt$(avg):'—';
     document.getElementById('dP').innerHTML=fmt$(net)+trendHTML(net,prevNet);
     document.getElementById('dP').style.color=net>=0?'var(--green)':'var(--red)';
+    const margin=rev>0?Math.round(net/rev*100):0;
+    document.getElementById('dMargin').textContent=margin+'%';
+    document.getElementById('dMargin').style.color=margin>=30?'var(--green)':margin>=15?'var(--gold)':'var(--red)';
     document.getElementById('dRS').textContent=curMonth+' 2026 · Google Sheets';
     
     // Add forecast to apartments card
@@ -691,30 +694,44 @@ function rOccupancyRate(){
 
 // ============ CHARTS ============
 function rRevC(){
-  const d=Array(12).fill(0);
+  const rev=Array(12).fill(0);
+  const profit=Array(12).fill(0);
   
   if(sheetsData&&sheetsData.summary&&sheetsData.summary.total_revenue){
-    // Реальные данные из Sheets
     sheetsData.months.forEach(m=>{
       const idx=MONTH_MAP[m.label];
       if(idx!==undefined){
-        d[idx]=sheetsData.summary.total_revenue[m.label]||0;
+        rev[idx]=sheetsData.summary.total_revenue[m.label]||0;
+        if(sheetsData.summary.net_profit) profit[idx]=sheetsData.summary.net_profit[m.label]||0;
       }
     });
+  }else if(aptSheetsData?.length){
+    aptSheetsData.forEach(a=>{
+      ['Декабрь','Январь','Февраль','Март','Апрель','Май'].forEach(ml=>{
+        const idx=MONTH_MAP[ml];
+        if(idx!==undefined){
+          rev[idx]+=(a.monthly?.[ml]?.revenue||0);
+          profit[idx]+=(a.monthly?.[ml]?.profit||0);
+        }
+      });
+    });
   }else{
-    // Fallback Supabase
     AB.filter(b=>b.status!=='cancelled').forEach(b=>{
-      const x=new Date(b.check_in);if(x.getFullYear()===new Date().getFullYear())d[x.getMonth()]+=(b.total_price||0);
+      const x=new Date(b.check_in);if(x.getFullYear()===new Date().getFullYear())rev[x.getMonth()]+=(b.total_price||0);
     });
   }
   
   if(C1)C1.destroy();
-  // Labels: show year for months that cross year boundary
-  const chartLabels=MONTH_LABELS.map((l,i)=>{
-    if(d[i]>0&&i===11)return l+" '25";// December is 2025
-    return l;
-  });
-  C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:chartLabels,datasets:[{data:d,backgroundColor:d.map((v,i)=>i===new Date().getMonth()?'rgba(201,169,97,.9)':'rgba(201,169,97,.4)'),borderColor:'#c9a961',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
+  // Reorder: Dec'25 first, then Jan-Nov (put Dec at position 0)
+  const orderedRev=[rev[11],...rev.slice(0,11)];
+  const orderedProfit=[profit[11],...profit.slice(0,11)];
+  const labels=["Дек '25",'Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя'];
+  const curMonthIdx=new Date().getMonth()+1; // +1 because Dec shifted to 0
+  
+  C1=new Chart(document.getElementById('cRev'),{type:'bar',data:{labels,datasets:[
+    {label:'Доход',data:orderedRev,backgroundColor:orderedRev.map((v,i)=>i===curMonthIdx?'rgba(201,169,97,.9)':'rgba(201,169,97,.4)'),borderColor:'#c9a961',borderWidth:1},
+    {label:'Чистыми',data:orderedProfit,backgroundColor:orderedProfit.map((v,i)=>i===curMonthIdx?'rgba(46,204,113,.8)':'rgba(46,204,113,.35)'),borderColor:'#2ecc71',borderWidth:1}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#a8a096',padding:12}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': $'+ctx.raw.toLocaleString()}}},scales:{y:{ticks:{color:'#6b665e',callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(232,226,214,.06)'}},x:{ticks:{color:'#6b665e'},grid:{display:false}}}}});
 }
 
 function rCompC(){
