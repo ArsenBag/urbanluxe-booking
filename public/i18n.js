@@ -1,88 +1,401 @@
-window.UL_LANG=localStorage.getItem('ul_lang')||'ru';
-var T={
-ru:{nav_apartments:'Апартаменты',nav_amenities:'Удобства',nav_booking:'Бронирование',nav_contacts:'Контакты',nav_book:'Забронировать',nav_account:'Личный кабинет',hero_label:'Ташкент · 25 резиденций',hero_title:'Город ваш.<br>Дом <em>уже готов</em>.',hero_text:'Частные резиденции в лучших комплексах Ташкента. Не отель. Не съёмная квартира. Образ жизни, который подстраивается под вас.',hero_btn1:'Выбрать резиденцию',hero_btn2:'Забронировать →',hero_s1:'Резиденции',hero_s2:'Комплекса',hero_s3:'Рейтинг',phil_h:'Не номер в отеле.<br><em>Временный адрес</em> с характером дома.',phil_p1:'Urban Luxe — это про то, каким Ташкент становится, когда у вас есть своя панорама на его огни. Когда утренний кофе варится на вашей кухне. Когда швейцар знает, во сколько вас ждёт такси.',phil_p2:'NEST One, U-Tower NRG, Mirabad Avenue, Kislorod — мы выбираем самые новые, самые продуманные комплексы города. Заезд круглосуточный. Уборка по расписанию. Консьерж в одном сообщении.',apt_label:'Наши резиденции',apt_title:'Выберите <em>свой</em><br>Ташкент.',apt_sub:'От студий до просторных резиденций.<br>Каждый стиль — с характером.',apt_all:'Все',apt_per_night:'/ночь',apt_floor:'Этаж',apt_nophoto:'Фото скоро',amen_label:'Что включено',amen_title:'Всё для <em>жизни</em>,<br>не для ночёвки.',amen_kitchen:'Полная кухня',amen_kitchen_d:'Плита, духовка, холодильник, посуда — всё для настоящей еды',amen_washer:'Стиральная машина',amen_washer_d:'В каждом апартаменте — не нужно искать прачечную',amen_wifi:'Высокоскоростной Wi-Fi',amen_wifi_d:'До 100 Мбит/с — работайте, стримьте, звоните',amen_tv:'Smart TV',amen_tv_d:'YouTube, Netflix, все приложения на большом экране',amen_ac:'Кондиционер',amen_ac_d:'Центральный кондиционер в каждой комнате',amen_concierge:'Консьерж 24/7',amen_concierge_d:'Telegram @Arsen_bnb — любой вопрос в одном сообщении',steps_label:'Как это работает',steps_title:'Три шага до <em>вашего</em><br>Ташкента.',step1:'Выберите даты',step1_d:'Укажите даты заезда и выезда — мы покажем все свободные апартаменты с точной стоимостью',step2:'Выберите апартамент',step2_d:'Посмотрите фото, удобства, расположение. Каждый апартамент — уникальный стиль и характер',step3:'Забронируйте',step3_d:'Оставьте заявку — мы подтвердим в течение 15 минут. Заезд круглосуточный, ключи у консьержа',rev_label:'Отзывы',rev_title:'Что говорят <em>гости</em>.',book_label:'Бронирование',book_title:'Найдите <em>свободную</em><br>резиденцию.',book_sub:'Выберите даты — мы покажем свободные апартаменты. Нажмите на понравившийся для просмотра деталей и бронирования.',book_search:'Поиск по датам',book_checkin:'Дата заезда',book_checkout:'Дата выезда',book_find:'Найти апартаменты',book_select:'Выберите дату',m_per_night:'за ночь',m_floor:'Этаж',m_guests:'гостей',m_amenities:'Удобства',m_availability:'Доступность',m_free:'Свободно',m_booked:'Занято',m_checkin:'Заезд',m_checkout:'Выезд',m_nights:'ноч.',m_avg:'Ср. за ночь',m_book:'Забронировать',m_check:'Проверить доступность',m_cancel_free:'Бесплатная отмена · Подтверждение за 15 мин',m_name:'Ваше имя',m_phone:'Телефон',m_week_discount:'Скидка за неделю',m_month_discount:'Скидка за месяц',f_desc:'Премиальные апартаменты в лучших комплексах Ташкента.',f_complexes:'Комплексы',f_contacts:'Контакты',f_info:'Информация',f_terms:'Условия бронирования',f_rules:'Правила проживания',sr_found:'Найдено',sr_of:'из',sr_for:'на',sr_none:'К сожалению, на эти даты нет свободных апартаментов',loading:'Загрузка...'},
-en:{nav_apartments:'Apartments',nav_amenities:'Amenities',nav_booking:'Booking',nav_contacts:'Contacts',nav_book:'Book Now',nav_account:'My Account',hero_label:'Tashkent · 25 residences',hero_title:'Your city.<br>Home <em>is ready</em>.',hero_text:'Private residences in the best complexes of Tashkent. Not a hotel. Not a rental. A lifestyle that adapts to you.',hero_btn1:'Choose a residence',hero_btn2:'Book now →',hero_s1:'Residences',hero_s2:'Complexes',hero_s3:'Rating',phil_h:'Not a hotel room.<br>A <em>temporary address</em> with the character of home.',phil_p1:'Urban Luxe is about what Tashkent becomes when you have your own panorama of its lights. When morning coffee brews in your kitchen.',phil_p2:'NEST One, U-Tower NRG, Mirabad Avenue, Kislorod — we select the newest, most thoughtfully designed complexes. 24/7 check-in. Scheduled cleaning. Concierge in one message.',apt_label:'Our residences',apt_title:'Choose <em>your</em><br>Tashkent.',apt_sub:'From studios to spacious residences.<br>Each style — with character.',apt_all:'All',apt_per_night:'/night',apt_floor:'Floor',apt_nophoto:'Photos soon',amen_label:"What's included",amen_title:'Everything for <em>living</em>,<br>not just staying.',amen_kitchen:'Full Kitchen',amen_kitchen_d:'Stove, oven, fridge, dishes — everything for real cooking',amen_washer:'Washing Machine',amen_washer_d:'In every apartment — no laundromat needed',amen_wifi:'High-Speed Wi-Fi',amen_wifi_d:'Up to 100 Mbps — work, stream, call',amen_tv:'Smart TV',amen_tv_d:'YouTube, Netflix, all apps on a big screen',amen_ac:'Air Conditioning',amen_ac_d:'Central AC in every room',amen_concierge:'Concierge 24/7',amen_concierge_d:'Telegram @Arsen_bnb — any question in one message',steps_label:'How it works',steps_title:'Three steps to <em>your</em><br>Tashkent.',step1:'Choose dates',step1_d:'Select check-in and check-out — we show available apartments with pricing',step2:'Choose apartment',step2_d:'Browse photos, amenities, location. Each apartment — unique style',step3:'Book',step3_d:'Submit — we confirm in 15 minutes. 24/7 check-in, keys with concierge',rev_label:'Reviews',rev_title:'What <em>guests</em> say.',book_label:'Booking',book_title:'Find an <em>available</em><br>residence.',book_sub:'Choose dates — we show available apartments. Click your favorite for details and booking.',book_search:'Search by dates',book_checkin:'Check-in',book_checkout:'Check-out',book_find:'Find apartments',book_select:'Select date',m_per_night:'per night',m_floor:'Floor',m_guests:'guests',m_amenities:'Amenities',m_availability:'Availability',m_free:'Available',m_booked:'Booked',m_checkin:'Check-in',m_checkout:'Check-out',m_nights:'nights',m_avg:'Avg per night',m_book:'Book for',m_check:'Check availability',m_cancel_free:'Free cancellation · Confirmed in 15 min',m_name:'Your name',m_phone:'Phone',m_week_discount:'Weekly discount',m_month_discount:'Monthly discount',f_desc:'Premium apartments in the best complexes of Tashkent.',f_complexes:'Complexes',f_contacts:'Contacts',f_info:'Information',f_terms:'Booking terms',f_rules:'House rules',sr_found:'Found',sr_of:'of',sr_for:'for',sr_none:'Unfortunately, no apartments available for these dates',loading:'Loading...'},
-uz:{nav_apartments:'Kvartiralar',nav_amenities:'Qulayliklar',nav_booking:'Bron qilish',nav_contacts:'Kontaktlar',nav_book:'Bron qilish',nav_account:'Shaxsiy kabinet',hero_label:'Toshkent · 25 rezidensiya',hero_title:'Shahringiz.<br>Uy <em>tayyor</em>.',hero_text:'Toshkentning eng yaxshi komplekslarida xususiy rezidensiyalar. Mehmonxona emas. Ijara emas.',hero_btn1:'Rezidensiyani tanlang',hero_btn2:'Bron qilish →',hero_s1:'Rezidensiya',hero_s2:'Kompleks',hero_s3:'Reyting',phil_h:'Mehmonxona xonasi emas.<br>Uy xarakteriga ega <em>vaqtinchalik manzil</em>.',phil_p1:'Urban Luxe — Toshkent sizning panoramangiz bo\'lganda qanday bo\'lishi haqida.',phil_p2:'NEST One, U-Tower NRG, Mirabad Avenue, Kislorod — biz eng yangi komplekslarni tanlaymiz.',apt_label:'Rezidensiyalarimiz',apt_title:'O\'z <em>Toshkentingizni</em><br>tanlang.',apt_sub:'Studiyalardan keng rezidensiyalargacha.',apt_all:'Barchasi',apt_per_night:'/kecha',apt_floor:'Qavat',apt_nophoto:'Tez orada suratlar',amen_label:'Nimalar kiritilgan',amen_title:'<em>Yashash</em> uchun hamma narsa.',amen_kitchen:'To\'liq oshxona',amen_kitchen_d:'Plita, pech, muzlatgich, idishlar',amen_washer:'Kir yuvish mashinasi',amen_washer_d:'Har bir kvartirada',amen_wifi:'Tezkor Wi-Fi',amen_wifi_d:'100 Mbit/s gacha',amen_tv:'Smart TV',amen_tv_d:'YouTube, Netflix, barcha ilovalar',amen_ac:'Konditsioner',amen_ac_d:'Har bir xonada',amen_concierge:'Konsyerj 24/7',amen_concierge_d:'Telegram @Arsen_bnb',steps_label:'Qanday ishlaydi',steps_title:'<em>Toshkentingizga</em><br>uch qadam.',step1:'Sanalarni tanlang',step1_d:'Kirish va chiqish sanalarini ko\'rsating',step2:'Kvartira tanlang',step2_d:'Suratlar, qulayliklar, joylashuvni ko\'ring',step3:'Bron qiling',step3_d:'Ariza qoldiring — 15 daqiqada tasdiqlaymiz',rev_label:'Sharhlar',rev_title:'<em>Mehmonlar</em> nima deydi.',book_label:'Bron qilish',book_title:'<em>Bo\'sh</em> rezidensiyani toping.',book_sub:'Sanalarni tanlang — bo\'sh kvartiralarni ko\'rsatamiz.',book_search:'Qidirish',book_checkin:'Kirish',book_checkout:'Chiqish',book_find:'Topish',book_select:'Tanlang',m_per_night:'kechada',m_floor:'Qavat',m_guests:'mehmon',m_amenities:'Qulayliklar',m_availability:'Mavjudlik',m_free:'Bo\'sh',m_booked:'Band',m_checkin:'Kirish',m_checkout:'Chiqish',m_nights:'kecha',m_avg:'O\'rtacha',m_book:'Bron qilish',m_check:'Tekshirish',m_cancel_free:'Bepul bekor qilish · 15 daqiqada',m_name:'Ismingiz',m_phone:'Telefon',m_week_discount:'Haftalik chegirma',m_month_discount:'Oylik chegirma',f_desc:'Toshkentda premium kvartiralar.',f_complexes:'Komplekslar',f_contacts:'Kontaktlar',f_info:'Ma\'lumot',f_terms:'Shartlar',f_rules:'Qoidalar',sr_found:'Topildi',sr_of:'dan',sr_for:'ga',sr_none:'Bu sanalarda bo\'sh kvartiralar yo\'q',loading:'Yuklanmoqda...'}
+/* seo-map-upgrade.js — SEO structured data + интерактивная карта комплексов
+   Подключение: <script src="/seo-map-upgrade.js"></script> перед </body> в index.html */
+(function(){
+'use strict';
+
+// ===== 1. SEO: Structured Data (schema.org) =====
+// Main business schema
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "LodgingBusiness",
+  "name": "Urban Luxe — Премиальные апартаменты в Ташкенте",
+  "alternateName": "Urban Luxe Tashkent",
+  "description": "Посуточная аренда 25 премиальных апартаментов в лучших комплексах Ташкента: Nest One, U-Tower NRG, Mirabad Avenue, Kislorod. Студии и квартиры с полной кухней, Wi-Fi, кондиционером. Заезд 24/7, консьерж-сервис. Идеально для командировок, туризма и релокации.",
+  "url": "https://urbanluxe.cc",
+  "logo": "https://urbanluxe.cc/logo.png",
+  "image": [
+    "https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg"
+  ],
+  "telephone": ["+998936900044", "+998999579485"],
+  "email": "noreply@urbanluxe.cc",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Tashkent City, Батыра Закирова 1А",
+    "addressLocality": "Ташкент",
+    "addressRegion": "Ташкентская область",
+    "postalCode": "100000",
+    "addressCountry": "UZ"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 41.311,
+    "longitude": 69.279
+  },
+  "hasMap": "https://yandex.com/maps/-/CHuAFTEI",
+  "priceRange": "$85 - $125",
+  "currenciesAccepted": "USD, UZS, EUR",
+  "paymentAccepted": "Cash, Credit Card, Bank Transfer",
+  "numberOfRooms": 25,
+  "starRating": { "@type": "Rating", "ratingValue": "4.9" },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "reviewCount": "350",
+    "bestRating": "5"
+  },
+  "amenityFeature": [
+    {"@type": "LocationFeatureSpecification", "name": "Бесплатный WiFi", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Полностью оборудованная кухня", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Кондиционер", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Стиральная машина", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Бесплатная парковка", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Консьерж 24/7", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Смарт ТВ", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Сейф", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Утюг и гладильная доска", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Фен", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Постельное бельё и полотенца", "value": true},
+    {"@type": "LocationFeatureSpecification", "name": "Уборка", "value": true}
+  ],
+  "checkinTime": "14:00",
+  "checkoutTime": "12:00",
+  "availableLanguage": [
+    {"@type": "Language", "name": "Russian"},
+    {"@type": "Language", "name": "English"},
+    {"@type": "Language", "name": "Uzbek"}
+  ],
+  "sameAs": ["https://www.instagram.com/urbanluxe.uz"],
+  "potentialAction": {
+    "@type": "ReserveAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://urbanluxe.cc/#booking"
+    },
+    "result": {
+      "@type": "LodgingReservation",
+      "name": "Бронирование апартаментов Urban Luxe"
+    }
+  }
 };
-function t(k){return T[window.UL_LANG]&&T[window.UL_LANG][k]||T.ru[k]||k}
-var SEL_MAP=[
-['.hero__btns .btn:first-child','hero_btn1'],
-['.hero__btns .btn--ghost','hero_btn2'],
-['.hero__stat:nth-child(1) .l','hero_s1'],
-['.hero__stat:nth-child(2) .l','hero_s2'],
-['.hero__stat:nth-child(3) .l','hero_s3'],
-['.philosophy__text h2','phil_h'],
-['.philosophy__text p:nth-of-type(1)','phil_p1'],
-['.philosophy__text p:nth-of-type(2)','phil_p2'],
-['.amen-item:nth-child(1) h4','amen_kitchen'],['.amen-item:nth-child(1) p','amen_kitchen_d'],
-['.amen-item:nth-child(2) h4','amen_washer'],['.amen-item:nth-child(2) p','amen_washer_d'],
-['.amen-item:nth-child(3) h4','amen_wifi'],['.amen-item:nth-child(3) p','amen_wifi_d'],
-['.amen-item:nth-child(4) h4','amen_tv'],['.amen-item:nth-child(4) p','amen_tv_d'],
-['.amen-item:nth-child(5) h4','amen_ac'],['.amen-item:nth-child(5) p','amen_ac_d'],
-['.amen-item:nth-child(6) h4','amen_concierge'],['.amen-item:nth-child(6) p','amen_concierge_d'],
-['.step:nth-child(1) h4','step1'],['.step:nth-child(1) p','step1_d'],
-['.step:nth-child(2) h4','step2'],['.step:nth-child(2) p','step2_d'],
-['.step:nth-child(3) h4','step3'],['.step:nth-child(3) p','step3_d'],
-['.footer > div:nth-child(1) p','f_desc'],
-['.footer > div:nth-child(2) h4','f_complexes'],
-['.footer > div:nth-child(3) h4','f_contacts'],
-['.footer > div:nth-child(4) h4','f_info'],
-['#searchBtn','book_find']
+
+// FAQ schema — повышает видимость в Google
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Сколько стоит посуточная аренда квартиры в Ташкенте?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Стоимость посуточной аренды апартаментов Urban Luxe в Ташкенте от $85 до $125 за ночь в зависимости от комплекса и типа квартиры. В стоимость включены Wi-Fi, уборка, постельное бельё."}
+    },
+    {
+      "@type": "Question",
+      "name": "Какие комплексы доступны для аренды?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Urban Luxe предлагает апартаменты в 4 лучших комплексах Ташкента: Nest One (самый высокий небоскрёб, 51 этаж), U-Tower NRG, Mirabad Avenue и Kislorod. Все комплексы расположены в центре города."}
+    },
+    {
+      "@type": "Question",
+      "name": "Можно ли заселиться ночью?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Да, заселение возможно 24/7. Стандартное время заезда — 14:00, выезда — 12:00, но мы гибко подходим к времени заселения."}
+    },
+    {
+      "@type": "Question",
+      "name": "Есть ли парковка?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Да, во всех комплексах есть бесплатная охраняемая парковка для гостей."}
+    }
+  ]
+};
+
+// Inject structured data
+[structuredData, faqSchema].forEach(data => {
+  const s = document.createElement('script');
+  s.type = 'application/ld+json';
+  s.textContent = JSON.stringify(data);
+  document.head.appendChild(s);
+});
+
+// Canonical URL
+if(!document.querySelector('link[rel="canonical"]')){
+  const canonical = document.createElement('link');
+  canonical.rel = 'canonical';
+  canonical.href = 'https://urbanluxe.cc';
+  document.head.appendChild(canonical);
+}
+
+// Enhanced description
+const descMeta = document.querySelector('meta[name="description"]');
+if(descMeta) descMeta.content = 'Посуточная аренда премиальных апартаментов в Ташкенте от $85/ночь. 25 квартир в Nest One, U-Tower, Mirabad, Kislorod. Wi-Fi, кухня, парковка, заезд 24/7. Бронируйте напрямую без комиссии.';
+
+// Enhanced OG description
+const ogDesc = document.querySelector('meta[property="og:description"]');
+if(ogDesc) ogDesc.content = '25 премиальных апартаментов в лучших комплексах Ташкента от $85/ночь. Полная кухня, Wi-Fi, консьерж 24/7. Бронируйте напрямую без комиссии.';
+
+// Keywords — максимальный охват
+if(!document.querySelector('meta[name="keywords"]')){
+  const kw = document.createElement('meta');
+  kw.name = 'keywords';
+  kw.content = [
+    // Русские ключи — основные
+    'посуточная аренда Ташкент', 'квартира посуточно Ташкент', 'снять квартиру Ташкент',
+    'аренда квартиры Ташкент', 'апартаменты Ташкент', 'квартира на сутки Ташкент',
+    'жилье посуточно Ташкент', 'съем квартиры Ташкент', 'снять апартаменты Ташкент',
+    'квартира на ночь Ташкент', 'аренда жилья Ташкент', 'премиум апартаменты Ташкент',
+    // Комплексы
+    'Nest One квартира', 'U-Tower аренда', 'Mirabad апартаменты', 'Kislorod квартира',
+    'Tashkent City аренда', 'квартира Tashkent City', 'небоскрёб Nest One',
+    // Типы жилья
+    'студия Ташкент посуточно', 'однокомнатная посуточно', 'двухкомнатная посуточно',
+    'квартира с кухней Ташкент', 'апартаменты с видом Ташкент',
+    // Цели поездки
+    'квартира для командировки Ташкент', 'жилье для туристов Ташкент',
+    'квартира для бизнеса Ташкент', 'апартаменты для релокации',
+    'квартира рядом с аэропортом Ташкент', 'жилье в центре Ташкента',
+    // Английские ключи
+    'apartments Tashkent', 'rent apartment Tashkent', 'short term rental Tashkent',
+    'serviced apartments Tashkent', 'luxury apartments Tashkent', 'Tashkent accommodation',
+    'furnished apartments Tashkent', 'corporate housing Tashkent',
+    'holiday rental Tashkent', 'vacation rental Tashkent Uzbekistan',
+    'best apartments Tashkent', 'premium rental Tashkent',
+    'Airbnb Tashkent alternative', 'Booking Tashkent apartments',
+    // Узбекские ключи
+    'kvartira Toshkent', 'ijaraga kvartira Toshkent', 'sutkalik kvartira Toshkent',
+    // Бренд
+    'Urban Luxe', 'Urban Luxe Tashkent', 'urbanluxe.cc'
+  ].join(', ');
+  document.head.appendChild(kw);
+}
+
+// Additional OG tags
+const ogTags = {
+  'og:locale': 'ru_RU',
+  'og:locale:alternate': 'en_US',
+  'og:site_name': 'Urban Luxe'
+};
+Object.entries(ogTags).forEach(([prop, content]) => {
+  if(!document.querySelector(`meta[property="${prop}"]`)){
+    const m = document.createElement('meta');
+    m.setAttribute('property', prop);
+    m.content = content;
+    document.head.appendChild(m);
+  }
+});
+
+
+// ===== 2. INTERACTIVE MAP =====
+const COMPLEXES = [
+  {
+    id: 'nest_one',
+    name: 'Nest One',
+    address: 'ул. Батыра Закирова 1А, Шайхантахурский район',
+    lat: 41.312058,
+    lng: 69.251817,
+    color: '#2ecc71',
+    desc: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамный вид на город.',
+    apts: 5,
+    price: 'от $90',
+    filter: 'nest_one'
+  },
+  {
+    id: 'utower',
+    name: 'U-Tower NRG',
+    address: 'мкр. Бешагач 1/1, Шайхантахурский район',
+    lat: 41.311097,
+    lng: 69.239303,
+    color: '#3498db',
+    desc: 'Современный жилой комплекс бизнес-класса. 30 этажей, Smart Home.',
+    apts: 12,
+    price: 'от $85',
+    filter: 'utower'
+  },
+  {
+    id: 'mirabad',
+    name: 'Mirabad Avenue',
+    address: 'ул. Айбек 38А, Мирабадский район',
+    lat: 41.291499,
+    lng: 69.271517,
+    color: '#e67e22',
+    desc: 'Престижный район в центре. Рядом парки, рестораны, метро.',
+    apts: 2,
+    price: 'от $90',
+    filter: 'mirabad'
+  },
+  {
+    id: 'kislorod',
+    name: 'Kislorod',
+    address: 'ул. Бурижар 1, Яккасарайский район',
+    lat: 41.296878,
+    lng: 69.242924,
+    color: '#e74c3c',
+    desc: 'Эко-комплекс с зелёным двором вдоль реки. Тишина и комфорт.',
+    apts: 3,
+    price: 'от $105',
+    filter: 'kislorod'
+  }
 ];
-function setLang(lang){
-  window.UL_LANG=lang;
-  localStorage.setItem('ul_lang',lang);
-  document.querySelectorAll('[data-i18n]').forEach(function(el){
-    var k=el.getAttribute('data-i18n');
-    if(el.tagName==='INPUT')el.placeholder=t(k);else el.innerHTML=t(k);
+
+const css = document.createElement('style');
+css.textContent = `
+/* Map Section */
+#seo-map-section{padding:80px 60px;background:var(--bg,#0a0a0a)}
+@media(max-width:900px){#seo-map-section{padding:50px 16px}}
+.map-header{margin-bottom:32px}
+.map-header .sh__label{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--gold,#c9a961);margin-bottom:8px}
+.map-header h2{font-size:36px;font-weight:300;color:var(--ink,#e8e2d6);font-family:'Cormorant Garamond',Georgia,serif}
+.map-header h2 em{font-style:italic;color:var(--gold,#c9a961)}
+@media(max-width:480px){.map-header h2{font-size:24px}}
+
+.map-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+@media(max-width:768px){.map-grid{grid-template-columns:1fr;gap:16px}}
+
+/* Map container */
+.map-embed{border-radius:12px;overflow:hidden;height:420px;border:1px solid rgba(201,169,97,.15)}
+.map-embed iframe{width:100%;height:100%;border:0;filter:invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1)}
+@media(max-width:480px){.map-embed{height:280px}}
+
+/* Complex cards */
+.map-cards{display:flex;flex-direction:column;gap:10px}
+.map-card{display:flex;gap:14px;padding:16px;border-radius:10px;border:1px solid var(--line,rgba(232,226,214,.08));background:var(--bg2,#141414);cursor:pointer;transition:all .3s}
+.map-card:hover{border-color:rgba(201,169,97,.3);transform:translateX(4px)}
+.map-card.active{border-color:var(--gold,#c9a961);background:rgba(201,169,97,.05)}
+.map-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.map-card-info{flex:1}
+.map-card-name{font-size:14px;font-weight:500;color:var(--ink,#e8e2d6);margin-bottom:2px}
+.map-card-addr{font-size:11px;color:var(--ink-d,#6b665e);margin-bottom:4px}
+.map-card-desc{font-size:12px;color:var(--ink-m,#a8a096);line-height:1.4}
+.map-card-meta{display:flex;gap:12px;margin-top:6px;font-size:11px}
+.map-card-meta span{color:var(--gold,#c9a961)}
+.map-card-btn{font-size:10px;padding:4px 10px;border:1px solid var(--gold,#c9a961);color:var(--gold);background:none;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;font-family:inherit;margin-top:8px;transition:all .2s;align-self:flex-start}
+.map-card-btn:hover{background:var(--gold);color:#0a0a0a}
+`;
+document.head.appendChild(css);
+
+function insertMap(){
+  // Find the booking section to insert map before it
+  const bookingSection = document.getElementById('booking');
+  const contactSection = document.getElementById('contacts');
+  const insertBefore = bookingSection || contactSection;
+  if(!insertBefore) return;
+  if(document.getElementById('seo-map-section')) return;
+
+  const section = document.createElement('section');
+  section.id = 'seo-map-section';
+  
+  // Build cards
+  let cardsHTML = '';
+  COMPLEXES.forEach(cx => {
+    cardsHTML += `
+      <div class="map-card" data-cx="${cx.id}" onclick="window._mapSelect('${cx.id}')">
+        <div class="map-dot" style="background:${cx.color}"></div>
+        <div class="map-card-info">
+          <div class="map-card-name">${cx.name}</div>
+          <div class="map-card-addr">${cx.address}</div>
+          <div class="map-card-desc">${cx.desc}</div>
+          <div class="map-card-meta">
+            <span>${cx.apts} апартаментов</span>
+            <span>${cx.price}/ночь</span>
+          </div>
+          <button class="map-card-btn" onclick="event.stopPropagation();window._mapFilter('${cx.name}')">Смотреть апартаменты</button>
+        </div>
+      </div>
+    `;
   });
-  for(var i=0;i<SEL_MAP.length;i++){
-    var el=document.querySelector(SEL_MAP[i][0]);
-    if(el){
-      if(el.tagName==='INPUT')el.placeholder=t(SEL_MAP[i][1]);
-      else if(el.tagName==='BUTTON')el.textContent=t(SEL_MAP[i][1]);
-      else el.innerHTML=t(SEL_MAP[i][1]);
+
+  // Center of Tashkent for initial map
+  const centerLat = 41.3080;
+  const centerLng = 69.2680;
+  
+  // Build markers for all complexes
+  const markers = COMPLEXES.map(cx => 
+    `markers=color:0x${cx.color.slice(1)}|label:${cx.name[0]}|${cx.lat},${cx.lng}`
+  ).join('&');
+
+  section.innerHTML = `
+    <div class="map-header">
+      <div class="sh__label">Наши комплексы</div>
+      <h2>Четыре адреса <em>одного</em> стиля.</h2>
+    </div>
+    <div class="map-grid">
+      <div class="map-embed" id="mapEmbed">
+        <div id="mapPlaceholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-d,#6b665e);font-size:13px;cursor:pointer" onclick="window._mapLoadIframe()">📍 Нажмите чтобы загрузить карту</div>
+      </div>
+      <div class="map-cards">
+        ${cardsHTML}
+      </div>
+    </div>
+  `;
+
+  insertBefore.parentElement.insertBefore(section, insertBefore);
+
+  // Lazy-load map when section becomes visible
+  const mapObs = new IntersectionObserver(entries => {
+    if(entries[0].isIntersecting){
+      mapObs.disconnect();
+      window._mapLoadIframe();
     }
-  }
-  var labels=document.querySelectorAll('.sh__label');
-  var secKeys=['apt','amen','steps','rev','book'];
-  labels.forEach(function(lbl,idx){
-    if(idx<secKeys.length){
-      var k=secKeys[idx];
-      lbl.innerHTML=t(k+'_label');
-      var title=lbl.parentElement.querySelector('.sh__title');
-      if(title)title.innerHTML=t(k+'_title');
-    }
-  });
-  var aptSub=document.querySelector('.sh__right');
-  if(aptSub)aptSub.innerHTML=t('apt_sub');
-  var sf=document.querySelector('.search-form h3');if(sf)sf.textContent=t('book_search');
-  var sLabels=document.querySelectorAll('.search-form label');
-  if(sLabels[0])sLabels[0].textContent=t('book_checkin');
-  if(sLabels[1])sLabels[1].textContent=t('book_checkout');
-  var bSub=document.querySelector('.booking-grid p');
-  if(bSub)bSub.innerHTML=t('book_sub');
-  var ci=document.getElementById('searchCheckIn');if(ci)ci.placeholder=t('book_select');
-  var co=document.getElementById('searchCheckOut');if(co)co.placeholder=t('book_select');
-  var fb=document.querySelectorAll('.filters button');
-  if(fb[0])fb[0].textContent=t('apt_all');
-  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lang===lang)});
-  if(typeof renderAptGrid==='function'&&typeof allApts!=='undefined')renderAptGrid(allApts);
+  }, {threshold: 0.1});
+  mapObs.observe(section);
 }
-function calcDynamicPrice(apt,checkIn,checkOut){
-  var ci=new Date(checkIn),co=new Date(checkOut),nights=Math.round((co-ci)/864e5);
-  if(nights<=0)return{total:0,nights:0,avgPerNight:0,discount:0,discountLabel:''};
-  var total=0,cur=new Date(ci),seasonal=apt.seasonal_prices||{};
-  while(cur<co){
-    var dow=cur.getDay(),month=cur.getMonth()+1,price=(dow===5||dow===6)?apt.weekend_price:apt.weekday_price;
-    if(seasonal.high&&seasonal.high.months&&seasonal.high.months.indexOf(month)>=0)price=Math.round(price*(seasonal.high.multiplier||1.2));
-    else if(seasonal.low&&seasonal.low.months&&seasonal.low.months.indexOf(month)>=0)price=Math.round(price*(seasonal.low.multiplier||0.85));
-    total+=price;cur.setDate(cur.getDate()+1);
+
+window._mapLoadIframe = function(){
+  const embed = document.getElementById('mapEmbed');
+  const placeholder = document.getElementById('mapPlaceholder');
+  if(!embed || embed.querySelector('iframe')) return;
+  const centerLat = 41.303, centerLng = 69.252;
+  const iframe = document.createElement('iframe');
+  iframe.id = 'mapFrame';
+  iframe.loading = 'lazy';
+  iframe.title = 'Карта комплексов Urban Luxe в Ташкенте';
+  iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng-0.03}%2C${centerLat-0.015}%2C${centerLng+0.03}%2C${centerLat+0.015}&layer=mapnik&marker=${centerLat}%2C${centerLng}`;
+  embed.innerHTML = '';
+  embed.appendChild(iframe);
+};
+
+// Map interactions
+window._mapSelect = function(cxId) {
+  const cx = COMPLEXES.find(c => c.id === cxId);
+  if(!cx) return;
+  
+  // Update active card
+  document.querySelectorAll('.map-card').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.map-card[data-cx="${cxId}"]`)?.classList.add('active');
+  
+  // Update map to center on selected complex
+  const frame = document.getElementById('mapFrame');
+  if(frame){
+    frame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${cx.lng-0.008}%2C${cx.lat-0.005}%2C${cx.lng+0.008}%2C${cx.lat+0.005}&layer=mapnik&marker=${cx.lat}%2C${cx.lng}`;
   }
-  var discount=0,discountLabel='',dw=apt.discount_week||10,dm=apt.discount_month||25;
-  if(nights>=30){discount=dm;discountLabel=t('m_month_discount')+' -'+dm+'%'}
-  else if(nights>=7){discount=dw;discountLabel=t('m_week_discount')+' -'+dw+'%'}
-  var da=Math.round(total*discount/100);
-  return{total:total-da,originalTotal:total,nights:nights,avgPerNight:Math.round((total-da)/nights),discount:discount,discountAmount:da,discountLabel:discountLabel};
-}
-window.t=t;window.setLang=setLang;window.calcDynamicPrice=calcDynamicPrice;
+};
+
+window._mapFilter = function(complexName) {
+  // Scroll to apartments and filter
+  const aptsSection = document.getElementById('apartments');
+  if(aptsSection) aptsSection.scrollIntoView({behavior:'smooth'});
+  
+  // Find and click the filter button
+  setTimeout(() => {
+    const filterBtns = document.querySelectorAll('.filters button, [class*="filter"] button');
+    filterBtns.forEach(btn => {
+      if(btn.textContent.toLowerCase().includes(complexName.toLowerCase().split(' ')[0])){
+        btn.click();
+      }
+    });
+  }, 500);
+};
+
+// ===== INIT =====
+// Insert map after apartments load
+setTimeout(insertMap, 2000);
+
+// Also add nav item for map
+setTimeout(() => {
+  const navMenu = document.querySelector('.nav__menu');
+  if(navMenu && !navMenu.querySelector('[href="#seo-map-section"]')){
+    const li = document.createElement('li');
+    li.innerHTML = '<a href="#seo-map-section" data-i18n="nav_map">Карта</a>';
+    const lastLi = navMenu.querySelector('li:last-child');
+    if(lastLi) navMenu.insertBefore(li, lastLi.nextSibling);
+  }
+}, 1000);
+
+console.log('[SEO+Map] Structured data + интерактивная карта загружены ✓');
+})();
