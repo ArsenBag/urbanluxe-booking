@@ -32,7 +32,7 @@ const structuredData = {
     "longitude": 69.279
   },
   "hasMap": "https://yandex.com/maps/-/CHuAFTEI",
-  "priceRange": "$85 - $125",
+  "priceRange": "$85 - $150",
   "currenciesAccepted": "USD, UZS, EUR",
   "paymentAccepted": "Cash, Credit Card, Bank Transfer",
   "numberOfRooms": 25,
@@ -232,6 +232,88 @@ const COMPLEXES = [
     filter: 'kislorod'
   }
 ];
+
+// === Dynamic Schema.org: Apartment list (loaded from Supabase) ===
+async function _injectApartmentsSchema(){
+  if(typeof window.supabase === 'undefined') return;
+  const SB_URL = 'https://sebvfvtofiysbywxjqut.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+  let _sb;
+  try { _sb = window.sb || window.supabase.createClient(SB_URL, SB_KEY); } catch(e){ return; }
+  
+  const COMPLEX_ADDR = {
+    'Nest One':  {addr:'ул. Батыра Закирова 1А, Шайхантахурский район', lat:41.312058, lng:69.251817},
+    'U-Tower':   {addr:'мкр. Бешагач 1/1, Шайхантахурский район',         lat:41.311097, lng:69.239303},
+    'U-Tower 2': {addr:'мкр. Бешагач 1/1, Шайхантахурский район',         lat:41.311097, lng:69.239303},
+    'Mirabad':   {addr:'ул. Айбек 38А, Мирабадский район',                  lat:41.291499, lng:69.271517},
+    'Kislorod':  {addr:'ул. Бурижар 1, Яккасарайский район',                 lat:41.296878, lng:69.242924}
+  };
+  
+  try {
+    const {data: apts, error} = await _sb.from('apartments').select('id,name,complex,floor,style,rooms,weekday_price,weekend_price,max_guests,description,photo_url,amenities').eq('is_active', true);
+    if(error || !apts || !apts.length) return;
+    
+    // ItemList — Google индексирует список целиком и каждый Apartment
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Апартаменты Urban Luxe в Ташкенте",
+      "numberOfItems": apts.length,
+      "itemListElement": apts.map((a, idx) => {
+        const cxInfo = COMPLEX_ADDR[a.complex] || {addr: 'Ташкент', lat: 41.302, lng: 69.252};
+        let photos = [];
+        try { photos = Array.isArray(a.photo_url) ? a.photo_url : (typeof a.photo_url === 'string' ? JSON.parse(a.photo_url) : []); } catch(e){}
+        photos = photos.filter(Boolean).slice(0, 6);
+        
+        const item = {
+          "@type": "Apartment",
+          "@id": "https://urbanluxe.cc/?apt=" + a.id,
+          "url": "https://urbanluxe.cc/?apt=" + a.id,
+          "name": a.name + " · " + a.complex,
+          "description": (a.description || ("Премиальный апартамент " + a.style + " в комплексе " + a.complex + ", " + a.floor + " этаж. До " + (a.max_guests || 2) + " гостей.")).slice(0, 500),
+          "numberOfRooms": (a.style && a.style.match(/^(\d+)/)) ? parseInt(RegExp.$1) : 1,
+          "occupancy": {"@type": "QuantitativeValue", "maxValue": a.max_guests || 2},
+          "floorLevel": String(a.floor),
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": cxInfo.addr,
+            "addressLocality": "Ташкент",
+            "addressRegion": "Ташкент",
+            "addressCountry": "UZ"
+          },
+          "geo": {"@type": "GeoCoordinates", "latitude": cxInfo.lat, "longitude": cxInfo.lng},
+          "offers": {
+            "@type": "Offer",
+            "url": "https://urbanluxe.cc/?apt=" + a.id,
+            "priceCurrency": "USD",
+            "price": a.weekday_price || a.weekend_price,
+            "priceValidUntil": new Date(Date.now() + 180*24*3600*1000).toISOString().slice(0,10),
+            "availability": "https://schema.org/InStock",
+            "businessFunction": "https://schema.org/LeaseOut"
+          }
+        };
+        if(photos.length) item.image = photos;
+        return {"@type": "ListItem", "position": idx + 1, "item": item};
+      })
+    };
+    
+    const s = document.createElement('script');
+    s.type = 'application/ld+json';
+    s.id = 'schema-apartments-list';
+    s.textContent = JSON.stringify(itemList);
+    document.head.appendChild(s);
+    
+    console.log('[SEO] Schema.org: ' + apts.length + ' apartments injected ✓');
+  } catch(e){
+    console.warn('[SEO] Schema injection failed:', e.message);
+  }
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', () => setTimeout(_injectApartmentsSchema, 800));
+} else {
+  setTimeout(_injectApartmentsSchema, 800);
+}
 
 const css = document.createElement('style');
 css.textContent = `
