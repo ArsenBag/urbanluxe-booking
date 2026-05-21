@@ -117,12 +117,46 @@ function fixFavorites(){
   if(['/','/index.html',''].includes(window.location.pathname)){const id=new URLSearchParams(window.location.search).get('apt');if(id&&typeof openModal==='function'){const w=setInterval(()=>{if(document.querySelector('#aptGrid > .card')){clearInterval(w);setTimeout(()=>openModal(id),500)}},500);setTimeout(()=>clearInterval(w),10000)}}
 }
 
-addPhonesToNav();fixFavorites();
+
+function addTelegramFAB(){
+  if(document.querySelector('.ul-tg-fab'))return;
+  const link=document.createElement('a');
+  link.className='ul-tg-fab';
+  link.href='https://t.me/Arsen_bnb';
+  link.target='_blank';
+  link.rel='noopener noreferrer';
+  link.setAttribute('aria-label','Написать в Telegram');
+  link.setAttribute('data-tooltip','Спросить в Telegram');
+  link.innerHTML='<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.297.297-.61.297l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.566-4.458c.535-.196 1.006.128.832.954z"/></svg>';
+  document.body.appendChild(link);
+
+  const css=document.createElement('style');
+  css.textContent=`
+.ul-tg-fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2AABEE 0%,#229ED9 100%);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3);z-index:9998;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;animation:ul-tg-pulse 2.4s ease-in-out infinite}
+.ul-tg-fab:hover{transform:scale(1.08);box-shadow:0 12px 32px rgba(42,171,238,.45),0 4px 12px rgba(0,0,0,.35);animation:none}
+.ul-tg-fab:active{transform:scale(.96)}
+.ul-tg-fab::before{content:attr(data-tooltip);position:absolute;right:68px;top:50%;transform:translateY(-50%) translateX(8px);background:rgba(20,20,20,.95);color:#e8e2d6;font-size:12px;letter-spacing:.04em;padding:8px 14px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;font-family:var(--fb,sans-serif);border:1px solid rgba(201,169,97,.2)}
+.ul-tg-fab:hover::before{opacity:1;transform:translateY(-50%) translateX(0)}
+@keyframes ul-tg-pulse{0%,100%{box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3),0 0 0 0 rgba(42,171,238,.5)}50%{box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3),0 0 0 12px rgba(42,171,238,0)}}
+@media(max-width:640px){.ul-tg-fab{right:16px;bottom:16px;width:52px;height:52px}.ul-tg-fab::before{display:none}}
+@media(max-width:640px){body:has(.booking-modal[style*="display: block"]) .ul-tg-fab,body:has(.modal[style*="display: block"]) .ul-tg-fab{opacity:.4;pointer-events:none}}
+`;
+  document.head.appendChild(css);
+
+  link.addEventListener('click',()=>{
+    try{
+      if(typeof gtag==='function'){gtag('event','click_telegram_fab',{event_category:'engagement',event_label:'floating_button'})}
+      if(typeof fbq==='function'){fbq('track','Contact',{method:'telegram'})}
+    }catch(e){}
+  });
+}
+
+addPhonesToNav();fixFavorites();addTelegramFAB();
 loadPhotoData().then(()=>{
   const g=document.getElementById('aptGrid');
   if(g&&g.children.length>0)setTimeout(attachLazyCarousel,300);
   if(g){const mo=new MutationObserver(()=>setTimeout(attachLazyCarousel,300));mo.observe(g,{childList:true})}
 });
 const of=window.filterApts;if(of){window.filterApts=function(){of.apply(this,arguments);setTimeout(attachLazyCarousel,500)}}
-console.log('[Site Fixes v3] Lazy carousel \u2713');
+console.log('[Site Fixes v3.1] Lazy carousel + Telegram FAB \u2713');
 })();
