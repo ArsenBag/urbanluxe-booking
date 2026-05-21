@@ -10,7 +10,7 @@ const structuredData = {
   "@type": "LodgingBusiness",
   "name": "Urban Luxe — Премиальные апартаменты в Ташкенте",
   "alternateName": "Urban Luxe Tashkent",
-  "description": "Посуточная аренда 22 премиальных апартаментов в лучших комплексах Ташкента: Nest One, U-Tower NRG, Mirabad Avenue, Kislorod. Студии и квартиры с полной кухней, Wi-Fi, кондиционером. Заезд 24/7, консьерж-сервис. Идеально для командировок, туризма и релокации.",
+  "description": "Посуточная аренда 25 премиальных апартаментов в лучших комплексах Ташкента: Nest One, U-Tower NRG, Mirabad Avenue, Kislorod. Студии и квартиры с полной кухней, Wi-Fi, кондиционером. Заезд 24/7, консьерж-сервис. Идеально для командировок, туризма и релокации.",
   "url": "https://urbanluxe.cc",
   "logo": "https://urbanluxe.cc/logo.png",
   "image": [
@@ -35,7 +35,7 @@ const structuredData = {
   "priceRange": "$85 - $125",
   "currenciesAccepted": "USD, UZS, EUR",
   "paymentAccepted": "Cash, Credit Card, Bank Transfer",
-  "numberOfRooms": 22,
+  "numberOfRooms": 25,
   "starRating": { "@type": "Rating", "ratingValue": "4.9" },
   "aggregateRating": {
     "@type": "AggregateRating",
@@ -124,11 +124,11 @@ if(!document.querySelector('link[rel="canonical"]')){
 
 // Enhanced description
 const descMeta = document.querySelector('meta[name="description"]');
-if(descMeta) descMeta.content = 'Посуточная аренда премиальных апартаментов в Ташкенте от $85/ночь. 22 квартиры в Nest One, U-Tower, Mirabad, Kislorod. Wi-Fi, кухня, парковка, заезд 24/7. Бронируйте онлайн!';
+if(descMeta) descMeta.content = 'Посуточная аренда премиальных апартаментов в Ташкенте от $85/ночь. 25 квартир в Nest One, U-Tower, Mirabad, Kislorod. Wi-Fi, кухня, парковка, заезд 24/7. Бронируйте напрямую без комиссии.';
 
 // Enhanced OG description
 const ogDesc = document.querySelector('meta[property="og:description"]');
-if(ogDesc) ogDesc.content = '22 премиальных апартамента в лучших комплексах Ташкента от $85/ночь. Полная кухня, Wi-Fi, консьерж 24/7. Забронируйте онлайн!';
+if(ogDesc) ogDesc.content = '25 премиальных апартаментов в лучших комплексах Ташкента от $85/ночь. Полная кухня, Wi-Fi, консьерж 24/7. Бронируйте напрямую без комиссии.';
 
 // Keywords — максимальный охват
 if(!document.querySelector('meta[name="keywords"]')){
