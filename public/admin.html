@@ -735,7 +735,7 @@ function rRevC(){
 }
 
 function rCompC(){
-  const c={'Nest One':5,'U-Tower':12,'Mirabad':2,'Kislorod':3};
+  const c={'Nest One':7,'U-Tower':13,'Mirabad':2,'Kislorod':3};
   if(AA.length){
     // Recalculate from Supabase data, merging U-Tower 2 into U-Tower
     const cc={};
@@ -754,16 +754,16 @@ function rCompC(){
 
 function rCplx(){
   const complexes={
-    'Nest One':{t:5,b:0,color:'#c9a961'},
-    'U-Tower':{t:12,b:0,color:'#3498db'},
+    'Nest One':{t:7,b:0,color:'#c9a961'},
+    'U-Tower':{t:13,b:0,color:'#3498db'},
     'Mirabad':{t:2,b:0,color:'#2ecc71'},
     'Kislorod':{t:3,b:0,color:'#e67e22'}
   };
   
   const n=new Date(),td=new Date().toISOString().slice(0,10);
   const aptComplex={
-    nest_15:'Nest One',nest_249:'Nest One',nest_481:'Nest One',nest_233:'Nest One',nest_353:'Nest One',
-    utower_65:'U-Tower',utower_73:'U-Tower',utower_171:'U-Tower',utower_208:'U-Tower',utower_310:'U-Tower',utower_410:'U-Tower',
+    nest_15:'Nest One',nest_163:'Nest One',nest_249:'Nest One',nest_481:'Nest One',nest_477:'Nest One',nest_233:'Nest One',nest_353:'Nest One',
+    utower_65:'U-Tower',utower_73:'U-Tower',utower_171:'U-Tower',utower_208:'U-Tower',utower_276:'U-Tower',utower_310:'U-Tower',utower_410:'U-Tower',
     utower2_5:'U-Tower',utower2_9:'U-Tower',utower2_207:'U-Tower',utower2_228:'U-Tower',utower2_296:'U-Tower',utower2_92:'U-Tower',
     mirabad_111:'Mirabad',mirabad_205:'Mirabad',
     kislorod_49:'Kislorod',kislorod_58:'Kislorod',kislorod_128:'Kislorod'
@@ -1078,8 +1078,8 @@ function rAnalytics(){
   // Map apt names to complexes and iCal IDs
   const aptMap=[
     {k:'111',cx:'Mirabad',ical:'mirabad_111'},{k:'205',cx:'Mirabad',ical:'mirabad_205'},
-    {k:'15',cx:'Nest One',ical:'nest_15'},{k:'249',cx:'Nest One',ical:'nest_249'},{k:'481',cx:'Nest One',ical:'nest_481'},{k:'233',cx:'Nest One',ical:'nest_233'},{k:'353',cx:'Nest One',ical:'nest_353'},
-    {k:'65',cx:'U-Tower',ical:'utower_65'},{k:'73',cx:'U-Tower',ical:'utower_73'},{k:'171',cx:'U-Tower',ical:'utower_171'},{k:'208',cx:'U-Tower',ical:'utower_208'},{k:'310',cx:'U-Tower',ical:'utower_310'},{k:'410',cx:'U-Tower',ical:'utower_410'},
+    {k:'15',cx:'Nest One',ical:'nest_15'},{k:'163',cx:'Nest One',ical:'nest_163'},{k:'249',cx:'Nest One',ical:'nest_249'},{k:'481',cx:'Nest One',ical:'nest_481'},{k:'477',cx:'Nest One',ical:'nest_477'},{k:'233',cx:'Nest One',ical:'nest_233'},{k:'353',cx:'Nest One',ical:'nest_353'},
+    {k:'65',cx:'U-Tower',ical:'utower_65'},{k:'73',cx:'U-Tower',ical:'utower_73'},{k:'171',cx:'U-Tower',ical:'utower_171'},{k:'208',cx:'U-Tower',ical:'utower_208'},{k:'276',cx:'U-Tower',ical:'utower_276'},{k:'310',cx:'U-Tower',ical:'utower_310'},{k:'410',cx:'U-Tower',ical:'utower_410'},
     {k:'5',cx:'U-Tower',ical:'utower2_5'},{k:'9',cx:'U-Tower',ical:'utower2_9'},{k:'207',cx:'U-Tower',ical:'utower2_207'},{k:'228',cx:'U-Tower',ical:'utower2_228'},{k:'296',cx:'U-Tower',ical:'utower2_296'},{k:'92',cx:'U-Tower',ical:'utower2_92'},
     {k:'49',cx:'Kislorod',ical:'kislorod_49'},{k:'58',cx:'Kislorod',ical:'kislorod_58'},{k:'128',cx:'Kislorod',ical:'kislorod_128'}
   ];
@@ -2028,8 +2028,8 @@ async function loadBizAnalytics(){
       const cm2=typeof curMonthLabel==='function'?curMonthLabel():'';
       const aptMap2=[
         {k:'111',cx:'Mirabad'},{k:'205',cx:'Mirabad'},
-        {k:'15',cx:'Nest One'},{k:'249',cx:'Nest One'},{k:'481',cx:'Nest One'},{k:'233',cx:'Nest One'},{k:'353',cx:'Nest One'},
-        {k:'65',cx:'U-Tower'},{k:'73',cx:'U-Tower'},{k:'171',cx:'U-Tower'},{k:'208',cx:'U-Tower'},{k:'310',cx:'U-Tower'},{k:'410',cx:'U-Tower'},
+        {k:'15',cx:'Nest One'},{k:'163',cx:'Nest One'},{k:'249',cx:'Nest One'},{k:'481',cx:'Nest One'},{k:'477',cx:'Nest One'},{k:'233',cx:'Nest One'},{k:'353',cx:'Nest One'},
+        {k:'65',cx:'U-Tower'},{k:'73',cx:'U-Tower'},{k:'171',cx:'U-Tower'},{k:'208',cx:'U-Tower'},{k:'276',cx:'U-Tower'},{k:'310',cx:'U-Tower'},{k:'410',cx:'U-Tower'},
         {k:'5',cx:'U-Tower'},{k:'9',cx:'U-Tower'},{k:'207',cx:'U-Tower'},{k:'228',cx:'U-Tower'},{k:'296',cx:'U-Tower'},{k:'92',cx:'U-Tower'},
         {k:'49',cx:'Kislorod'},{k:'58',cx:'Kislorod'},{k:'128',cx:'Kislorod'}
       ];
