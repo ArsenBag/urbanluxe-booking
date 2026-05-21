@@ -132,13 +132,13 @@ function addTelegramFAB(){
 
   const css=document.createElement('style');
   css.textContent=`
-.ul-tg-fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2AABEE 0%,#229ED9 100%);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3);z-index:9998;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;animation:ul-tg-pulse 2.4s ease-in-out infinite}
+.ul-tg-fab{position:fixed;right:26px;bottom:96px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#2AABEE 0%,#229ED9 100%);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3);z-index:9998;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;animation:ul-tg-pulse 2.4s ease-in-out infinite}
 .ul-tg-fab:hover{transform:scale(1.08);box-shadow:0 12px 32px rgba(42,171,238,.45),0 4px 12px rgba(0,0,0,.35);animation:none}
 .ul-tg-fab:active{transform:scale(.96)}
 .ul-tg-fab::before{content:attr(data-tooltip);position:absolute;right:68px;top:50%;transform:translateY(-50%) translateX(8px);background:rgba(20,20,20,.95);color:#e8e2d6;font-size:12px;letter-spacing:.04em;padding:8px 14px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;font-family:var(--fb,sans-serif);border:1px solid rgba(201,169,97,.2)}
 .ul-tg-fab:hover::before{opacity:1;transform:translateY(-50%) translateX(0)}
 @keyframes ul-tg-pulse{0%,100%{box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3),0 0 0 0 rgba(42,171,238,.5)}50%{box-shadow:0 8px 24px rgba(42,171,238,.35),0 2px 8px rgba(0,0,0,.3),0 0 0 12px rgba(42,171,238,0)}}
-@media(max-width:640px){.ul-tg-fab{right:16px;bottom:16px;width:52px;height:52px}.ul-tg-fab::before{display:none}}
+@media(max-width:640px){.ul-tg-fab{right:18px;bottom:84px;width:48px;height:48px}.ul-tg-fab::before{display:none}}
 @media(max-width:640px){body:has(.booking-modal[style*="display: block"]) .ul-tg-fab,body:has(.modal[style*="display: block"]) .ul-tg-fab{opacity:.4;pointer-events:none}}
 `;
   document.head.appendChild(css);
@@ -158,5 +158,5 @@ loadPhotoData().then(()=>{
   if(g){const mo=new MutationObserver(()=>setTimeout(attachLazyCarousel,300));mo.observe(g,{childList:true})}
 });
 const of=window.filterApts;if(of){window.filterApts=function(){of.apply(this,arguments);setTimeout(attachLazyCarousel,500)}}
-console.log('[Site Fixes v3.1] Lazy carousel + Telegram FAB \u2713');
+console.log('[Site Fixes v3.2] Lazy carousel + Telegram FAB (stacked) \u2713');
 })();
