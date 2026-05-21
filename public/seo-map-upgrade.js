@@ -191,7 +191,7 @@ const COMPLEXES = [
     lng: 69.251817,
     color: '#2ecc71',
     desc: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамный вид на город.',
-    apts: 5,
+    apts: 7,
     price: 'от $90',
     filter: 'nest_one'
   },
@@ -203,7 +203,7 @@ const COMPLEXES = [
     lng: 69.239303,
     color: '#3498db',
     desc: 'Современный жилой комплекс бизнес-класса. 30 этажей, Smart Home.',
-    apts: 12,
+    apts: 13,
     price: 'от $85',
     filter: 'utower'
   },
@@ -266,6 +266,19 @@ css.textContent = `
 .map-card-meta span{color:var(--gold,#c9a961)}
 .map-card-btn{font-size:10px;padding:4px 10px;border:1px solid var(--gold,#c9a961);color:var(--gold);background:none;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;font-family:inherit;margin-top:8px;transition:all .2s;align-self:flex-start}
 .map-card-btn:hover{background:var(--gold);color:#0a0a0a}
+
+/* Static map fallback (без WebGL) */
+.map-static-wrap{position:relative;width:100%;height:100%;background:#1a1a1a;overflow:hidden}
+.map-static-img{display:block;width:100%;height:100%;object-fit:cover;filter:invert(90%) hue-rotate(180deg) brightness(.85) contrast(1.05)}
+.map-static-noimg{background:linear-gradient(135deg,#1a1a1a 0%,#0f0f0f 50%,#1a1a1a 100%)}
+.map-static-pins{position:absolute;inset:0;pointer-events:none}
+.map-static-pin{position:absolute;transform:translate(-50%,-100%);background:none;border:none;padding:0;cursor:pointer;pointer-events:auto;display:flex;flex-direction:column;align-items:center;font-family:inherit}
+.map-static-pin-dot{width:16px;height:16px;background:var(--pin-color);border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 0 4px color-mix(in srgb,var(--pin-color) 30%,transparent);transition:transform .25s}
+.map-static-pin-label{margin-top:4px;font-size:11px;color:#fff;background:rgba(20,20,20,.85);padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;border:1px solid rgba(255,255,255,.1);font-family:var(--fb,sans-serif)}
+.map-static-pin:hover .map-static-pin-dot{transform:scale(1.25)}
+.map-static-open{position:absolute;bottom:12px;right:12px;background:rgba(20,20,20,.85);color:var(--gold,#c9a961);padding:8px 14px;border-radius:6px;text-decoration:none;font-size:11px;letter-spacing:.05em;border:1px solid rgba(201,169,97,.3);transition:all .2s}
+.map-static-open:hover{background:var(--gold,#c9a961);color:#0a0a0a}
+@media(max-width:480px){.map-static-pin-label{font-size:10px;padding:2px 6px}.map-static-open{font-size:10px;padding:6px 10px}}
 `;
 document.head.appendChild(css);
 
@@ -336,16 +349,64 @@ function insertMap(){
   mapObs.observe(section);
 }
 
+function _hasWebGL(){
+  try{
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
+  }catch(e){return false;}
+}
+
+function _renderStaticMap(embed){
+  // Static fallback: красивая карта Tashkent с пинами комплексов, без WebGL
+  const centerLat = 41.302, centerLng = 69.250;
+  // Bounding box, чтобы все 4 комплекса попали в кадр
+  const minLat = 41.288, maxLat = 41.316, minLng = 69.235, maxLng = 69.275;
+  const mapW = 800, mapH = 420;
+  
+  // Wikimedia статичная карта (бесплатно, без ключа)
+  const tileUrl = `https://maps.wikimedia.org/img/osm-intl,13,${centerLat},${centerLng},${mapW}x${mapH}.png`;
+  
+  // Преобразуем lat/lng пинов в проценты внутри картинки
+  const pins = COMPLEXES.map(cx => {
+    const xPct = ((cx.lng - minLng) / (maxLng - minLng)) * 100;
+    const yPct = 100 - ((cx.lat - minLat) / (maxLat - minLat)) * 100;
+    return `<button class="map-static-pin" style="left:${xPct.toFixed(2)}%;top:${yPct.toFixed(2)}%;--pin-color:${cx.color}" data-cx="${cx.id}" onclick="window._mapSelect('${cx.id}')" aria-label="${cx.name}"><span class="map-static-pin-dot"></span><span class="map-static-pin-label">${cx.name}</span></button>`;
+  }).join('');
+  
+  embed.innerHTML = `
+    <div class="map-static-wrap">
+      <img class="map-static-img" src="${tileUrl}" alt="Карта комплексов Urban Luxe в Ташкенте" width="${mapW}" height="${mapH}" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.parentElement.classList.add('map-static-noimg')"/>
+      <div class="map-static-pins">${pins}</div>
+      <a class="map-static-open" href="https://yandex.com/maps/-/CHuAFTEI" target="_blank" rel="noopener" title="Открыть в Яндекс.Картах">📍 Открыть в Яндекс.Картах</a>
+    </div>
+  `;
+}
+
 window._mapLoadIframe = function(){
   const embed = document.getElementById('mapEmbed');
-  const placeholder = document.getElementById('mapPlaceholder');
-  if(!embed || embed.querySelector('iframe')) return;
+  if(!embed || embed.querySelector('iframe') || embed.querySelector('.map-static-wrap')) return;
+  
+  if(!_hasWebGL()){
+    _renderStaticMap(embed);
+    return;
+  }
+  
   const centerLat = 41.303, centerLng = 69.252;
   const iframe = document.createElement('iframe');
   iframe.id = 'mapFrame';
   iframe.loading = 'lazy';
   iframe.title = 'Карта комплексов Urban Luxe в Ташкенте';
   iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng-0.03}%2C${centerLat-0.015}%2C${centerLng+0.03}%2C${centerLat+0.015}&layer=mapnik&marker=${centerLat}%2C${centerLng}`;
+  // Если iframe не отрисуется за 5 секунд (например, OSM требует WebGL внутри iframe) — fallback на статику
+  let fellback = false;
+  const fallbackTimer = setTimeout(() => {
+    if(fellback) return;
+    fellback = true;
+    _renderStaticMap(embed);
+  }, 5000);
+  iframe.addEventListener('load', () => {
+    clearTimeout(fallbackTimer);
+  });
   embed.innerHTML = '';
   embed.appendChild(iframe);
 };
