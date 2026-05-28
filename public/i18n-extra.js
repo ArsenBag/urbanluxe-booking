@@ -145,6 +145,38 @@
   var phMap = buildMap(PH);
   var hdMap = buildMap(HD);
 
+  // --- Описание апартамента в модалке: подмена из БД (description_en/uz) ---
+  var SB_URL = 'https://sebvfvtofiysbywxjqut.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+  var descTr = null; // {id: {ru, en, uz}}
+  function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function loadDescTr() {
+    if (descTr || !(window.supabase || window.sb)) return;
+    try {
+      var sb = window.sb || window.supabase.createClient(SB_URL, SB_KEY);
+      sb.from('apartments').select('id,description,description_en,description_uz').eq('is_active', true).then(function (res) {
+        if (res && res.data) {
+          descTr = {};
+          res.data.forEach(function (r) { descTr[r.id] = { ru: r.description, en: r.description_en, uz: r.description_uz }; });
+          applyDesc(window.UL_LANG || 'ru');
+        }
+      });
+    } catch (e) {}
+  }
+  function modalAptId() {
+    var img = document.querySelector('#modalContent img, .modal img');
+    if (img && img.src) { var m = img.src.match(/\/apartments\/([^\/]+)\//); if (m && m[1] && m[1] !== 'hero') return m[1]; }
+    return null;
+  }
+  function applyDesc(lang) {
+    var d = document.querySelector('.modal-desc'); if (!d || !descTr) return;
+    var id = modalAptId(); if (!id || !descTr[id]) return;
+    var txt = descTr[id][lang] || descTr[id].ru;
+    if (txt == null) return;
+    var html = escHtml(txt).replace(/\r?\n/g, '<br>');
+    if (d.innerHTML !== html) d.innerHTML = html;
+  }
+
   // Названия апартаментов «Апартамент N» / «Apartment N» / «Kvartira N» — одно правило на все
   var APT_WORD = { ru: 'Апартамент', en: 'Apartment', uz: 'Kvartira' };
   var APT_RE = /^(Апартамент|Apartment|Kvartira)\s+(\d+)$/;
@@ -172,7 +204,7 @@
   function applyLang(lang) {
     if (lang !== 'ru' && lang !== 'en' && lang !== 'uz') lang = 'ru';
     if (observer) observer.disconnect();            // не реагируем на собственные правки
-    try { applyText(lang); applyHeadings(lang); } catch (e) {}
+    try { applyText(lang); applyHeadings(lang); applyDesc(lang); } catch (e) {}
     if (observer && document.body) observer.observe(document.body, { childList: true, subtree: true });
   }
 
@@ -208,7 +240,7 @@
   hook();
   var tries = 0, ht = setInterval(function () { hook(); if ((window.setLang && window.setLang.__extraHooked) || ++tries > 40) clearInterval(ht); }, 250);
 
-  function init() { setupObserver(); applyLang(window.UL_LANG || 'ru'); }
+  function init() { setupObserver(); loadDescTr(); applyLang(window.UL_LANG || 'ru'); }
   if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
   setTimeout(init, 600);
   setTimeout(init, 1500);
