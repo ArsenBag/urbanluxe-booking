@@ -17,9 +17,9 @@ function fetchApartment(id) {
     const req = https.request(opts, (res) => {
       let body = '';
       res.on('data', c => body += c);
-      res.on('end', () => { try { const a = JSON.parse(body); resolve(Array.isArray(a) && a[0] ? a[0] : null); } catch (e) { resolve(null); } });
+      res.on('end', () => { try { const a = JSON.parse(body); resolve({apt: Array.isArray(a) && a[0] ? a[0] : null, raw: body, status: res.statusCode}); } catch (e) { resolve({apt: null, raw: body, status: res.statusCode, parseErr: e.message}); } });
     });
-    req.on('error', () => resolve(null));
+    req.on('error', (e) => resolve({apt: null, err: e.message}));
     req.end();
   });
 }
@@ -37,26 +37,47 @@ function firstPhoto(photo_url) {
 }
 
 function isCrawler(ua) {
-  if (!ua) return false;
-  return /facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Pinterest|Slackbot|vkShare|Discordbot|Googlebot|bingbot|redditbot|Applebot|SkypeUriPreview/i.test(ua);
+  if (!ua) return true; // нет UA — считаем ботом (Telegram иногда не шлёт UA)
+  return /facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Pinterest|Slackbot|vkShare|Discordbot|Googlebot|bingbot|redditbot|Applebot|SkypeUriPreview|Telegram/i.test(ua);
 }
 
 exports.handler = async (event) => {
-  const aptId = (event.queryStringParameters && event.queryStringParameters.apt) || '';
+  const params = event.queryStringParameters || {};
+  const aptId = params.apt || '';
+  const forceOg = params._og === '1';
+  const debug = params._debug === '1';
   const target = `https://urbanluxe.cc/?apt=${encodeURIComponent(aptId)}`;
   const ua = (event.headers && (event.headers['user-agent'] || event.headers['User-Agent'])) || '';
 
-  if (!isCrawler(ua)) {
+  // DEBUG: возвращает диагностику в виде JSON (для отладки нами)
+  if (debug) {
+    const dbg = aptId ? await fetchApartment(aptId) : {note: 'no aptId in query'};
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({
+        received_query: params,
+        received_apt_id: aptId,
+        received_ua: ua,
+        is_crawler: isCrawler(ua),
+        force_og: forceOg,
+        supabase_response: dbg,
+      }, null, 2),
+    };
+  }
+
+  if (!isCrawler(ua) && !forceOg) {
     return { statusCode: 302, headers: { Location: target, 'Cache-Control': 'no-cache' }, body: '' };
   }
 
-  const apt = aptId ? await fetchApartment(aptId) : null;
+  const result = aptId ? await fetchApartment(aptId) : null;
+  const apt = result && result.apt;
   const DEFAULT_IMG = 'https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/hero/IMG_6080.jpg';
   let title, desc, image;
 
   if (apt) {
     const rooms = apt.style || 'Апартамент';
-    title = `${esc(apt.name)} · ${esc(apt.complex)} — Urban Luxe Ташкент`;
+    title = `${apt.name} · ${apt.complex} — Urban Luxe Ташкент`;
     const shortDesc = (apt.description || '').replace(/\s+/g, ' ').trim().slice(0, 140);
     desc = `${rooms}, ${apt.floor} этаж, до ${apt.max_guests || 2} гостей. От $${apt.weekday_price}/ночь. ${shortDesc}`.slice(0, 200);
     image = firstPhoto(apt.photo_url) || DEFAULT_IMG;
@@ -77,6 +98,8 @@ exports.handler = async (event) => {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${esc(image)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:url" content="${esc(target)}">
 <meta property="og:locale" content="ru_RU">
 <meta name="twitter:card" content="summary_large_image">
