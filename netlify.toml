@@ -5,6 +5,17 @@
 [functions]
   node_bundler = "esbuild"
 
+# Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html)
+[[redirects]]
+  from = "/en"
+  to = "/.netlify/functions/lang?lang=en"
+  status = 200
+
+[[redirects]]
+  from = "/uz"
+  to = "/.netlify/functions/lang?lang=uz"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
