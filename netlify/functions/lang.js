@@ -46,7 +46,10 @@ function buildHead(lang) {
     `\n<link rel="alternate" hreflang="ru" href="${ORIGIN}/">` +
     `\n<link rel="alternate" hreflang="en" href="${ORIGIN}/en">` +
     `\n<link rel="alternate" hreflang="uz" href="${ORIGIN}/uz">` +
-    `\n<link rel="alternate" hreflang="x-default" href="${ORIGIN}/">`;
+    `\n<link rel="alternate" hreflang="x-default" href="${ORIGIN}/">` +
+    // canonical и og:locale инжектируем явно — seo-map-upgrade.js их не тронет (создаёт только при отсутствии)
+    `\n<link rel="canonical" href="${url}">` +
+    `\n<meta property="og:locale" content="${t.locale}">`;
   const altLocales = Object.keys(T)
     .filter((k) => k !== lang)
     .map((k) => `\n<meta property="og:locale:alternate" content="${T[k].locale}">`)
@@ -85,6 +88,10 @@ exports.handler = async (event) => {
   set(/(<meta\s+property="og:locale"\s+content=")[^"]*("\s*\/?>)/i, t.locale);
   set(/(<meta\s+property="og:url"\s+content=")[^"]*("\s*\/?>)/i, url);
   set(/(<link\s+rel="canonical"\s+href=")[^"]*("\s*\/?>)/i, url);
+
+  // i18n.js подключён относительным путём — на /en он бы резолвился в /.netlify/functions/i18n.js (404).
+  // Делаем абсолютным, иначе setLang не определится и контент не переключится.
+  html = html.replace(/(<script[^>]+src=")i18n\.js(")/i, (m, p1, p2) => p1 + '/i18n.js' + p2);
 
   // Вставка hreflang + альтернативных локалей + авто-переключения языка перед </head>
   html = html.replace(/<\/head>/i, `${hreflang}${altLocales}${forceScript}\n</head>`);
