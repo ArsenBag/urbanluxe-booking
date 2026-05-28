@@ -124,8 +124,66 @@
     { ru: 'от $105/ночь', en: 'from $105/night', uz: '$105/kechadan' },
     { ru: 'Смотреть апартаменты', en: 'View apartments', uz: 'Kvartiralarni ko\'rish' },
     { ru: '📍 Нажмите чтобы загрузить карту', en: '📍 Click to load the map', uz: '📍 Xaritani yuklash uchun bosing' },
-    { ru: '📍 Открыть в Яндекс.Картах', en: '📍 Open in Yandex Maps', uz: '📍 Yandex Xaritalarda ochish' }
+    { ru: '📍 Открыть в Яндекс.Картах', en: '📍 Open in Yandex Maps', uz: '📍 Yandex Xaritalarda ochish' },
+
+    // --- Модалка апартамента: лейблы и кнопки ---
+    { ru: 'Удобства', en: 'Amenities', uz: 'Qulayliklar' },
+    { ru: 'за ночь', en: 'per night', uz: 'kechada' },
+    { ru: 'Заезд', en: 'Check-in', uz: 'Kirish' },
+    { ru: 'Выезд', en: 'Check-out', uz: 'Chiqish' },
+    { ru: 'Ср. за ночь', en: 'Avg per night', uz: 'O\'rtacha (kechada)' },
+    { ru: 'Доступность', en: 'Availability', uz: 'Mavjudlik' },
+    { ru: 'Проверить доступность', en: 'Check availability', uz: 'Mavjudligini tekshirish' },
+    { ru: 'Забронировать', en: 'Book', uz: 'Bron qilish' },
+    { ru: 'Бесплатная отмена · Подтверждение за 15 мин', en: 'Free cancellation · Confirmed in 15 min', uz: 'Bepul bekor qilish · 15 daqiqada tasdiqlash' },
+    { ru: 'Ваше имя', en: 'Your name', uz: 'Ismingiz' },
+    { ru: 'Телефон', en: 'Phone', uz: 'Telefon' },
+    { ru: 'Загрузка календаря...', en: 'Loading calendar...', uz: 'Kalendar yuklanmoqda...' },
+    { ru: 'Загрузка...', en: 'Loading...', uz: 'Yuklanmoqda...' },
+    { ru: 'Гражданство', en: 'Citizenship', uz: 'Fuqarolik' },
+    { ru: 'Бронирую для другого человека', en: 'Booking for someone else', uz: 'Boshqa odam uchun bron qilyapman' },
+    { ru: '● Свободно', en: '● Available', uz: '● Bo\'sh' },
+    { ru: '● Занято', en: '● Booked', uz: '● Band' },
+    { ru: 'Свободно', en: 'Available', uz: 'Bo\'sh' },
+    { ru: 'Занято', en: 'Booked', uz: 'Band' },
+
+    // Гражданства
+    { ru: 'Узбекистан', en: 'Uzbekistan', uz: 'O\'zbekiston' },
+    { ru: 'Россия', en: 'Russia', uz: 'Rossiya' },
+    { ru: 'Казахстан', en: 'Kazakhstan', uz: 'Qozog\'iston' },
+    { ru: 'Кыргызстан', en: 'Kyrgyzstan', uz: 'Qirg\'iziston' },
+    { ru: 'Таджикистан', en: 'Tajikistan', uz: 'Tojikiston' },
+    { ru: 'Туркменистан', en: 'Turkmenistan', uz: 'Turkmaniston' },
+    { ru: 'Другое', en: 'Other', uz: 'Boshqa' },
+
+    // Удобства (modal-amenity)
+    { ru: 'Кондиционер', en: 'Air conditioning', uz: 'Konditsioner' },
+    { ru: 'Кухня', en: 'Kitchen', uz: 'Oshxona' },
+    { ru: 'Стиральная машина', en: 'Washing machine', uz: 'Kir yuvish mashinasi' },
+    { ru: 'Парковка', en: 'Parking', uz: 'Parking' },
+    { ru: 'Балкон', en: 'Balcony', uz: 'Balkon' },
+    { ru: 'Панорамный вид', en: 'Panoramic view', uz: 'Panoramali manzara' },
+    { ru: 'Спортзал', en: 'Gym', uz: 'Sport zal' },
+    { ru: 'Утюг', en: 'Iron', uz: 'Dazmol' },
+    { ru: 'Фен', en: 'Hair dryer', uz: 'Fen' },
+    { ru: 'Сейф', en: 'Safe', uz: 'Seyf' },
+    { ru: 'Уборка', en: 'Cleaning', uz: 'Tozalash' },
+    { ru: 'Постельное бельё', en: 'Bed linens', uz: 'Choyshablar' },
+    { ru: 'Телевизор', en: 'TV', uz: 'Televizor' },
+
+    // Дни недели (календарь flatpickr)
+    { ru: 'Пн', en: 'Mon', uz: 'Du' }, { ru: 'Вт', en: 'Tue', uz: 'Se' }, { ru: 'Ср', en: 'Wed', uz: 'Cho' },
+    { ru: 'Чт', en: 'Thu', uz: 'Pa' }, { ru: 'Пт', en: 'Fri', uz: 'Ju' }, { ru: 'Сб', en: 'Sat', uz: 'Sha' }, { ru: 'Вс', en: 'Sun', uz: 'Ya' }
   ];
+
+  // Месяцы (для подписи календаря «Май 2026»)
+  var MONTHS = {
+    'Январь': ['January', 'Yanvar'], 'Февраль': ['February', 'Fevral'], 'Март': ['March', 'Mart'],
+    'Апрель': ['April', 'Aprel'], 'Май': ['May', 'May'], 'Июнь': ['June', 'Iyun'],
+    'Июль': ['July', 'Iyul'], 'Август': ['August', 'Avgust'], 'Сентябрь': ['September', 'Sentabr'],
+    'Октябрь': ['October', 'Oktabr'], 'Ноябрь': ['November', 'Noyabr'], 'Декабрь': ['December', 'Dekabr']
+  };
+  function monthIdx(l) { return l === 'en' ? 0 : 1; }
 
   // Заголовки с разметкой (точное совпадение innerHTML)
   var HD = [
@@ -177,21 +235,55 @@
     if (d.innerHTML !== html) d.innerHTML = html;
   }
 
-  // Названия апартаментов «Апартамент N» / «Apartment N» / «Kvartira N» — одно правило на все
-  var APT_WORD = { ru: 'Апартамент', en: 'Apartment', uz: 'Kvartira' };
-  var APT_RE = /^(Апартамент|Apartment|Kvartira)\s+(\d+)$/;
+  function numOf(s) { var m = s.match(/\d+/); return m ? m[0] : ''; }
+  function ruGuests(n) { var k = parseInt(n, 10); return k === 1 ? 'гость' : (k >= 2 && k <= 4) ? 'гостя' : 'гостей'; }
+
+  // Возвращает перевод строки key на язык lang или null (точный словарь + динамические правила)
+  function translateKey(key, lang) {
+    var e = phMap[key];
+    if (e && e[lang]) return e[lang];
+    var n;
+    // Апартамент N
+    if (/^(Апартамент|Apartment|Kvartira)\s+\d+$/.test(key)) { n = numOf(key); return (lang === 'uz' ? 'Kvartira' : lang === 'en' ? 'Apartment' : 'Апартамент') + ' ' + n; }
+    // До N гостей
+    if (/^(До\s+\d+\s+гост\S+|Up to \d+ guests|\d+ mehmongacha)$/.test(key)) { n = numOf(key); return lang === 'en' ? ('Up to ' + n + ' guests') : lang === 'uz' ? (n + ' mehmongacha') : ('До ' + n + ' гостей'); }
+    // N гость/гостя/гостей (селектор гостей)
+    if (/^(\d+\s+гост(?:ь|я|ей)|\d+ guests?|\d+ mehmon)$/.test(key)) { n = numOf(key); return lang === 'en' ? (n + ' guests') : lang === 'uz' ? (n + ' mehmon') : (n + ' ' + ruGuests(n)); }
+    // от $N
+    if (/^(от \$\d+|from \$\d+|\$\d+ dan)$/.test(key)) { n = numOf(key); return lang === 'en' ? ('from $' + n) : lang === 'uz' ? ('$' + n + ' dan') : ('от $' + n); }
+    // N ночей
+    if (/^(\d+\s+ноч\S*|\d+ nights?|\d+ kecha)$/.test(key)) { n = numOf(key); return lang === 'en' ? (n + ' nights') : lang === 'uz' ? (n + ' kecha') : (n + ' ноч.'); }
+    // Месяц ГГГГ
+    var mm = key.match(/^([A-Za-zА-Яа-яЁё]+)\s+(\d{4})$/);
+    if (mm) {
+      for (var ru in MONTHS) {
+        if (ru === mm[1] || MONTHS[ru][0] === mm[1] || MONTHS[ru][1] === mm[1]) {
+          return (lang === 'ru' ? ru : MONTHS[ru][monthIdx(lang)]) + ' ' + mm[2];
+        }
+      }
+    }
+    // Отдельный месяц
+    if (MONTHS[key]) return lang === 'ru' ? key : MONTHS[key][monthIdx(lang)];
+    // обратный поиск месяца (en/uz -> др. язык)
+    for (var r in MONTHS) { if (MONTHS[r][0] === key || MONTHS[r][1] === key) return lang === 'ru' ? r : MONTHS[r][monthIdx(lang)]; }
+    return null;
+  }
+
   function applyText(lang) {
     var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), n;
     while ((n = w.nextNode())) {
       var raw = n.nodeValue, key = raw.trim();
       if (!key) continue;
-      var e = phMap[key];
-      if (e && e[lang] && key !== e[lang]) { n.nodeValue = raw.replace(key, e[lang]); continue; }
-      var m = key.match(APT_RE);
-      if (m) {
-        var target = APT_WORD[lang] + ' ' + m[2];
-        if (key !== target) n.nodeValue = raw.replace(key, target);
-      }
+      var tgt = translateKey(key, lang);
+      if (tgt && key !== tgt) n.nodeValue = raw.replace(key, tgt);
+    }
+    // Плейсхолдеры инпутов в модалке (Ваше имя, Телефон и т.п.)
+    var inps = document.querySelectorAll('#modalContent input[placeholder], .modal input[placeholder]');
+    for (var i = 0; i < inps.length; i++) {
+      var pk = (inps[i].placeholder || '').trim();
+      if (!pk) continue;
+      var pt = translateKey(pk, lang);
+      if (pt && pk !== pt) inps[i].placeholder = pt;
     }
   }
   function applyHeadings(lang) {
