@@ -62,8 +62,12 @@ function buildHead(lang) {
 }
 
 exports.handler = async (event) => {
+  // Язык берём из пути (/.netlify/functions/lang/en) — Netlify-rewrite query-параметры теряет.
+  // Query (?lang=en) оставлен как запасной вход для прямого вызова/отладки.
   const params = event.queryStringParameters || {};
-  const lang = (params.lang === 'uz') ? 'uz' : (params.lang === 'en' ? 'en' : null);
+  const seg = (event.path || '').split('/').filter(Boolean).pop();
+  const cand = params.lang || ((seg === 'en' || seg === 'uz') ? seg : null);
+  const lang = (cand === 'uz') ? 'uz' : (cand === 'en' ? 'en' : null);
   if (!lang) {
     return { statusCode: 302, headers: { Location: ORIGIN + '/' }, body: '' };
   }
