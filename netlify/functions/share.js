@@ -106,11 +106,10 @@ exports.handler = async (event) => {
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(desc)}">
 <meta name="twitter:image" content="${esc(image)}">
-<meta http-equiv="refresh" content="0; url=${esc(target)}">
-<link rel="canonical" href="${esc(target)}">
 </head>
 <body>
 <p>Переход к апартаменту… <a href="${esc(target)}">Открыть Urban Luxe</a></p>
+<script>location.replace(${JSON.stringify(target)});</script>
 </body>
 </html>`;
 
