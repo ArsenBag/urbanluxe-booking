@@ -5,15 +5,16 @@
 [functions]
   node_bundler = "esbuild"
 
-# Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html)
+# Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html).
+# Язык передаём через путь, а не query: Netlify теряет query-строку в rewrite-цели.
 [[redirects]]
   from = "/en"
-  to = "/.netlify/functions/lang?lang=en"
+  to = "/.netlify/functions/lang/en"
   status = 200
 
 [[redirects]]
   from = "/uz"
-  to = "/.netlify/functions/lang?lang=uz"
+  to = "/.netlify/functions/lang/uz"
   status = 200
 
 [[headers]]
