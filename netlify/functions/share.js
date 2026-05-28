@@ -36,6 +36,14 @@ function firstPhoto(photo_url) {
   } catch (e) { return null; }
 }
 
+// Фото в БД — полноразмерные (до ~7 МБ), Telegram не рендерит og:image тяжелее ~5 МБ.
+// Прогоняем картинку через бесплатный резайзер weserv.nl -> ~130 КБ, 1200x630.
+function ogImage(url) {
+  if (!url || !/^https?:\/\//.test(url)) return url;
+  const noScheme = url.replace(/^https?:\/\//, '');
+  return 'https://images.weserv.nl/?url=ssl:' + noScheme + '&w=1200&h=630&fit=cover&q=80&output=jpg';
+}
+
 function isCrawler(ua) {
   if (!ua) return true; // нет UA — считаем ботом (Telegram иногда не шлёт UA)
   return /facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Pinterest|Slackbot|vkShare|Discordbot|Googlebot|bingbot|redditbot|Applebot|SkypeUriPreview|Telegram/i.test(ua);
@@ -86,6 +94,8 @@ exports.handler = async (event) => {
     desc = 'Премиальные апартаменты посуточно в Ташкенте. Заезд 24/7, без комиссии.';
     image = DEFAULT_IMG;
   }
+
+  image = ogImage(image);
 
   const html = `<!DOCTYPE html>
 <html lang="ru">
