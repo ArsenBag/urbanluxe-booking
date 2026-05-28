@@ -1,29 +1,35 @@
 const https = require('https');
 const { sendEmail, bookingConfirmEmail } = require('./_send-email');
 
+// Удаляет HTML-теги и опасные символы из пользовательского ввода (защита от XSS)
+function sanitize(s){ if(s==null) return s; return String(s).replace(/<[^>]*>/g,'').replace(/[<>]/g,'').trim().slice(0,500); }
+
 const APARTMENTS = {
-  'nest_15':    { name: 'Nest One — Кв. 15',    weekday: 90,  weekend: 100 },
-  'nest_249':   { name: 'Nest One — Кв. 249',   weekday: 105, weekend: 115 },
-  'nest_481':   { name: 'Nest One — Кв. 481',   weekday: 125, weekend: 135 },
-  'nest_233':   { name: 'Nest One — Кв. 233',   weekday: 135, weekend: 145 },
-  'nest_353':   { name: 'Nest One — Кв. 353',   weekday: 105, weekend: 115 },
-  'utower_65':  { name: 'U-Tower — Кв. 65',     weekday: 90,  weekend: 100 },
-  'utower_73':  { name: 'U-Tower — Кв. 73',     weekday: 90,  weekend: 100 },
-  'utower_171': { name: 'U-Tower — Кв. 171',    weekday: 85,  weekend: 95 },
-  'utower_208': { name: 'U-Tower — Кв. 208',    weekday: 85,  weekend: 95 },
-  'utower_310': { name: 'U-Tower — Кв. 310',    weekday: 85,  weekend: 95 },
-  'utower_410': { name: 'U-Tower — Кв. 410',    weekday: 95,  weekend: 105 },
-  'utower2_5':  { name: 'U-Tower 2 — Кв. 5',    weekday: 115, weekend: 125 },
-  'utower2_9':  { name: 'U-Tower 2 — Кв. 9',    weekday: 115, weekend: 125 },
-  'utower2_207':{ name: 'U-Tower 2 — Кв. 207',  weekday: 135, weekend: 145 },
-  'utower2_228':{ name: 'U-Tower 2 — Кв. 228',  weekday: 135, weekend: 145 },
-  'utower2_296':{ name: 'U-Tower 2 — Кв. 296',  weekday: 105, weekend: 115 },
-  'utower2_92': { name: 'U-Tower 2 — Кв. 92',   weekday: 105, weekend: 115 },
-  'mirabad_111':{ name: 'Mirabad — Кв. 111',    weekday: 115, weekend: 125 },
-  'mirabad_205':{ name: 'Mirabad — Кв. 205',    weekday: 90,  weekend: 100 },
-  'kislorod_49':{ name: 'Kislorod — Кв. 49',    weekday: 105, weekend: 115 },
-  'kislorod_58':{ name: 'Kislorod — Кв. 58',    weekday: 115, weekend: 125 },
-  'kislorod_128':{ name: 'Kislorod — Кв. 128',  weekday: 115, weekend: 125 },
+  'nest_15': { name: 'Nest One — Кв. 15', weekday: 90, weekend: 100 },
+  'nest_249': { name: 'Nest One — Кв. 249', weekday: 105, weekend: 115 },
+  'nest_481': { name: 'Nest One — Кв. 481', weekday: 125, weekend: 135 },
+  'nest_233': { name: 'Nest One — Кв. 233', weekday: 135, weekend: 145 },
+  'nest_353': { name: 'Nest One — Кв. 353', weekday: 105, weekend: 115 },
+  'nest_163': { name: 'Nest One — Кв. 163', weekday: 150, weekend: 160 },
+  'nest_477': { name: 'Nest One — Кв. 477', weekday: 150, weekend: 160 },
+  'utower_65': { name: 'U-Tower — Кв. 65', weekday: 90, weekend: 100 },
+  'utower_73': { name: 'U-Tower — Кв. 73', weekday: 90, weekend: 100 },
+  'utower_171': { name: 'U-Tower — Кв. 171', weekday: 85, weekend: 95 },
+  'utower_208': { name: 'U-Tower — Кв. 208', weekday: 85, weekend: 95 },
+  'utower_276': { name: 'U-Tower — Кв. 276', weekday: 90, weekend: 100 },
+  'utower_310': { name: 'U-Tower — Кв. 310', weekday: 85, weekend: 95 },
+  'utower_410': { name: 'U-Tower — Кв. 410', weekday: 95, weekend: 105 },
+  'utower2_5': { name: 'U-Tower 2 — Кв. 5', weekday: 115, weekend: 125 },
+  'utower2_9': { name: 'U-Tower 2 — Кв. 9', weekday: 115, weekend: 125 },
+  'utower2_207':{ name: 'U-Tower 2 — Кв. 207', weekday: 135, weekend: 145 },
+  'utower2_228':{ name: 'U-Tower 2 — Кв. 228', weekday: 135, weekend: 145 },
+  'utower2_296':{ name: 'U-Tower 2 — Кв. 296', weekday: 105, weekend: 115 },
+  'utower2_92': { name: 'U-Tower 2 — Кв. 92', weekday: 105, weekend: 115 },
+  'mirabad_111':{ name: 'Mirabad — Кв. 111', weekday: 115, weekend: 125 },
+  'mirabad_205':{ name: 'Mirabad — Кв. 205', weekday: 90, weekend: 100 },
+  'kislorod_49':{ name: 'Kislorod — Кв. 49', weekday: 105, weekend: 115 },
+  'kislorod_58':{ name: 'Kislorod — Кв. 58', weekday: 115, weekend: 125 },
+  'kislorod_128':{ name: 'Kislorod — Кв. 128', weekday: 115, weekend: 125 },
 };
 
 function httpsRequest(url, options, postData) {
@@ -74,7 +80,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': 'https://urbanluxe.cc',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
       },
@@ -99,7 +105,7 @@ exports.handler = async (event) => {
     if (!apartment_id || !guest_name || !guest_phone || !check_in || !check_out) {
       return {
         statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
         body: JSON.stringify({ error: 'Заполните обязательные поля' })
       };
     }
@@ -108,7 +114,7 @@ exports.handler = async (event) => {
     if (!apt) {
       return {
         statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
         body: JSON.stringify({ error: 'Апартамент не найден' })
       };
     }
@@ -118,22 +124,22 @@ exports.handler = async (event) => {
 
     const booking = {
       apartment_id,
-      guest_name,
-      guest_phone,
-      guest_email: guest_email || null,
+      guest_name: sanitize(guest_name),
+      guest_phone: sanitize(guest_phone),
+      guest_email: sanitize(guest_email) || null,
       check_in,
       check_out,
       guests_count: guests_count || 1,
-      notes: [notes, citizenship ? `Гражданство: ${citizenship}` : ''].filter(Boolean).join(' | ') || null,
+      notes: [sanitize(notes), citizenship ? `Гражданство: ${sanitize(citizenship)}` : ''].filter(Boolean).join(' | ') || null,
       total_price: total,
       nights,
       status: 'pending',
       source: 'website',
       booking_ref,
       user_id: user_id || null,
-      booker_name: booker_name || null,
-      booker_phone: booker_phone || null,
-      booker_email: booker_email || null,
+      booker_name: sanitize(booker_name) || null,
+      booker_phone: sanitize(booker_phone) || null,
+      booker_email: sanitize(booker_email) || null,
       created_at: new Date().toISOString(),
     };
 
@@ -170,7 +176,7 @@ exports.handler = async (event) => {
       console.error('[BOOK] Supabase error body:', sbResult.body);
       return {
         statusCode: 500,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
         body: JSON.stringify({ error: 'Ошибка сохранения. Попробуйте ещё раз.' })
       };
     }
@@ -179,21 +185,28 @@ exports.handler = async (event) => {
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChat = process.env.TELEGRAM_CHAT_ID;
     if (tgToken && tgChat) {
-      const isForOther = booker_name && booker_name !== guest_name;
+      const safeName = sanitize(guest_name);
+      const safePhone = sanitize(guest_phone);
+      const safeEmail = sanitize(guest_email);
+      const safeBookerName = sanitize(booker_name);
+      const safeBookerPhone = sanitize(booker_phone);
+      const safeBookerEmail = sanitize(booker_email);
+      const safeNotes = sanitize(notes);
+      const isForOther = safeBookerName && safeBookerName !== safeName;
       const bookerLine = isForOther
-        ? `\n💼 *Покупатель:* ${booker_name}${booker_phone ? ` · ${booker_phone}` : ''}${booker_email ? ` · ${booker_email}` : ''}`
+        ? `\n💼 *Покупатель:* ${safeBookerName}${safeBookerPhone ? ` · ${safeBookerPhone}` : ''}${safeBookerEmail ? ` · ${safeBookerEmail}` : ''}`
         : '';
       const tgMessage =
         `🏠 *Новая заявка с сайта!*\n` +
         `🔖 \`${booking_ref}\`\n\n` +
         `📍 ${apt.name}\n` +
-        `🛏️ *Гость заезда:* ${guest_name}\n📞 ${guest_phone}` +
-        (guest_email ? `\n📧 ${guest_email}` : '') +
+        `🛏️ *Гость заезда:* ${safeName}\n📞 ${safePhone}` +
+        (safeEmail ? `\n📧 ${safeEmail}` : '') +
         bookerLine +
         `\n\n📅 Заезд: ${check_in}\n📅 Выезд: ${check_out}\n` +
         `🌙 Ночей: ${nights}\n👥 Гостей: ${guests_count || 1}\n\n` +
         `💰 Итого: $${total}\n` +
-        `📝 ${notes || 'без комментариев'}\n\n` +
+        `📝 ${safeNotes || 'без комментариев'}\n\n` +
         `⏳ Статус: ожидает подтверждения`;
 
       const tgData = JSON.stringify({
@@ -213,10 +226,10 @@ exports.handler = async (event) => {
     }
 
     // Email подтверждение гостю
-    const emailTo = guest_email || booker_email;
+    const emailTo = sanitize(guest_email) || sanitize(booker_email);
     if (emailTo) {
       const tpl = bookingConfirmEmail({
-        guestName: guest_name,
+        guestName: sanitize(guest_name),
         bookingRef: booking_ref,
         apartmentName: apt.name,
         checkIn: check_in,
@@ -231,7 +244,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': 'https://urbanluxe.cc',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -246,9 +259,9 @@ exports.handler = async (event) => {
           check_out,
           nights,
           total,
-          guest_name,
-          guest_phone,
-          guest_email: guest_email || null,
+          guest_name: sanitize(guest_name),
+          guest_phone: sanitize(guest_phone),
+          guest_email: sanitize(guest_email) || null,
         },
       }),
     };
@@ -256,7 +269,7 @@ exports.handler = async (event) => {
     console.error('[BOOK] Error:', e);
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
       body: JSON.stringify({ error: 'Ошибка сервера' })
     };
   }
