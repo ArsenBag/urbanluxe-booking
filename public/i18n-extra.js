@@ -82,14 +82,57 @@
     { ru: 'БРОНИРУЙТЕ НА:', en: 'BOOK ON:', uz: 'BU YERDA BRON QILING:' },
 
     // --- Прочее ---
-    { ru: 'Вопросы', en: 'Questions', uz: 'Savollar' }
+    { ru: 'Вопросы', en: 'Questions', uz: 'Savollar' },
+
+    // --- Стили/типы апартаментов (подзаголовок карточки) ---
+    { ru: 'Студия', en: 'Studio', uz: 'Studiya' },
+    { ru: 'Оливковая студия', en: 'Olive studio', uz: 'Zaytun studiya' },
+    { ru: '2+1 · Просторный', en: '2+1 · Spacious', uz: '2+1 · Keng' },
+    { ru: 'двухкомнатная', en: 'Two-room', uz: 'Ikki xonali' },
+    { ru: 'Классика · 3+1', en: 'Classic · 3+1', uz: 'Klassika · 3+1' },
+    { ru: 'Лофт · Чёрный мрамор', en: 'Loft · Black marble', uz: 'Loft · Qora marmar' },
+    { ru: '3х', en: '3-room', uz: '3 xonali' },
+    { ru: 'Светлый · Золотые акценты', en: 'Bright · Gold accents', uz: 'Yorug\' · Oltin aksentlar' },
+    { ru: 'Премиум', en: 'Premium', uz: 'Premium' },
+    { ru: 'Студия · Высокий этаж', en: 'Studio · High floor', uz: 'Studiya · Baland qavat' },
+    { ru: 'Премиум · Панорамный вид', en: 'Premium · Panoramic view', uz: 'Premium · Panoramali manzara' },
+
+    // --- Блок карты (seo-map-upgrade.js, вставляется динамически) ---
+    { ru: 'Наши комплексы', en: 'Our complexes', uz: 'Bizning majmualar' },
+    { ru: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамный вид на город.',
+      en: 'The tallest skyscraper in Uzbekistan. 51 floors, panoramic city views.',
+      uz: 'O\'zbekistondagi eng baland osmono\'par bino. 51 qavat, shaharning panoramali manzarasi.' },
+    { ru: 'Современный жилой комплекс бизнес-класса. 30 этажей, Smart Home.',
+      en: 'A modern business-class residential complex. 30 floors, Smart Home.',
+      uz: 'Zamonaviy biznes-klass turar-joy majmuasi. 30 qavat, Smart Home.' },
+    { ru: 'Престижный район в центре. Рядом парки, рестораны, метро.',
+      en: 'A prestigious district in the centre. Parks, restaurants and the metro nearby.',
+      uz: 'Markazdagi nufuzli hudud. Yaqinida bog\'lar, restoranlar, metro.' },
+    { ru: 'Эко-комплекс с зелёным двором вдоль реки. Тишина и комфорт.',
+      en: 'An eco-complex with a green courtyard along the river. Quiet and comfort.',
+      uz: 'Daryo bo\'yidagi yashil hovlili eko-majmua. Sokinlik va qulaylik.' },
+    { ru: 'ул. Батыра Закирова 1А, Шайхантахурский район', en: '1A Batyr Zakirov St., Shaykhantakhur district', uz: 'Botir Zokirov ko\'chasi 1A, Shayxontohur tumani' },
+    { ru: 'мкр. Бешагач 1/1, Шайхантахурский район', en: 'Beshagach 1/1, Shaykhantakhur district', uz: 'Beshyog\'och mavzesi 1/1, Shayxontohur tumani' },
+    { ru: 'ул. Айбек 38А, Мирабадский район', en: '38A Aybek St., Mirabad district', uz: 'Oybek ko\'chasi 38A, Mirobod tumani' },
+    { ru: 'ул. Бурижар 1, Яккасарайский район', en: '1 Burijar St., Yakkasaray district', uz: 'Burijar ko\'chasi 1, Yakkasaroy tumani' },
+    { ru: '7 апартаментов', en: '7 apartments', uz: '7 ta kvartira' },
+    { ru: '13 апартаментов', en: '13 apartments', uz: '13 ta kvartira' },
+    { ru: '2 апартамента', en: '2 apartments', uz: '2 ta kvartira' },
+    { ru: '3 апартамента', en: '3 apartments', uz: '3 ta kvartira' },
+    { ru: 'от $90/ночь', en: 'from $90/night', uz: '$90/kechadan' },
+    { ru: 'от $85/ночь', en: 'from $85/night', uz: '$85/kechadan' },
+    { ru: 'от $105/ночь', en: 'from $105/night', uz: '$105/kechadan' },
+    { ru: 'Смотреть апартаменты', en: 'View apartments', uz: 'Kvartiralarni ko\'rish' },
+    { ru: '📍 Нажмите чтобы загрузить карту', en: '📍 Click to load the map', uz: '📍 Xaritani yuklash uchun bosing' },
+    { ru: '📍 Открыть в Яндекс.Картах', en: '📍 Open in Yandex Maps', uz: '📍 Yandex Xaritalarda ochish' }
   ];
 
   // Заголовки с разметкой (точное совпадение innerHTML)
   var HD = [
     { ru: 'Более <em>500 гостей</em> из 30 стран.', en: 'More than <em>500 guests</em> from 30 countries.', uz: '30 davlatdan <em>500+ mehmon</em>.' },
     { ru: 'Сервис, который <em>решает</em> всё.', en: 'Service that <em>handles</em> everything.', uz: 'Hammasini <em>hal qiladigan</em> xizmat.' },
-    { ru: 'Часто <em>задаваемые</em> вопросы.', en: 'Frequently <em>asked</em> questions.', uz: 'Tez-tez <em>so\'raladigan</em> savollar.' }
+    { ru: 'Часто <em>задаваемые</em> вопросы.', en: 'Frequently <em>asked</em> questions.', uz: 'Tez-tez <em>so\'raladigan</em> savollar.' },
+    { ru: 'Четыре адреса <em>одного</em> стиля.', en: 'Four addresses, <em>one</em> style.', uz: 'Bitta uslubdagi <em>to\'rt</em> manzil.' }
   ];
 
   function buildMap(arr) {
@@ -102,13 +145,21 @@
   var phMap = buildMap(PH);
   var hdMap = buildMap(HD);
 
+  // Названия апартаментов «Апартамент N» / «Apartment N» / «Kvartira N» — одно правило на все
+  var APT_WORD = { ru: 'Апартамент', en: 'Apartment', uz: 'Kvartira' };
+  var APT_RE = /^(Апартамент|Apartment|Kvartira)\s+(\d+)$/;
   function applyText(lang) {
     var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), n;
     while ((n = w.nextNode())) {
       var raw = n.nodeValue, key = raw.trim();
       if (!key) continue;
       var e = phMap[key];
-      if (e && e[lang] && key !== e[lang]) n.nodeValue = raw.replace(key, e[lang]);
+      if (e && e[lang] && key !== e[lang]) { n.nodeValue = raw.replace(key, e[lang]); continue; }
+      var m = key.match(APT_RE);
+      if (m) {
+        var target = APT_WORD[lang] + ' ' + m[2];
+        if (key !== target) n.nodeValue = raw.replace(key, target);
+      }
     }
   }
   function applyHeadings(lang) {
@@ -117,9 +168,29 @@
       if (e && e[lang] && key !== e[lang]) el.innerHTML = e[lang];
     });
   }
+  var observer = null;
   function applyLang(lang) {
     if (lang !== 'ru' && lang !== 'en' && lang !== 'uz') lang = 'ru';
+    if (observer) observer.disconnect();            // не реагируем на собственные правки
     try { applyText(lang); applyHeadings(lang); } catch (e) {}
+    if (observer && document.body) observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Динамический контент (карта, карточки апартаментов) вставляется скриптами позже —
+  // наблюдаем за DOM и доводим перевод по мере появления.
+  var reTimer;
+  function setupObserver() {
+    if (observer || !document.body || typeof MutationObserver === 'undefined') return;
+    observer = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        if (muts[i].addedNodes && muts[i].addedNodes.length) {
+          clearTimeout(reTimer);
+          reTimer = setTimeout(function () { applyLang(window.UL_LANG || 'ru'); }, 200);
+          return;
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   // Оборачиваем setLang: после штатного перевода добавляем наш
@@ -137,8 +208,9 @@
   hook();
   var tries = 0, ht = setInterval(function () { hook(); if ((window.setLang && window.setLang.__extraHooked) || ++tries > 40) clearInterval(ht); }, 250);
 
-  function init() { applyLang(window.UL_LANG || 'ru'); }
+  function init() { setupObserver(); applyLang(window.UL_LANG || 'ru'); }
   if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
   setTimeout(init, 600);
   setTimeout(init, 1500);
+  setTimeout(init, 3000); // карта вставляется ~2с
 })();
