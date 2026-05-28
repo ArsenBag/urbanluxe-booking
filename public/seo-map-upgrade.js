@@ -122,14 +122,13 @@ if(!document.querySelector('link[rel="canonical"]')){
   document.head.appendChild(canonical);
 }
 
-// Enhanced description
-const descMeta = document.querySelector('meta[name="description"]');
-if(descMeta) descMeta.content = 'Посуточная аренда премиальных апартаментов в Ташкенте от $85/ночь. 25 квартир в Nest One, U-Tower, Mirabad, Kislorod. Wi-Fi, кухня, парковка, заезд 24/7. Бронируйте напрямую без комиссии.';
-
-// Enhanced OG description
-const ogDesc = document.querySelector('meta[property="og:description"]');
-if(ogDesc) ogDesc.content = '25 премиальных апартаментов в лучших комплексах Ташкента от $85/ночь. Полная кухня, Wi-Fi, консьерж 24/7. Бронируйте напрямую без комиссии.';
-
+// Описание перезаписываем только для RU; на /en и /uz оставляем перевод из lang.js
+if((document.documentElement.lang || 'ru').slice(0,2) === 'ru'){
+  const descMeta = document.querySelector('meta[name="description"]');
+  if(descMeta) descMeta.content = 'Посуточная аренда премиальных апартаментов в Ташкенте от $85/ночь. 25 квартир в Nest One, U-Tower, Mirabad, Kislorod. Wi-Fi, кухня, парковка, заезд 24/7. Бронируйте напрямую без комиссии.';
+  const ogDesc = document.querySelector('meta[property="og:description"]');
+  if(ogDesc) ogDesc.content = '25 премиальных апартаментов в лучших комплексах Ташкента от $85/ночь. Полная кухня, Wi-Fi, консьерж 24/7. Бронируйте напрямую без комиссии.';
+}
 // Keywords — максимальный охват
 if(!document.querySelector('meta[name="keywords"]')){
   const kw = document.createElement('meta');
