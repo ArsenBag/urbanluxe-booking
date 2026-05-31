@@ -4,9 +4,13 @@ const https = require('https');
 const SHEET_ID = '1NHqPZV8Dx2dKmfTCpb8LcdA4AtuqSfKyyyWs5UF2HtY';
 
 function fetchCSV(sheetName) {
+  const encoded = encodeURIComponent(sheetName);
+  return fetchUrl(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encoded}`);
+}
+
+// Сырой GET с обработкой редиректа Google — возвращает тело как есть
+function fetchUrl(url) {
   return new Promise((resolve, reject) => {
-    const encoded = encodeURIComponent(sheetName);
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encoded}`;
     https.get(url, { timeout: 15000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         https.get(res.headers.location, { timeout: 15000 }, (res2) => {
@@ -53,7 +57,7 @@ function parseCSVSimple(csv) {
 
 function parseNumber(str) {
   if (!str) return 0;
-  const cleaned = str.replace(/[$%\s\u00a0\u202f\u2009]/g, '').replace(',', '.');
+  const cleaned = str.replace(/[$%\s   ]/g, '').replace(',', '.');
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
@@ -64,70 +68,46 @@ function parseMonthlyData(rows) {
   const yearRow = rows[0] || [];
   const headerRow = rows[1] || [];
 
-  // Build month labels
-  // Google Sheets merged cells export empty in CSV, so we reconstruct months
-  // Col 0 = label, Col 1 = Дек 2025, Col 2-13 = Янв-Дек 2026
-  // First detect from headerRow if any month names exist
   const MONTH_NAMES = ['Декабрь','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-  
+
   const months = [];
   let foundMonths = false;
 
-  // Try to get month names from row 1
   for (let i = 1; i < headerRow.length; i++) {
-    if (headerRow[i] && headerRow[i].length > 2) {
-      foundMonths = true;
-      break;
-    }
+    if (headerRow[i] && headerRow[i].length > 2) { foundMonths = true; break; }
   }
 
   if (foundMonths) {
-    // Row 1 has month names
     for (let i = 1; i < headerRow.length; i++) {
-      if (headerRow[i]) {
-        months.push({ label: headerRow[i], year: yearRow[i] || '2026', index: i });
-      }
+      if (headerRow[i]) months.push({ label: headerRow[i], year: yearRow[i] || '2026', index: i });
     }
   } else {
-    // Merged cells — reconstruct from year row
-    // Col 1 with year 2025 = Декабрь, Col 2+ with year 2026 = Январь, Февраль, ...
     let monthIdx = 0;
     let prevYear = '';
     for (let i = 1; i < yearRow.length; i++) {
       const year = yearRow[i]?.trim();
-      if (!year) continue; // skip empty columns (totals etc)
-      
+      if (!year) continue;
       if (year !== prevYear) {
-        // New year group
-        if (year === '2025') monthIdx = 12; // December
-        else monthIdx = 1; // January
+        if (year === '2025') monthIdx = 12;
+        else monthIdx = 1;
         prevYear = year;
       }
-      
-      if (monthIdx >= 1 && monthIdx <= 12) {
-        months.push({ label: MONTH_NAMES[monthIdx], year: year, index: i });
-      }
+      if (monthIdx >= 1 && monthIdx <= 12) months.push({ label: MONTH_NAMES[monthIdx], year: year, index: i });
       monthIdx++;
     }
   }
 
   if (months.length === 0) return { months: [], apartments: [], summary: {} };
 
-  // Parse apartment blocks (rows 2+, blocks of 5)
   const apartments = [];
   let r = 2;
   while (r < rows.length) {
     const nameRow = rows[r];
     if (!nameRow || !nameRow[0]) { r++; continue; }
     const name = nameRow[0].trim();
-
-    // Stop at summary rows
     if (name.includes('Количество заселении') || name.includes('Итого забронировали') ||
         name.includes('количество заселении') || name.includes('итого забронировали')) break;
-
-    // Check if apartment name (contains $ or Бронь)
     if (!name.includes('$') && !name.toLowerCase().includes('бронь')) { r++; continue; }
-
     const apt = { name, monthly: {} };
     for (let mi = 0; mi < months.length; mi++) {
       const ci = months[mi].index;
@@ -143,7 +123,6 @@ function parseMonthlyData(rows) {
     r += 5;
   }
 
-  // Parse summary rows
   const summary = {};
   const summaryLabels = [
     'bookings_count', 'total_revenue', 'rent', 'commission',
@@ -161,19 +140,15 @@ function parseMonthlyData(rows) {
       for (let mi = 0; mi < months.length; mi++) {
         const ci = months[mi].index;
         const val = rows[r][ci] || '0';
-        summary[key][months[mi].label] = key === 'marketing_share' 
-          ? val.replace('%', '').trim() 
+        summary[key][months[mi].label] = key === 'marketing_share'
+          ? val.replace('%', '').trim()
           : parseNumber(val);
       }
       si++;
     }
   }
 
-  return {
-    months: months.map(m => ({ label: m.label, year: m.year })),
-    apartments,
-    summary
-  };
+  return { months: months.map(m => ({ label: m.label, year: m.year })), apartments, summary };
 }
 
 function parseWeeklyData(rows) {
@@ -228,7 +203,28 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  const sheet = (event.queryStringParameters || {}).sheet || 'month';
+  const q = event.queryStringParameters || {};
+
+  // RAW passthrough: фронт админки (loadWeeklySheets/loadAptSheets) шлёт gviz-запрос
+  // напрямую в Google и упирается в CORS. Перехватчик admin-sheets-fix.js перенаправляет
+  // его сюда (?gvizpass=1&tqx=...&sheet=...). Отдаём тело gviz как есть, тем же origin.
+  if (q.gvizpass === '1') {
+    try {
+      const usp = new URLSearchParams();
+      Object.keys(q).forEach(k => { if (k !== 'gvizpass') usp.set(k, q[k]); });
+      const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${usp.toString()}`;
+      const body = await fetchUrl(gvizUrl);
+      return {
+        statusCode: 200,
+        headers: { ...headers, 'Content-Type': 'text/plain; charset=utf-8' },
+        body,
+      };
+    } catch (e) {
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'gviz passthrough failed', details: e.message }) };
+    }
+  }
+
+  const sheet = q.sheet || 'month';
 
   try {
     if (sheet === 'month') {
@@ -245,25 +241,15 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify(data) };
     }
 
-    // Default: return both
-    const [monthCSV, weekCSV] = await Promise.all([
-      fetchCSV('Месяц'),
-      fetchCSV('Неделя'),
-    ]);
+    const [monthCSV, weekCSV] = await Promise.all([fetchCSV('Месяц'), fetchCSV('Неделя')]);
     const monthRows = parseCSVSimple(monthCSV);
     const weekRows = parseCSVSimple(weekCSV);
     return {
       statusCode: 200, headers,
-      body: JSON.stringify({
-        monthly: parseMonthlyData(monthRows),
-        weekly: parseWeeklyData(weekRows),
-      }),
+      body: JSON.stringify({ monthly: parseMonthlyData(monthRows), weekly: parseWeeklyData(weekRows) }),
     };
   } catch (e) {
     console.error('[SHEETS-PROXY] Error:', e);
-    return {
-      statusCode: 500, headers,
-      body: JSON.stringify({ error: 'Failed to fetch sheet data', details: e.message }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to fetch sheet data', details: e.message }) };
   }
 };
