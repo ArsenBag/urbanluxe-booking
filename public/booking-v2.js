@@ -90,6 +90,26 @@
 
   var state = { step: 1, pay: 'qr' };
 
+  // Свой supabase-клиент только для чтения сессии (общий localStorage с клиентом сайта)
+  var SB_URL = 'https://sebvfvtofiysbywxjqut.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+  var sbc = null;
+  function sb() {
+    if (!sbc && window.supabase && window.supabase.createClient) sbc = window.supabase.createClient(SB_URL, SB_KEY);
+    return sbc;
+  }
+  function prefillContacts() {
+    var c = sb(); if (!c) return;
+    c.auth.getUser().then(function (r) {
+      var u = r && r.data && r.data.user; if (!u) return;
+      var md = u.user_metadata || {};
+      var nm = $('modalGuestName'), ph = $('modalGuestPhone'), em = $('modalGuestEmail');
+      if (nm && !nm.value && md.name) nm.value = md.name;
+      if (ph && !ph.value && (md.phone || u.phone)) ph.value = md.phone || u.phone;
+      if (em && !em.value && u.email) em.value = u.email;
+    }).catch(function () {});
+  }
+
   function goto(n) {
     state.step = n;
     var t = lang();
@@ -100,6 +120,16 @@
     $('ulv2-back').style.display = n === 1 ? 'none' : '';
     $('ulv2-next').style.display = n === 3 ? 'none' : '';
     $('ulv2-err').textContent = '';
+    clearInterval(state.gfiv);
+    if (n === 2) {
+      // checkModalAuth прячет контакты у залогиненных — принудительно показываем и заполняем
+      var showGf = function () {
+        var gf = $('modalGuestFields');
+        if (gf && gf.offsetParent === null) gf.style.setProperty('display', 'block', 'important');
+      };
+      showGf(); prefillContacts();
+      state.gfiv = setInterval(function () { if (state.step === 2) showGf(); else clearInterval(state.gfiv); }, 400);
+    }
     if (n === 3) buildSummary();
     var sc = box.closest('#modalContent') || box;
     try { box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
@@ -109,7 +139,9 @@
     var t = lang();
     var ci = ($('modalCheckIn') || {}).value || '', co = ($('modalCheckOut') || {}).value || '';
     var total = ($('modalTotalPrice') || {}).textContent || '';
-    var nightsLbl = ($('modalNightsLabel') || {}).textContent || '';
+    function pd(s) { var p = s.split('.'); return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : new Date(s); }
+    var nn = Math.round((pd(co) - pd(ci)) / 86400000);
+    var nightsLbl = (nn > 0 ? nn + ' ' + t.nights : '');
     var gc = ($('modalGuestsCount') || {}).value || '';
     var name = ($('modalGuestName') || {}).value || '';
     var phone = ($('modalGuestPhone') || {}).value || '';
