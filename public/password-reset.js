@@ -8,6 +8,10 @@
 (function () {
   'use strict';
 
+  // Захватываем hash/query СРАЗУ при загрузке скрипта — до того,
+  // как supabase-клиент сайта обработает и сотрёт их из адресной строки.
+  var BOOT_HASH = location.hash, BOOT_SEARCH = location.search;
+
   var SB_URL = 'https://sebvfvtofiysbywxjqut.supabase.co';
   var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 
@@ -70,7 +74,7 @@
 
   // ---------- Обработка ссылки из письма ----------
   function hashParams() {
-    var h = location.hash.replace(/^#/, ''), o = {};
+    var h = (BOOT_HASH || location.hash).replace(/^#/, ''), o = {};
     h.split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) o[p[0]] = decodeURIComponent(p[1] || ''); });
     return o;
   }
@@ -98,7 +102,13 @@
       if (p1 !== p2) { msg.textContent = s.mismatch; return; }
       var btn = this; btn.disabled = true; btn.textContent = s.saving;
       var c = sb();
-      c.auth.setSession({ access_token: tokens.access_token, refresh_token: tokens.refresh_token })
+      var pre = tokens && tokens.access_token
+        ? c.auth.setSession({ access_token: tokens.access_token, refresh_token: tokens.refresh_token })
+        : c.auth.getSession().then(function (r) {
+            if (!r.data || !r.data.session) throw new Error('expired');
+            return r;
+          });
+      pre
         .then(function (r) {
           if (r.error) throw r.error;
           return c.auth.updateUser({ password: p1 });
@@ -118,12 +128,30 @@
         });
     };
   }
+  function whenLib(fn) {
+    if (window.supabase) { fn(); return; }
+    var n = 0, iv = setInterval(function () { if (window.supabase || ++n > 40) { clearInterval(iv); if (window.supabase) fn(); } }, 250);
+  }
   function checkRecovery() {
     var p = hashParams();
+    var qCode = (BOOT_SEARCH.match(/[?&]code=([^&]+)/) || [])[1];
     if (p.type === 'recovery' && p.access_token && p.refresh_token) {
-      var start = function () { if (document.getElementById('ul-pwreset')) return; showResetForm(p); };
-      if (window.supabase) start();
-      else { var n = 0, iv = setInterval(function () { if (window.supabase || ++n > 40) { clearInterval(iv); if (window.supabase) start(); } }, 250); }
+      // Классическая ссылка (#access_token...) — токены захвачены при загрузке
+      whenLib(function () { if (!document.getElementById('ul-pwreset')) showResetForm(p); });
+    } else if (qCode) {
+      // PKCE-вариант (?code=...) — обмениваем код на сессию
+      whenLib(function () {
+        sb().auth.exchangeCodeForSession(qCode).then(function (r) {
+          if (!r.error && !document.getElementById('ul-pwreset')) showResetForm(null);
+        }).catch(function () {});
+      });
+    } else if (/type=recovery/.test(document.referrer) || /type=recovery/.test(BOOT_SEARCH)) {
+      // Хэш уже съеден клиентом сайта, но сессия восстановления активна
+      whenLib(function () {
+        sb().auth.getSession().then(function (r) {
+          if (r.data && r.data.session && !document.getElementById('ul-pwreset')) showResetForm(null);
+        });
+      });
     }
     if (p.error_code || (p.error_description && p.type !== 'recovery')) {
       alert(t().linkDead);
