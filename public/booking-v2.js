@@ -284,6 +284,22 @@
     var ht = 0, hiv = setInterval(function () { if (hookOpen() || ++ht > 40) clearInterval(hiv); }, 250);
   }
 
+  // ---------- deep-link /?book=<apartment_id> (из кабинета «Забронировать снова») ----------
+  (function () {
+    var m = location.search.match(/[?&]book=([^&]+)/);
+    if (!m) return;
+    var id = decodeURIComponent(m[1]), n = 0;
+    var iv = setInterval(function () {
+      if (typeof window.openModal === 'function' && document.readyState === 'complete') {
+        clearInterval(iv);
+        setTimeout(function () {
+          window.openModal(id);
+          history.replaceState(null, '', location.pathname);
+        }, 600);
+      } else if (++n > 50) clearInterval(iv);
+    }, 250);
+  })();
+
   // ---------- бонус: клик по фото карточки открывает квартиру ----------
   document.addEventListener('click', function (e) {
     var img = e.target && e.target.tagName === 'IMG' ? e.target : null;
