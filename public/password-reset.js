@@ -48,7 +48,7 @@
     var s = t();
     if (!email) { email = (prompt(s.enterEmail) || '').trim(); }
     if (!email || email.indexOf('@') < 0) return;
-    c.auth.resetPasswordForEmail(email).then(function (r) {
+    c.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/?pwreset=1' }).then(function (r) {
       msgEl.textContent = r.error ? s.sendErr + r.error.message : s.sent + email;
       msgEl.style.color = r.error ? '#e88' : '#8c8';
     });
@@ -145,12 +145,20 @@
           if (!r.error && !document.getElementById('ul-pwreset')) showResetForm(null);
         }).catch(function () {});
       });
-    } else if (/type=recovery/.test(document.referrer) || /type=recovery/.test(BOOT_SEARCH)) {
-      // Хэш уже съеден клиентом сайта, но сессия восстановления активна
+    } else if (/[?&]pwreset=1/.test(BOOT_SEARCH || location.search) || /type=recovery/.test(document.referrer)) {
+      // Метка из письма (?pwreset=1): хэш мог быть съеден клиентом сайта —
+      // ждём появления recovery-сессии до 12 секунд (медленный мобильный интернет)
       whenLib(function () {
-        sb().auth.getSession().then(function (r) {
-          if (r.data && r.data.session && !document.getElementById('ul-pwreset')) showResetForm(null);
-        });
+        var n = 0;
+        var probe = setInterval(function () {
+          if (document.getElementById('ul-pwreset')) { clearInterval(probe); return; }
+          sb().auth.getSession().then(function (r) {
+            if (r.data && r.data.session && !document.getElementById('ul-pwreset')) {
+              clearInterval(probe); showResetForm(null);
+            }
+          });
+          if (++n > 24) clearInterval(probe);
+        }, 500);
       });
     }
     if (p.error_code || (p.error_description && p.type !== 'recovery')) {
