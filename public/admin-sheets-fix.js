@@ -21,6 +21,9 @@
       .then(function (d) {
         var s = d.summary || {};
         var MONTHS = ['Декабрь', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май'];
+        // Названия строк — под матчер parseSummaryCSV в admin.html:
+        // net_profit ищется как «итого чистыми»; «Доля маркетинга» содержит подстроку
+        // «маркетинг», поэтому идёт ПЕРЕД строкой «Маркетинг» (та перезапишет верным значением)
         var ROWS = [
           ['Количество заселении', 'bookings_count'],
           ['Итого забронировали', 'total_revenue'],
@@ -29,9 +32,9 @@
           ['Расходы', 'expenses'],
           ['Клининг', 'cleaning'],
           ['Зарплата', 'salary'],
+          ['Доля маркетинга', 'marketing_share'],
           ['Маркетинг', 'marketing'],
-          ['Чистыми', 'net_profit'],
-          ['Доля маркетинга', 'marketing_share']
+          ['Итого чистыми', 'net_profit']
         ];
         var lines = ['"",' + MONTHS.map(function (m) { return '"' + m + '"'; }).join(',')];
         ROWS.forEach(function (row) {

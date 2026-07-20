@@ -198,4 +198,51 @@
   function init() { addNav(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var tries = 0, t = setInterval(function () { addNav(); if (document.getElementById('ul-apro-nav') || ++tries > 40) clearInterval(t); }, 300);
+
+  /* ---- Фикс «Топ-5 по загрузке» / «Наименее загруженные» на вкладке «Аналитика» ----
+     Родной код рендерит их только при данных за ТЕКУЩИЙ месяц; если месяц в таблице
+     ещё не заполнен — блоки вечно висят «Загрузка...». Дорисовываем данными за
+     последний заполненный месяц с подписью. admin.html не трогаем. */
+  function fixTop5() {
+    var top = document.getElementById('bizTop5'), bot = document.getElementById('bizBottom5');
+    if (!top || top.textContent.indexOf('Загрузка') < 0) return;
+    fetch('/.netlify/functions/sheets-proxy?sheet=month').then(function (r) { return r.json(); }).then(function (d) {
+      var months = d.months || [], rev = (d.summary || {}).total_revenue || {};
+      var last = null;
+      months.forEach(function (m) {
+        var v = rev[m.label + ' ' + m.year];
+        if (v === undefined) v = rev[m.label];
+        if (v > 0) last = m;
+      });
+      if (!last) return;
+      var dim = daysIn(last.label, last.year);
+      var stats = (d.apartments || []).map(function (a) {
+        var md = (a.monthly || {})[last.label] || {};
+        var nights = md.occupancy || 0;
+        return {
+          name: String(a.name || '').replace(/\/\s*Бронь.*$/i, '').replace(/-?\s*\d+\$\s*$/, '').trim(),
+          pct: Math.min(100, Math.round(nights / dim * 100)),
+          revenue: md.revenue || 0
+        };
+      }).filter(function (s) { return s.pct > 0 || s.revenue > 0; });
+      if (!stats.length) {
+        var em = '<div style="color:#64748b;font-size:13px;padding:14px">Нет данных за ' + last.label + '</div>';
+        top.innerHTML = em; if (bot) bot.innerHTML = em;
+        return;
+      }
+      stats.sort(function (a, b) { return b.pct - a.pct; });
+      function rows(list) {
+        return '<div style="color:#64748b;font-size:11px;padding:4px 0 8px">данные за ' + last.label + ' ' + last.year + '</div>' +
+          list.map(function (s) {
+            return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px">' +
+              '<span style="color:#e2e8f0">' + s.name + '</span>' +
+              '<span><span style="color:#94a3b8;margin-right:12px">' + fmt(s.revenue) + '</span>' +
+              '<b style="color:' + (s.pct >= 80 ? '#22c55e' : s.pct >= 50 ? '#f59e0b' : '#ef4444') + '">' + s.pct + '%</b></span></div>';
+          }).join('');
+      }
+      top.innerHTML = rows(stats.slice(0, 5));
+      if (bot) bot.innerHTML = rows(stats.slice(-5).reverse());
+    }).catch(function () {});
+  }
+  setInterval(fixTop5, 2500);
 })();
