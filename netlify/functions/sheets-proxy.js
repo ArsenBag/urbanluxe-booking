@@ -140,9 +140,16 @@ function parseMonthlyData(rows) {
       for (let mi = 0; mi < months.length; mi++) {
         const ci = months[mi].index;
         const val = rows[r][ci] || '0';
-        summary[key][months[mi].label] = key === 'marketing_share'
+        const parsed = key === 'marketing_share'
           ? val.replace('%', '').trim()
           : parseNumber(val);
+        // Ключ с годом — надёжный (месяцы могут повторяться: Декабрь 2025 и Декабрь 2026)
+        summary[key][months[mi].label + ' ' + months[mi].year] = parsed;
+        // Ключ без года — обратная совместимость; не затираем данные нулём повторного месяца
+        const bare = summary[key][months[mi].label];
+        if (bare === undefined || bare === 0 || bare === '' || bare === '0') {
+          summary[key][months[mi].label] = parsed;
+        }
       }
       si++;
     }
