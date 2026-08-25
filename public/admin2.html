@@ -82,6 +82,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .cal .hd.we{color:var(--amber)}
 .cal .apt{color:var(--mut);font-size:11.5px;display:flex;align-items:center;padding-right:8px;overflow:hidden;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.04)}
 .cal .cell{border-left:1px solid rgba(255,255,255,.045);border-bottom:1px solid rgba(255,255,255,.04)}
+.cal .cell.past{background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(255,255,255,.035) 4px,rgba(255,255,255,.035) 6px);cursor:default !important}
 .cal .cell.we{background:rgba(232,163,61,.045)}
 .cal .cell.today{background:rgba(201,169,110,.10)}
 .cal .bar{border-radius:6px;margin:4px 1px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#0d0f14;font-size:10px;font-weight:600;cursor:default}
@@ -170,7 +171,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="cards" id="calKpi"></div>
       <div class="panel calwrap"><div id="calGrid" class="empty">Загрузка…</div>
-        <div class="legend"><span><i style="background:#54617e"></i>RealtyCalendar</span><span><i style="background:var(--gold)"></i>Бронь сайта</span><span style="color:var(--dim)">прошлые дни без iCal-истории</span></div>
+        <div class="legend"><span><i style="background:#54617e"></i>RealtyCalendar</span><span><i style="background:var(--gold)"></i>Бронь сайта</span><span><i style="background:repeating-linear-gradient(45deg,#12151d,#12151d 3px,#2a3040 3px,#2a3040 5px)"></i>прошлое — RC не хранит историю, факт месяца в KPI выше (из таблицы)</span></div>
       </div>
     </section>
 
@@ -395,7 +396,11 @@ function initCalNav(){
   $('calPrev').onclick=function(){calM--;if(calM<0){calM=11;calY--}renderCal()};
   $('calNext').onclick=function(){calM++;if(calM>11){calM=0;calY++}renderCal()};
 }
-function loadCal(){initCalNav();loadIcal().then(function(){loadSiteBookings().then(renderCal)})}
+function loadCal(){
+  initCalNav();
+  var pm=MONTH?Promise.resolve():fetch('/.netlify/functions/sheets-proxy?sheet=month').then(function(r){return r.json()}).then(function(d){MONTH=d}).catch(function(){});
+  Promise.all([loadIcal(),loadSiteBookings(),pm]).then(renderCal);
+}
 var SITEB=null;
 function loadSiteBookings(){
   if(SITEB)return Promise.resolve(SITEB);
@@ -411,14 +416,27 @@ function renderCal(){
   var per={}; APTS.forEach(function(a){per[a.id]=[]});
   (ICAL.all_bookings||[]).forEach(function(b){if(per[b.apartment_id]&&b.check_in<=monthEnd&&b.check_out>=monthStart)per[b.apartment_id].push({ci:b.check_in,co:b.check_out,src:'rc',label:''})});
   (SITEB||[]).forEach(function(b){if(per[b.apartment_id]&&b.check_in<=monthEnd&&b.check_out>=monthStart)per[b.apartment_id].push({ci:b.check_in,co:b.check_out,src:'site',label:b.guest_name||b.booking_ref||'',ref:b.booking_ref})});
-  /* KPI месяца */
+  /* KPI месяца: факт из «Месяц» приоритетен (iCal не хранит прошлое) */
   var busy=0;
   Object.keys(per).forEach(function(id){per[id].forEach(function(b){
     var s=b.ci<monthStart?monthStart:b.ci, e=b.co>monthEnd?calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dim+1).padStart(2,'0'):b.co;
     var n=(new Date(e)-new Date(s))/86400000; if(n>0)busy+=n;
   })});
-  var totalN=APTS.length*dim;
-  $('calKpi').innerHTML=[['Квартир',APTS.length],['Ночей занято',Math.round(busy)],['Ночей всего',totalN],['Загрузка',Math.round(busy/totalN*100)+'%']].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val">'+k[1]+'</div></div>'}).join('');
+  var kpiCards=null;
+  if(MONTH&&MONTH.months){
+    var mLabel=MRU[calM], key=mLabel+' '+calY;
+    var factNights=(MONTH.summary.bookings_count||{})[key];
+    if(factNights>0){
+      var factApts=(MONTH.apartments||[]).filter(function(a){var d=a.monthly[mLabel]||{};return (d.occupancy||0)>0||(d.revenue||0)>0}).length||APTS.length;
+      var cap=factApts*dim;
+      kpiCards=[['Квартир (в таблице)',factApts],['Ночей продано · факт',factNights],['Загрузка · факт',Math.round(factNights/cap*100)+'%'],['Впереди по RC',Math.round(busy)+' ноч.']];
+    }
+  }
+  if(!kpiCards){
+    var totalN=APTS.length*dim;
+    kpiCards=[['Квартир',APTS.length],['Ночей в броне (RC)',Math.round(busy)],['Ночей всего',totalN],['Продано вперёд',Math.round(busy/totalN*100)+'%']];
+  }
+  $('calKpi').innerHTML=kpiCards.map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val">'+k[1]+'</div></div>'}).join('');
   /* сетка */
   var cols='170px repeat('+dim+',minmax(26px,1fr))';
   var h='<div class="cal" style="grid-template-columns:'+cols+'">';
@@ -442,7 +460,10 @@ function renderCal(){
         day+=span;
       }else{
         var dt2=new Date(Date.UTC(calY,calM,day)); var we2=dt2.getUTCDay()===0||dt2.getUTCDay()===6;
-        h+='<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'" data-apt="'+esc(a.id)+'" data-date="'+dayISO+'" style="cursor:pointer" title="Создать бронь: '+esc(a.name)+' с '+dayISO+'"></div>';
+        var past=dayISO<t;
+        h+= past
+          ? '<div class="cell past'+(we2?' we':'')+'" title="Прошедший день — история броней в iCal не хранится"></div>'
+          : '<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'" data-apt="'+esc(a.id)+'" data-date="'+dayISO+'" style="cursor:pointer" title="Создать бронь: '+esc(a.name)+' с '+dayISO+'"></div>';
         day++;
       }
     }
