@@ -406,7 +406,16 @@ function loadSiteBookings(){
   if(SITEB)return Promise.resolve(SITEB);
   return sb.from('bookings').select('apartment_id,check_in,check_out,guest_name,status,booking_ref').in('status',['confirmed','pending']).then(function(r){SITEB=r.data||[];return SITEB});
 }
+var HIST={};
 function renderCal(){
+  var ym=calY+'-'+String(calM+1).padStart(2,'0');
+  if(HIST[ym]!==undefined){drawCal();return}
+  var dim0=new Date(Date.UTC(calY,calM+1,0)).getUTCDate();
+  sb.from('occupancy_daily').select('apartment_id,date,busy,source')
+    .gte('date',ym+'-01').lte('date',ym+'-'+String(dim0).padStart(2,'0')).eq('busy',true)
+    .then(function(r){HIST[ym]=r.data||[];drawCal()},function(){HIST[ym]=[];drawCal()});
+}
+function drawCal(){
   var dim=new Date(Date.UTC(calY,calM+1,0)).getUTCDate();
   $('calLbl').textContent=MRU[calM]+' '+calY;
   var t=todayISO();
@@ -461,9 +470,15 @@ function renderCal(){
       }else{
         var dt2=new Date(Date.UTC(calY,calM,day)); var we2=dt2.getUTCDay()===0||dt2.getUTCDay()===6;
         var past=dayISO<t;
-        h+= past
-          ? '<div class="cell past'+(we2?' we':'')+'" title="Прошедший день — история броней в iCal не хранится"></div>'
-          : '<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'" data-apt="'+esc(a.id)+'" data-date="'+dayISO+'" style="cursor:pointer" title="Создать бронь: '+esc(a.name)+' с '+dayISO+'"></div>';
+        if(past){
+          var ym2=calY+'-'+String(calM+1).padStart(2,'0');
+          var hist=(HIST[ym2]||[]).some(function(x){return x.apartment_id===a.id&&x.date===dayISO});
+          h+= hist
+            ? '<div class="bar rc" style="grid-column:span 1;opacity:.55" title="Занято (история снапшота) · '+dayISO+'"></div>'
+            : '<div class="cell past'+(we2?' we':'')+'" title="Прошедший день"></div>';
+        }else{
+          h+='<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'" data-apt="'+esc(a.id)+'" data-date="'+dayISO+'" style="cursor:pointer" title="Создать бронь: '+esc(a.name)+' с '+dayISO+'"></div>';
+        }
         day++;
       }
     }
