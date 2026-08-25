@@ -161,6 +161,51 @@
   }
 
   // ---- Оверлей и пункт меню ----
+  /* ---- 🤝 Партнёрские квартиры (50/50) — из отдельной Google-книги ---- */
+  function appendPartnerBlock(body) {
+    if (document.getElementById('ul-apro-partner')) return;
+    var box = document.createElement('div');
+    box.id = 'ul-apro-partner';
+    box.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px 0">Загрузка партнёрских квартир…</div>';
+    body.appendChild(box);
+    fetch('/.netlify/functions/sheets-proxy?sheet=partner_month')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var apts = d.apartments || [];
+        if (!apts.length) { box.innerHTML = ''; return; }
+        // последний месяц, где есть хоть какая-то выручка
+        var last = null;
+        (d.months || []).forEach(function (m) {
+          var has = apts.some(function (a) { return ((a.monthly[m.label] || {}).revenue || 0) > 0; });
+          if (has) last = m;
+        });
+        if (!last) { box.innerHTML = ''; return; }
+        var rowsHtml = '', tRev = 0, tProfit = 0, tNights = 0;
+        apts.forEach(function (a) {
+          var m = a.monthly[last.label] || {};
+          if (!m.revenue && !m.profit) return;
+          tRev += m.revenue || 0; tProfit += m.profit || 0; tNights += m.occupancy || 0;
+          rowsHtml += '<tr style="border-bottom:1px solid rgba(255,255,255,.06)">' +
+            '<td style="padding:6px 10px;color:#e2e8f0">' + esc(a.name) + '</td>' +
+            '<td style="padding:6px 10px;text-align:right">' + fmt(m.revenue || 0) + '</td>' +
+            '<td style="padding:6px 10px;text-align:right;color:#94a3b8">' + fmt(m.rent || 0) + '</td>' +
+            '<td style="padding:6px 10px;text-align:center;color:#94a3b8">' + (m.occupancy || 0) + '</td>' +
+            '<td style="padding:6px 10px;text-align:right;color:' + ((m.profit || 0) >= 0 ? '#22c55e' : '#ef4444') + '">' + fmt(m.profit || 0) + '</td>' +
+            '<td style="padding:6px 10px;text-align:right;color:#c9a96e">' + fmt((m.profit || 0) / 2) + '</td></tr>';
+        });
+        box.innerHTML =
+          '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-top:18px;overflow-x:auto">' +
+          '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">' +
+          '<span style="color:#e2e8f0;font-weight:600">🤝 Партнёрские квартиры (50/50) — ' + esc(last.label + ' ' + last.year) + '</span>' +
+          '<span style="font-size:13px;color:#94a3b8">Выручка <b style="color:#e2e8f0">' + fmt(tRev) + '</b> · Прибыль <b style="color:' + (tProfit >= 0 ? '#22c55e' : '#ef4444') + '">' + fmt(tProfit) + '</b> · Наша доля <b style="color:#c9a96e">' + fmt(tProfit / 2) + '</b> · Ночей ' + tNights + '</span></div>' +
+          '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>' +
+          ['Объект', 'Выручка', 'Аренда', 'Ночей', 'Прибыль', 'Доля UL (50%)'].map(function (h, i) {
+            return '<th style="padding:7px 10px;text-align:' + (i === 0 ? 'left' : i === 3 ? 'center' : 'right') + ';color:#94a3b8;font-size:11px;text-transform:uppercase;border-bottom:1px solid #334155">' + h + '</th>';
+          }).join('') + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+      })
+      .catch(function () { box.innerHTML = ''; });
+  }
+
   function openOverlay() {
     var ov = document.getElementById('ul-apro-overlay');
     if (!ov) {
@@ -175,7 +220,10 @@
       '<div id="ul-apro-body" style="color:#94a3b8">Загрузка данных с таблицы…</div>';
     document.getElementById('ul-apro-close').onclick = function () { ov.style.display = 'none'; };
     var body = document.getElementById('ul-apro-body');
-    var go = function () { try { body.innerHTML = render(); } catch (e) { body.innerHTML = '<div style="color:#ef4444">Ошибка отрисовки: ' + esc(e.message) + '</div>'; } };
+    var go = function () {
+      try { body.innerHTML = render(); } catch (e) { body.innerHTML = '<div style="color:#ef4444">Ошибка отрисовки: ' + esc(e.message) + '</div>'; }
+      appendPartnerBlock(body);
+    };
     if (DATA) go(); else load().then(go).catch(function (e) { body.innerHTML = '<div style="color:#ef4444">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; });
   }
 
