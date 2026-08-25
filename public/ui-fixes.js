@@ -25,6 +25,8 @@
     var isHero = src.indexOf('/hero/') > -1;
     var w = isHero ? 1600 : inModal ? 1280 : 640;
     if (!img.getAttribute('loading') && !isHero) img.setAttribute('loading', 'lazy');
+    // Страховка: если резайзер недоступен (CSP/сеть) — возвращаем оригинал
+    img.onerror = function () { img.onerror = null; img.src = src; };
     img.src = resized(src, w);
   }
   function optimizeAll() { [].forEach.call(document.querySelectorAll('img[src*="' + STOR + '"]'), optimizeImg); }
