@@ -116,6 +116,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   main{padding:16px 14px 90px}
   .ckgrid{grid-template-columns:1fr}
   .cards{grid-template-columns:repeat(2,1fr)}
+  #chatGrid{grid-template-columns:1fr !important}
 }
 </style>
 </head>
@@ -138,11 +139,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <a class="item" data-s="today"><span class="ic">🗓</span> Сегодня</a>
     <a class="item" data-s="cal"><span class="ic">📅</span> Календарь</a>
     <a class="item" data-s="fin"><span class="ic">📊</span> Финансы</a>
-    <a class="item" data-s="rent"><span class="ic">🏠</span> Аренда</a>
+    <a class="item" data-s="an"><span class="ic">📈</span> Аналитика</a>
     <a class="item" data-s="req"><span class="ic">📥</span> Заявки</a>
+    <a class="item" data-s="chat"><span class="ic">💬</span> Чат <span id="chatBadge" class="tag r" style="display:none;margin-left:auto"></span></a>
+    <a class="item" data-s="guests"><span class="ic">👤</span> Гости</a>
+    <a class="item" data-s="apts"><span class="ic">🏢</span> Апартаменты</a>
+    <a class="item" data-s="rent"><span class="ic">🏠</span> Аренда</a>
+    <a class="item" data-s="exp"><span class="ic">🧾</span> Расходы</a>
+    <a class="item" data-s="staff"><span class="ic">🧹</span> Персонал</a>
     <a class="item" data-s="ck"><span class="ic">🔑</span> Заселение</a>
     <div class="sp"></div>
-    <div class="old">Старая админка: <a href="/admin.html">чат · гости · персонал →</a></div>
+    <div class="old"><a href="/admin.html">Старая админка →</a></div>
     <a class="item" id="logout"><span class="ic">⎋</span> Выйти</a>
   </nav>
   <main>
@@ -191,6 +198,82 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <section class="sect" id="s-req">
       <div class="pagehead"><h2>Заявки с сайта</h2><button class="btn mini" id="reqReload">Обновить</button></div>
       <div class="panel"><div id="reqList" class="empty">Загрузка…</div></div>
+    </section>
+
+    <!-- ================= АНАЛИТИКА ================= -->
+    <section class="sect" id="s-an">
+      <div class="pagehead"><h2>Операционная аналитика</h2><div class="sub" id="anSub"></div></div>
+      <div class="cards" id="anKpi"></div>
+      <div class="panel"><h3>Загрузка по комплексам <span class="r">ближайшие 30 дней · iCal</span></h3><div id="anCx" class="empty">Загрузка…</div></div>
+      <div class="panel"><h3>▲ Лучшие по загрузке (30 дней)</h3><div id="anTop" class="empty">Загрузка…</div></div>
+      <div class="panel"><h3>▼ Слабая загрузка (30 дней) — кандидаты на скидку</h3><div id="anBot" class="empty">Загрузка…</div></div>
+    </section>
+
+    <!-- ================= ЧАТ ================= -->
+    <section class="sect" id="s-chat">
+      <div class="pagehead"><h2>Чат с гостями</h2><button class="btn mini" id="chatReload">Обновить</button></div>
+      <div style="display:grid;grid-template-columns:270px 1fr;gap:14px;align-items:start" id="chatGrid">
+        <div class="panel" style="padding:8px;max-height:70vh;overflow:auto"><div id="chatDialogs" class="empty">Загрузка…</div></div>
+        <div class="panel" style="display:flex;flex-direction:column;min-height:420px">
+          <div id="chatMsgs" style="flex:1;overflow:auto;max-height:52vh;display:flex;flex-direction:column;gap:8px;padding-bottom:10px"><div class="empty">Выбери диалог</div></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="chatInput" placeholder="Ответ гостю…" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:10px 12px;font-size:14px;outline:none">
+            <button class="btn gold" id="chatSend">➤</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ГОСТИ ================= -->
+    <section class="sect" id="s-guests">
+      <div class="pagehead"><h2>Гости</h2></div>
+      <div class="cards" id="gKpi"></div>
+      <div class="panel"><div id="gList" class="empty">Загрузка…</div></div>
+    </section>
+
+    <!-- ================= АПАРТАМЕНТЫ ================= -->
+    <section class="sect" id="s-apts">
+      <div class="pagehead"><h2>Апартаменты</h2><div class="sub">клик по полю — редактирование, сохранение сразу в базу</div></div>
+      <div class="panel"><div id="aptsList" class="empty">Загрузка…</div></div>
+    </section>
+
+    <!-- ================= РАСХОДЫ ================= -->
+    <section class="sect" id="s-exp">
+      <div class="pagehead">
+        <h2>Расходы</h2>
+        <div class="mpick"><button class="btn mini" id="expPrev">←</button><b id="expLbl"></b><button class="btn mini" id="expNext">→</button></div>
+      </div>
+      <div class="cards" id="expKpi"></div>
+      <div class="panel"><h3>Добавить расход</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="expApt" class="btn" style="min-width:160px"></select>
+          <select id="expCat" class="btn"><option>Клининг</option><option>Расходники</option><option>Ремонт</option><option>Коммуналка</option><option>Маркетинг</option><option>Прочее</option></select>
+          <input id="expSum" type="number" placeholder="Сумма $" class="btn" style="width:100px">
+          <input id="expDesc" placeholder="Описание" class="btn" style="flex:1;min-width:140px">
+          <input id="expDate" type="date" class="btn">
+          <button class="btn gold" id="expAdd">+ Добавить</button>
+        </div>
+      </div>
+      <div class="panel"><div id="expList" class="empty">Загрузка…</div></div>
+    </section>
+
+    <!-- ================= ПЕРСОНАЛ ================= -->
+    <section class="sect" id="s-staff">
+      <div class="pagehead">
+        <h2>Персонал и табель</h2>
+        <div class="mpick"><button class="btn mini" id="stPrev">←</button><b id="stLbl"></b><button class="btn mini" id="stNext">→</button></div>
+      </div>
+      <div class="cards" id="stKpi"></div>
+      <div class="panel"><h3>Табель <span class="r">клик по дню — отметка выхода</span></h3><div id="stGrid" class="empty">Загрузка…</div></div>
+      <div class="panel"><h3>Выплаты <span class="r">за выбранный месяц</span></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select id="spStaff" class="btn"></select>
+          <input id="spSum" type="number" placeholder="Сумма (сум)" class="btn" style="width:140px">
+          <input id="spDate" type="date" class="btn">
+          <button class="btn gold" id="spAdd">+ Выплата</button>
+        </div>
+        <div id="spList" class="empty">—</div>
+      </div>
     </section>
 
     <!-- ================= ЗАСЕЛЕНИЕ ================= -->
@@ -261,7 +344,7 @@ function boot(){
   sb.from('apartments').select('id,name,complex,floor,is_active,weekday_price,weekend_price').order('complex').then(function(r){
     APTS=(r.data||[]).filter(function(a){return a.is_active!==false});
     var s=(location.hash||'#today').slice(1);
-    go(['today','cal','fin','rent','req','ck'].indexOf(s)>-1?s:'today');
+    go(LOADERS[s]?s:'today');
   });
 }
 
@@ -321,7 +404,7 @@ function renderCal(){
   /* сводим брони: RC + сайт (site поверх) */
   var per={}; APTS.forEach(function(a){per[a.id]=[]});
   (ICAL.all_bookings||[]).forEach(function(b){if(per[b.apartment_id]&&b.check_in<=monthEnd&&b.check_out>=monthStart)per[b.apartment_id].push({ci:b.check_in,co:b.check_out,src:'rc',label:''})});
-  (SITEB||[]).forEach(function(b){if(per[b.apartment_id]&&b.check_in<=monthEnd&&b.check_out>=monthStart)per[b.apartment_id].push({ci:b.check_in,co:b.check_out,src:'site',label:b.guest_name||b.booking_ref||''})});
+  (SITEB||[]).forEach(function(b){if(per[b.apartment_id]&&b.check_in<=monthEnd&&b.check_out>=monthStart)per[b.apartment_id].push({ci:b.check_in,co:b.check_out,src:'site',label:b.guest_name||b.booking_ref||'',ref:b.booking_ref})});
   /* KPI месяца */
   var busy=0;
   Object.keys(per).forEach(function(id){per[id].forEach(function(b){
@@ -349,11 +432,11 @@ function renderCal(){
         var endD=Math.min(dim,Math.ceil((new Date(b.co)-Date.UTC(calY,calM,1))/86400000));
         var span=endD-day+1; if(span<1)span=1;
         var tip=esc((b.src==='site'?'Сайт: '+(b.label||''):'RealtyCalendar')+' · '+b.ci+' → '+b.co);
-        h+='<div class="bar '+(b.src==='site'?'site':'rc')+'" style="grid-column:span '+span+'" title="'+tip+'">'+(span>2?esc(b.label||(b.src==='site'?'сайт':'')):'')+'</div>';
+        h+='<div class="bar '+(b.src==='site'?'site':'rc')+'" '+(b.src==='site'?'data-ref="'+esc(b.ref||'')+'"':'')+' style="grid-column:span '+span+'" title="'+tip+'">'+(span>2?esc(b.label||(b.src==='site'?'сайт':'')):'')+'</div>';
         day+=span;
       }else{
         var dt2=new Date(Date.UTC(calY,calM,day)); var we2=dt2.getUTCDay()===0||dt2.getUTCDay()===6;
-        h+='<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'"></div>';
+        h+='<div class="cell'+(we2?' we':'')+(dayISO===t?' today':'')+'" data-apt="'+esc(a.id)+'" data-date="'+dayISO+'" style="cursor:pointer" title="Создать бронь: '+esc(a.name)+' с '+dayISO+'"></div>';
         day++;
       }
     }
@@ -361,6 +444,64 @@ function renderCal(){
   h+='</div>';
   $('calGrid').className='';
   $('calGrid').innerHTML=h;
+  /* создание брони по клику на пустую ячейку */
+  $('calGrid').querySelectorAll('.cell[data-apt]').forEach(function(cell){
+    cell.onclick=function(){openBookingModal(cell.dataset.apt,cell.dataset.date)};
+  });
+  /* отмена сайтовой брони по клику на бар */
+  $('calGrid').querySelectorAll('.bar.site[data-ref]').forEach(function(bar){
+    bar.style.cursor='pointer';
+    bar.onclick=function(){
+      var ref=bar.dataset.ref;
+      if(!confirm('Бронь '+ref+' ('+bar.title+').\nОтменить её?'))return;
+      sb.from('bookings').update({status:'cancelled'}).eq('booking_ref',ref).then(function(r){
+        if(r.error){toast('Ошибка: '+r.error.message);return}
+        toast('Бронь '+ref+' отменена');SITEB=null;loadSiteBookings().then(renderCal);
+      });
+    };
+  });
+}
+
+/* модалка ручной брони */
+function openBookingModal(aptId,date){
+  var old=$('bkModal'); if(old)old.remove();
+  var next=isoDate(new Date(new Date(date).getTime()+86400000));
+  var wrap=document.createElement('div');
+  wrap.id='bkModal';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML='<div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:360px;max-width:94vw">'+
+    '<h3 style="margin-bottom:4px">Новая бронь</h3>'+
+    '<div style="color:var(--mut);font-size:12.5px;margin-bottom:14px">'+esc(aptName(aptId))+'</div>'+
+    '<div style="display:grid;gap:9px">'+
+    '<div style="display:flex;gap:8px"><label style="flex:1;font-size:11px;color:var(--mut)">Заезд<input id="bkCi" type="date" value="'+date+'" class="btn" style="width:100%;margin-top:3px"></label>'+
+    '<label style="flex:1;font-size:11px;color:var(--mut)">Выезд<input id="bkCo" type="date" value="'+next+'" class="btn" style="width:100%;margin-top:3px"></label></div>'+
+    '<input id="bkName" placeholder="Имя гостя" class="btn" style="width:100%">'+
+    '<input id="bkPhone" placeholder="Телефон" class="btn" style="width:100%">'+
+    '<input id="bkSum" type="number" placeholder="Сумма $ (пусто — по прайсу)" class="btn" style="width:100%">'+
+    '<div id="bkErr" style="color:var(--red);font-size:12px;min-height:14px"></div>'+
+    '<div style="display:flex;gap:8px"><button class="btn" id="bkCancel" style="flex:1">Отмена</button><button class="btn gold" id="bkSave" style="flex:2">Создать бронь</button></div>'+
+    '</div></div>';
+  document.body.appendChild(wrap);
+  wrap.onclick=function(e){if(e.target===wrap)wrap.remove()};
+  $('bkCancel').onclick=function(){wrap.remove()};
+  $('bkSave').onclick=function(){
+    var ci=$('bkCi').value, co=$('bkCo').value, name=$('bkName').value.trim();
+    var nights=Math.round((new Date(co)-new Date(ci))/86400000);
+    if(!ci||!co||nights<1){$('bkErr').textContent='Проверь даты';return}
+    if(!name){$('bkErr').textContent='Имя гостя обязательно';return}
+    /* пересечение с занятостью */
+    var clash=(ICAL.all_bookings||[]).concat((SITEB||[]).map(function(b){return{apartment_id:b.apartment_id,check_in:b.check_in,check_out:b.check_out}}))
+      .some(function(b){return b.apartment_id===aptId&&b.check_in<co&&b.check_out>ci});
+    if(clash&&!confirm('⚠ Даты пересекаются с существующей бронью. Всё равно создать?'))return;
+    var apt=APTS.filter(function(a){return a.id===aptId})[0]||{};
+    var total=parseInt($('bkSum').value,10)||nights*(apt.weekday_price||0);
+    var ref='UL-M'+Math.random().toString(36).slice(2,7).toUpperCase();
+    sb.from('bookings').insert({apartment_id:aptId,guest_name:name,guest_phone:$('bkPhone').value.trim()||null,check_in:ci,check_out:co,nights:nights,total_price:total,status:'confirmed',source:'manual',booking_ref:ref,notes:'[создано в админке]'}).then(function(r){
+      if(r.error){$('bkErr').textContent=r.error.message;return}
+      wrap.remove();toast('Бронь '+ref+' создана ✓ Добавь её и в RealtyCalendar!');
+      SITEB=null;loadSiteBookings().then(renderCal);
+    });
+  };
 }
 
 /* ================= ФИНАНСЫ ================= */
@@ -528,8 +669,290 @@ function renderCkForm(){
   };
 }
 
+/* ================= АНАЛИТИКА (операционная) ================= */
+function loadAn(){
+  loadIcal().then(function(d){
+    var t=todayISO(), end=isoDate(new Date(tashNow().getTime()+30*86400000));
+    $('anSub').textContent='окно: '+t+' → '+end;
+    var nights={}, cx={};
+    APTS.forEach(function(a){nights[a.id]=0});
+    (d.all_bookings||[]).forEach(function(b){
+      if(nights[b.apartment_id]===undefined)return;
+      var s=b.check_in<t?t:b.check_in, e=b.check_out>end?end:b.check_out;
+      var n=(new Date(e)-new Date(s))/86400000;
+      if(n>0)nights[b.apartment_id]+=n;
+    });
+    var totalBusy=0;
+    APTS.forEach(function(a){
+      totalBusy+=nights[a.id];
+      var c=a.complex||'—'; cx[c]=cx[c]||{n:0,apts:0}; cx[c].n+=nights[a.id]; cx[c].apts++;
+    });
+    var cap=APTS.length*30;
+    /* ADR по последнему месяцу из Sheets */
+    var adr='—',revpar='—';
+    if(MONTH){
+      var rev=MONTH.summary.total_revenue||{}, bc=MONTH.summary.bookings_count||{};
+      var last=null; MONTH.months.forEach(function(m){if((rev[m.label+' '+m.year]||0)>0)last=m});
+      if(last){
+        var r0=rev[last.label+' '+last.year]||0, n0=bc[last.label+' '+last.year]||0;
+        if(n0)adr=fmt$(r0/n0);
+        revpar=fmt$(r0/(APTS.length*30));
+        $('anSub').textContent+=' · ADR/REVPAR за '+last.label;
+      }
+    }
+    $('anKpi').innerHTML=[['Загрузка 30 дн',Math.round(totalBusy/cap*100)+'%','var(--gold)'],['Ночей продано',Math.round(totalBusy),'var(--text)'],['ADR (ср. тариф)',adr,'var(--text)'],['REVPAR',revpar,'var(--text)']].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val" style="color:'+k[2]+'">'+k[1]+'</div></div>'}).join('');
+    $('anCx').className='';
+    $('anCx').innerHTML=Object.keys(cx).map(function(c){
+      var p=Math.round(cx[c].n/(cx[c].apts*30)*100);
+      var col=p>=80?'var(--green)':p>=50?'var(--amber)':'var(--red)';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="width:150px;color:var(--text)">'+esc(c)+' <span style="color:var(--dim)">('+cx[c].apts+')</span></span><div style="flex:1;background:var(--panel2);border-radius:6px;height:10px;overflow:hidden"><div style="width:'+p+'%;height:100%;background:'+col+'"></div></div><b style="width:44px;text-align:right;color:'+col+'">'+p+'%</b></div>';
+    }).join('');
+    var stats=APTS.map(function(a){return {name:a.name+' · '+(a.complex||''),p:Math.round(nights[a.id]/30*100)}}).sort(function(x,y){return y.p-x.p});
+    function rows(list){return '<table><tbody>'+list.map(function(s){var col=s.p>=80?'var(--green)':s.p>=50?'var(--amber)':'var(--red)';return '<tr><td>'+esc(s.name)+'</td><td class="num" style="color:'+col+';font-weight:700">'+s.p+'%</td></tr>'}).join('')+'</tbody></table>'}
+    $('anTop').className='';$('anTop').innerHTML=rows(stats.slice(0,7));
+    $('anBot').className='';$('anBot').innerHTML=rows(stats.slice(-7).reverse());
+  });
+}
+
+/* ================= ЧАТ ================= */
+var chatCur=null;
+function loadChat(){
+  $('chatReload').onclick=loadChatDialogs;
+  $('chatSend').onclick=sendChat;
+  $('chatInput').addEventListener('keydown',function(e){if(e.key==='Enter')sendChat()});
+  loadChatDialogs();
+}
+function loadChatDialogs(){
+  Promise.all([
+    sb.from('messages').select('*').order('created_at',{ascending:false}).limit(400),
+    sb.from('guest_profiles').select('user_id,name,phone')
+  ]).then(function(res){
+    var msgs=res[0].data||[], profs={};
+    (res[1].data||[]).forEach(function(p){profs[p.user_id]=p});
+    var dlg={};
+    msgs.forEach(function(m){
+      var id=m.conversation_id;
+      if(!dlg[id])dlg[id]={id:id,last:m,unread:0};
+      if(m.sender_role!=='admin'&&!m.is_read)dlg[id].unread++;
+    });
+    var list=Object.values(dlg).sort(function(a,b){return a.last.created_at<b.last.created_at?1:-1});
+    var totalUnread=list.reduce(function(s,d){return s+d.unread},0);
+    var badge=$('chatBadge');
+    if(totalUnread){badge.style.display='inline-block';badge.textContent=totalUnread}else badge.style.display='none';
+    window.__profs=profs;
+    $('chatDialogs').className='';
+    $('chatDialogs').innerHTML=list.length?list.map(function(d){
+      var p=profs[d.id]||{};
+      return '<div data-c="'+esc(d.id)+'" style="padding:9px 10px;border-radius:8px;cursor:pointer;'+(chatCur===d.id?'background:var(--panel2);':'')+'border-bottom:1px solid rgba(255,255,255,.04)">'+
+        '<div style="display:flex;justify-content:space-between"><b style="font-size:13px">'+esc(p.name||('Гость '+d.id.slice(0,6)))+'</b>'+(d.unread?'<span class="tag r">'+d.unread+'</span>':'')+'</div>'+
+        '<div style="color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.last.content||'')+'</div></div>';
+    }).join(''):'<div class="empty">Диалогов нет</div>';
+    $('chatDialogs').querySelectorAll('[data-c]').forEach(function(el){el.onclick=function(){chatCur=el.dataset.c;loadChatDialogs();openDialog()}});
+  });
+}
+function openDialog(){
+  sb.from('messages').select('*').eq('conversation_id',chatCur).order('created_at').then(function(r){
+    var msgs=r.data||[];
+    $('chatMsgs').innerHTML=msgs.map(function(m){
+      var admin=m.sender_role==='admin';
+      return '<div style="max-width:75%;padding:8px 12px;border-radius:12px;font-size:13.5px;'+(admin?'align-self:flex-end;background:var(--gold);color:#1c1710':'align-self:flex-start;background:var(--panel2)')+'">'+esc(m.content)+'<div style="font-size:10px;opacity:.6;margin-top:2px">'+new Date(m.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>';
+    }).join('')||'<div class="empty">Сообщений нет</div>';
+    $('chatMsgs').scrollTop=$('chatMsgs').scrollHeight;
+    var unreadIds=msgs.filter(function(m){return m.sender_role!=='admin'&&!m.is_read}).map(function(m){return m.id});
+    if(unreadIds.length)sb.from('messages').update({is_read:true}).in('id',unreadIds).then(loadChatDialogs);
+  });
+}
+function sendChat(){
+  var txt=$('chatInput').value.trim();
+  if(!txt||!chatCur)return;
+  sb.auth.getUser().then(function(u){
+    sb.from('messages').insert({conversation_id:chatCur,sender_id:u.data.user.id,sender_role:'admin',content:txt,is_read:true}).then(function(r){
+      if(r.error){toast('Ошибка: '+r.error.message);return}
+      $('chatInput').value='';openDialog();
+    });
+  });
+}
+
+/* ================= ГОСТИ ================= */
+function loadGuests(){
+  sb.from('bookings').select('guest_name,guest_email,guest_phone,total_price,status,check_out,created_at').then(function(r){
+    var list=r.data||[], by={};
+    list.forEach(function(b){
+      var key=(b.guest_email||b.guest_phone||b.guest_name||'?').toLowerCase();
+      if(!by[key])by[key]={name:b.guest_name,phone:b.guest_phone,email:b.guest_email,n:0,cancelled:0,spent:0,last:''};
+      var g=by[key]; g.n++;
+      if(b.status==='cancelled')g.cancelled++;
+      else g.spent+=b.total_price||0;
+      if((b.check_out||'')>g.last)g.last=b.check_out;
+      if(b.guest_name&&(!g.name||g.name.length<b.guest_name.length))g.name=b.guest_name;
+    });
+    var guests=Object.values(by).sort(function(a,b){return b.spent-a.spent});
+    var repeat=guests.filter(function(g){return g.n-g.cancelled>1}).length;
+    var totalRev=guests.reduce(function(s,g){return s+g.spent},0);
+    var active=list.filter(function(b){return b.status!=='cancelled'});
+    $('gKpi').innerHTML=[['Гостей',guests.length],['Броней',active.length],['Выручка (сайт)',fmt$(totalRev)],['Ср. чек',active.length?fmt$(totalRev/active.length):'—'],['Повторные',repeat]].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val">'+k[1]+'</div></div>'}).join('');
+    $('gList').className='';
+    $('gList').innerHTML='<table><thead><tr><th>Имя</th><th>Контакты</th><th class="num">Броней</th><th class="num">Потрачено</th><th>Последний визит</th></tr></thead><tbody>'+
+      guests.map(function(g){
+        return '<tr><td style="font-weight:600">'+esc(g.name||'—')+(g.n-g.cancelled>1?' <span class="tag b">повторный</span>':'')+'</td><td style="color:var(--mut)">'+esc(g.phone||'')+' '+esc(g.email||'')+'</td><td class="num">'+g.n+(g.cancelled?' <span style="color:var(--dim)">('+g.cancelled+' отм.)</span>':'')+'</td><td class="num" style="color:var(--gold)">'+fmt$(g.spent)+'</td><td style="color:var(--mut)">'+(g.last||'—')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+  });
+}
+
+/* ================= АПАРТАМЕНТЫ ================= */
+var APT_FIELDS=[['name','Название','text'],['complex','Комплекс','text'],['floor','Этаж','number'],['rooms','Тип','text'],['max_guests','Гостей','number'],['weekday_price','Пн-Чт $','number'],['weekend_price','Пт-Вс $','number']];
+function loadApts(){
+  sb.from('apartments').select('*').order('complex').order('name').then(function(r){
+    var all=r.data||[];
+    $('aptsList').className='';
+    $('aptsList').innerHTML='<table><thead><tr><th>ID</th>'+APT_FIELDS.map(function(f){return '<th>'+f[1]+'</th>'}).join('')+'<th>Активен</th></tr></thead><tbody>'+
+      all.map(function(a){
+        return '<tr data-id="'+esc(a.id)+'"'+(a.is_active===false?' style="opacity:.45"':'')+'><td style="color:var(--dim);font-size:11px">'+esc(a.id)+'</td>'+
+          APT_FIELDS.map(function(f){
+            return '<td><input data-f="'+f[0]+'" type="'+f[2]+'" value="'+esc(a[f[0]]==null?'':a[f[0]])+'" style="background:transparent;border:1px solid transparent;border-radius:6px;color:var(--text);padding:4px 6px;font-size:12.5px;width:'+(f[2]==='number'?'64px':'120px')+'" onfocus="this.style.borderColor=\'var(--gold-dim)\';this.style.background=\'var(--panel2)\'"></td>';
+          }).join('')+
+          '<td><button class="btn mini" data-toggle="1">'+(a.is_active===false?'Включить':'✓ Вкл')+'</button></td></tr>';
+      }).join('')+'</tbody></table>';
+    $('aptsList').querySelectorAll('input[data-f]').forEach(function(inp){
+      inp.addEventListener('change',function(){
+        var id=inp.closest('tr').dataset.id, f=inp.dataset.f;
+        var val=inp.type==='number'?(inp.value===''?null:parseInt(inp.value,10)):(inp.value.trim()||null);
+        var patch={updated_at:new Date().toISOString()}; patch[f]=val;
+        sb.from('apartments').update(patch).eq('id',id).then(function(res){
+          if(res.error){toast('Ошибка: '+res.error.message);inp.style.borderColor='var(--red)'}
+          else{toast('Сохранено: '+id);inp.style.borderColor='var(--green)';setTimeout(function(){inp.style.borderColor='transparent';inp.style.background='transparent'},900)}
+        });
+      });
+    });
+    $('aptsList').querySelectorAll('button[data-toggle]').forEach(function(btn){
+      btn.onclick=function(){
+        var tr=btn.closest('tr'), id=tr.dataset.id;
+        var makeActive=btn.textContent.indexOf('Включить')>-1;
+        if(!makeActive&&!confirm('Скрыть объект с сайта?'))return;
+        sb.from('apartments').update({is_active:makeActive,updated_at:new Date().toISOString()}).eq('id',id).then(function(res){
+          if(res.error){toast('Ошибка: '+res.error.message);return}
+          toast(makeActive?'Объект включён':'Объект скрыт');loadApts();
+        });
+      };
+    });
+  });
+}
+
+/* ================= РАСХОДЫ ================= */
+var expY,expM;
+function loadExp(){
+  var n=tashNow(); expY=n.getUTCFullYear(); expM=n.getUTCMonth();
+  $('expPrev').onclick=function(){expM--;if(expM<0){expM=11;expY--}renderExp()};
+  $('expNext').onclick=function(){expM++;if(expM>11){expM=0;expY++}renderExp()};
+  $('expApt').innerHTML='<option value="">Общий расход</option>'+APTS.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name+' · '+(a.complex||''))+'</option>'}).join('');
+  $('expDate').value=todayISO();
+  $('expAdd').onclick=function(){
+    var amount=parseInt($('expSum').value,10);
+    if(!amount){toast('Укажи сумму');return}
+    sb.from('expenses').insert({apartment_id:$('expApt').value||null,category:$('expCat').value,amount:amount,description:$('expDesc').value.trim()||null,expense_date:$('expDate').value||todayISO()}).then(function(r){
+      if(r.error){toast('Ошибка: '+r.error.message);return}
+      $('expSum').value='';$('expDesc').value='';toast('Расход добавлен ✓');renderExp();
+    });
+  };
+  renderExp();
+}
+function renderExp(){
+  $('expLbl').textContent=MRU[expM]+' '+expY;
+  var from=expY+'-'+String(expM+1).padStart(2,'0')+'-01';
+  var to=expY+'-'+String(expM+1).padStart(2,'0')+'-'+String(new Date(Date.UTC(expY,expM+1,0)).getUTCDate()).padStart(2,'0');
+  sb.from('expenses').select('*').gte('expense_date',from).lte('expense_date',to).order('expense_date',{ascending:false}).then(function(r){
+    var list=r.data||[];
+    var byCat={},total=0;
+    list.forEach(function(e){total+=e.amount||0;byCat[e.category]=(byCat[e.category]||0)+(e.amount||0)});
+    var cards=[['Всего',fmt$(total)]].concat(Object.keys(byCat).map(function(c){return [c,fmt$(byCat[c])]}));
+    $('expKpi').innerHTML=cards.map(function(k){return '<div class="card"><div class="lbl">'+esc(k[0])+'</div><div class="val">'+k[1]+'</div></div>'}).join('');
+    $('expList').className='';
+    $('expList').innerHTML=list.length?'<table><thead><tr><th>Дата</th><th>Квартира</th><th>Категория</th><th class="num">Сумма</th><th>Описание</th><th></th></tr></thead><tbody>'+
+      list.map(function(e){return '<tr><td>'+e.expense_date+'</td><td>'+esc(e.apartment_id?aptName(e.apartment_id):'Общий')+'</td><td>'+esc(e.category||'')+'</td><td class="num">'+fmt$(e.amount||0)+'</td><td style="color:var(--mut)">'+esc(e.description||'')+'</td><td><button class="btn mini" data-del="'+e.id+'">✕</button></td></tr>'}).join('')+'</tbody></table>':'<div class="empty">Расходов за месяц нет</div>';
+    $('expList').querySelectorAll('button[data-del]').forEach(function(b){
+      b.onclick=function(){if(!confirm('Удалить расход?'))return;sb.from('expenses').delete().eq('id',b.dataset.del).then(function(res){if(res.error)toast('Ошибка: '+res.error.message);else{toast('Удалено');renderExp()}})};
+    });
+  });
+}
+
+/* ================= ПЕРСОНАЛ ================= */
+var stY,stM,STAFF=[];
+function loadStaff(){
+  var n=tashNow(); stY=n.getUTCFullYear(); stM=n.getUTCMonth();
+  $('stPrev').onclick=function(){stM--;if(stM<0){stM=11;stY--}renderStaff()};
+  $('stNext').onclick=function(){stM++;if(stM>11){stM=0;stY++}renderStaff()};
+  $('spDate').value=todayISO();
+  $('spAdd').onclick=function(){
+    var amount=parseInt($('spSum').value,10);
+    if(!amount||!$('spStaff').value){toast('Сотрудник и сумма');return}
+    sb.from('staff_payments').insert({staff_id:$('spStaff').value,amount:amount,payment_date:$('spDate').value||todayISO()}).then(function(r){
+      if(r.error){toast('Ошибка: '+r.error.message);return}
+      $('spSum').value='';toast('Выплата записана ✓');renderStaff();
+    });
+  };
+  sb.from('staff').select('*').eq('is_active',true).order('name').then(function(r){
+    STAFF=r.data||[];
+    $('spStaff').innerHTML=STAFF.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>'}).join('');
+    renderStaff();
+  });
+}
+function renderStaff(){
+  $('stLbl').textContent=MRU[stM]+' '+stY;
+  var dim=new Date(Date.UTC(stY,stM+1,0)).getUTCDate();
+  var from=stY+'-'+String(stM+1).padStart(2,'0')+'-01';
+  var to=stY+'-'+String(stM+1).padStart(2,'0')+'-'+String(dim).padStart(2,'0');
+  Promise.all([
+    sb.from('staff_attendance').select('*').gte('work_date',from).lte('work_date',to),
+    sb.from('staff_payments').select('*').gte('payment_date',from).lte('payment_date',to).order('payment_date',{ascending:false})
+  ]).then(function(res){
+    var att={}; (res[0].data||[]).forEach(function(a){att[a.staff_id+'_'+a.work_date]=a});
+    var pays=res[1].data||[];
+    var t=todayISO();
+    /* KPI */
+    var earned=0,worked=0;
+    STAFF.forEach(function(s){for(var d=1;d<=dim;d++){var key=s.id+'_'+stY+'-'+String(stM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');if(att[key]&&att[key].present){worked++;earned+=s.daily_rate||0}}});
+    var paid=pays.reduce(function(sum,p){return sum+(p.amount||0)},0);
+    function sum(n){return (n||0).toLocaleString('ru-RU')+' сум'}
+    $('stKpi').innerHTML=[['Сотрудников',STAFF.length],['Отработано дней',worked],['Начислено',sum(earned)],['Выплачено',sum(paid)],['К выплате',sum(earned-paid)]].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val" style="font-size:17px">'+k[1]+'</div></div>'}).join('');
+    /* табель-сетка */
+    var h='<div style="overflow-x:auto"><table style="min-width:'+(dim*30+160)+'px"><thead><tr><th>Сотрудник</th>';
+    for(var d=1;d<=dim;d++)h+='<th style="text-align:center;padding:4px 2px">'+d+'</th>';
+    h+='<th class="num">Дней</th><th class="num">Начислено</th></tr></thead><tbody>';
+    STAFF.forEach(function(s){
+      var cnt=0;
+      h+='<tr><td style="font-weight:600;white-space:nowrap">'+esc(s.name)+'<div style="color:var(--dim);font-size:10.5px">'+esc(s.role||'')+' · '+(s.daily_rate||0).toLocaleString('ru-RU')+'</div></td>';
+      for(var d=1;d<=dim;d++){
+        var iso=stY+'-'+String(stM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        var a=att[s.id+'_'+iso], on=a&&a.present;
+        if(on)cnt++;
+        h+='<td data-st="'+s.id+'" data-d="'+iso+'" style="text-align:center;cursor:pointer;padding:5px 2px;'+(iso===t?'background:rgba(201,169,110,.10);':'')+'color:'+(on?'var(--green)':'var(--dim)')+'">'+(on?'●':'·')+'</td>';
+      }
+      h+='<td class="num">'+cnt+'</td><td class="num">'+((cnt*(s.daily_rate||0)).toLocaleString('ru-RU'))+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    $('stGrid').className='';
+    $('stGrid').innerHTML=h;
+    $('stGrid').querySelectorAll('td[data-st]').forEach(function(td){
+      td.onclick=function(){
+        var sid=td.dataset.st, iso=td.dataset.d, ex=att[sid+'_'+iso];
+        var q=ex? sb.from('staff_attendance').update({present:!ex.present}).eq('id',ex.id)
+                : sb.from('staff_attendance').insert({staff_id:sid,work_date:iso,present:true});
+        q.then(function(res){if(res.error)toast('Ошибка: '+res.error.message);else renderStaff()});
+      };
+    });
+    $('spList').className='';
+    $('spList').innerHTML=pays.length?'<table><tbody>'+pays.map(function(p){
+      var s=STAFF.filter(function(x){return x.id===p.staff_id})[0]||{};
+      return '<tr><td>'+p.payment_date+'</td><td>'+esc(s.name||'')+'</td><td class="num">'+(p.amount||0).toLocaleString('ru-RU')+' сум</td><td><button class="btn mini" data-delp="'+p.id+'">✕</button></td></tr>';
+    }).join('')+'</tbody></table>':'<div class="empty">Выплат за месяц нет</div>';
+    $('spList').querySelectorAll('button[data-delp]').forEach(function(b){
+      b.onclick=function(){if(!confirm('Удалить выплату?'))return;sb.from('staff_payments').delete().eq('id',b.dataset.delp).then(function(){renderStaff()})};
+    });
+  });
+}
+
 /* ================= загрузчики ================= */
-var LOADERS={today:loadToday,cal:loadCal,fin:loadFin,rent:loadRent,req:loadReq,ck:loadCk};
+var LOADERS={today:loadToday,cal:loadCal,fin:loadFin,rent:loadRent,req:loadReq,ck:loadCk,an:function(){MONTH?loadAn():fetch('/.netlify/functions/sheets-proxy?sheet=month').then(function(r){return r.json()}).then(function(d){MONTH=d;loadAn()}).catch(loadAn)},chat:loadChat,guests:loadGuests,apts:loadApts,exp:loadExp,staff:loadStaff};
 checkAuth();
 </script>
 </body>
