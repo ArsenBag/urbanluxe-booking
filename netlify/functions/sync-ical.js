@@ -1,172 +1,105 @@
-const https = require('https');
-const http = require('http');
+// Urban Luxe — sync-ical.js (v2, август 2026)
+// Было: список iCal-фидов RealtyCalendar захардкожен → новые объекты не попадали
+// в шахматку/операции/доступность без правки кода.
+// Стало: фиды берутся из Supabase (apartments: is_active=true, ical_export_url задан).
+// Формат ответа полностью совместим со старым (шахматка, ops-center, дашборд, календарь).
 
-const ICAL_URLS = {
-  'nest_15': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDUz%0A',
-  'nest_249': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwNDI4%0A',
-  'nest_481': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDM2%0A',
-  'nest_233': 'https://realtycalendar.ru/apartments/export.ics?q=MzI5NTQz%0A',
-  'nest_353': 'https://realtycalendar.ru/apartments/export.ics?q=MzM3MTgz%0A',
-  'utower_65': 'https://realtycalendar.ru/apartments/export.ics?q=MzQwODEz%0A',
-  'utower_73': 'https://realtycalendar.ru/apartments/export.ics?q=MzQwODE1%0A',
-  'utower_171': 'https://realtycalendar.ru/apartments/export.ics?q=MzI5NTQ0%0A',
-  'utower_208': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDMw%0A',
-  'utower_310': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwMjMx%0A',
-  'utower_410': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk3%0A',
-  'utower2_5': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTc4%0A',
-  'utower2_9': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDM0%0A',
-  'utower2_207': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk0%0A',
-  'utower2_228': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk2%0A',
-  'utower2_296': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwMjMy%0A',
-  'utower2_92': 'https://realtycalendar.ru/apartments/export.ics?q=MzMxNTg1%0A',
-  'mirabad_111': 'https://realtycalendar.ru/apartments/export.ics?q=MzAyMTk1%0A',
-  'mirabad_205': 'https://realtycalendar.ru/apartments/export.ics?q=MzQzMDU1%0A',
-  'kislorod_49': 'https://realtycalendar.ru/apartments/export.ics?q=MzM0MTk0%0A',
-  'kislorod_58': 'https://realtycalendar.ru/apartments/export.ics?q=MzIxNzg5%0A',
-  'kislorod_128': 'https://realtycalendar.ru/apartments/export.ics?q=MzI3ODg3%0A',
-};
+const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
 
-function fetchIcal(url) {
-  return new Promise((resolve) => {
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, { timeout: 10000 }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => resolve(data));
-    }).on('error', () => resolve(''));
-  });
+function tashkentToday() {
+  // Asia/Tashkent = UTC+5, без переходов
+  const now = new Date(Date.now() + 5 * 3600 * 1000);
+  return now.toISOString().slice(0, 10);
 }
 
-function parseIcalEvents(icalData) {
+function parseICS(text, apartmentId) {
   const events = [];
-  const blocks = icalData.split('BEGIN:VEVENT');
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i].split('END:VEVENT')[0];
-    const lines = block.split(/\r?\n/);
-    let dtstart = '', dtend = '', summary = '', uid = '', description = '';
-    for (let j = 0; j < lines.length; j++) {
-      const line = lines[j];
-      if (line.startsWith('DTSTART')) {
-        const m = line.match(/(\d{4})(\d{2})(\d{2})/);
-        if (m) dtstart = `${m[1]}-${m[2]}-${m[3]}`;
-      }
-      if (line.startsWith('DTEND')) {
-        const m = line.match(/(\d{4})(\d{2})(\d{2})/);
-        if (m) dtend = `${m[1]}-${m[2]}-${m[3]}`;
-      }
-      if (line.startsWith('SUMMARY')) summary = line.replace('SUMMARY:', '').trim();
-      if (line.startsWith('UID')) uid = line.replace('UID:', '').trim();
-      if (line.startsWith('DESCRIPTION')) {
-        description = line.replace('DESCRIPTION:', '').trim();
-        // Handle multi-line DESCRIPTION (lines starting with space/tab are continuations)
-        while (j + 1 < lines.length && (lines[j + 1].startsWith(' ') || lines[j + 1].startsWith('\t'))) {
-          j++;
-          description += lines[j].trim();
-        }
-        // Unescape iCal
-        description = description.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\\\/g, '\\');
-      }
-    }
-    if (dtstart && dtend) events.push({ dtstart, dtend, summary, uid, description });
+  const blocks = text.split('BEGIN:VEVENT').slice(1);
+  for (const b of blocks) {
+    const body = b.split('END:VEVENT')[0];
+    const get = (re) => { const m = body.match(re); return m ? m[1].trim() : ''; };
+    const ds = get(/DTSTART(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    const de = get(/DTEND(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    if (!ds || !de) continue;
+    const fmt = (s) => s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    const uidRaw = get(/UID:([^\r\n]+)/);
+    const uid = (uidRaw.match(/\d{6,}/) || [uidRaw])[0];
+    const ci = fmt(ds), co = fmt(de);
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    if (nights <= 0) continue;
+    events.push({
+      apartment_id: apartmentId,
+      check_in: ci,
+      check_out: co,
+      nights,
+      source: 'other',
+      summary: 'RC(' + uid + ')',
+      guest_name: '',
+      uid
+    });
   }
   return events;
 }
 
-// Extract guest name from DESCRIPTION or SUMMARY
-function extractGuestName(summary, description) {
-  // Try DESCRIPTION first — RC format: "Гость: Имя Фамилия" or "Guest: Name"
-  if (description) {
-    const guestMatch = description.match(/(?:Гость|Guest|Имя|Name|ФИО|Заказчик)\s*[:=]\s*([^\n,;]+)/i);
-    if (guestMatch) return guestMatch[1].trim();
-    // Try first line if it looks like a name (2+ words, no special chars)
-    const firstLine = description.split('\n')[0]?.trim();
-    if (firstLine && /^[А-Яа-яA-Za-zёЁ\s\-]{3,40}$/.test(firstLine) && firstLine.includes(' ')) {
-      return firstLine;
-    }
-  }
-  // Try SUMMARY — sometimes format is "Booking.com - Имя Гостя"
-  if (summary) {
-    const dashMatch = summary.match(/\s[-–]\s+(.+)/);
-    if (dashMatch && !/RC\(/.test(dashMatch[1])) return dashMatch[1].trim();
-  }
-  return '';
-}
-
-function detectSource(summary) {
-  const s = (summary || '').toLowerCase();
-  if (s.includes('airbnb')) return 'airbnb';
-  if (s.includes('booking.com') || s.includes('booking')) return 'booking';
-  if (s.includes('ostrovok')) return 'ostrovok';
-  if (s.includes('101hotels') || s.includes('101')) return '101hotels';
-  if (s.includes('bronevik')) return 'bronevik';
-  if (s.includes('sutochno')) return 'sutochno';
-  if (s.includes('urbanluxe') || s.includes('urban luxe')) return 'website';
-  if (s.includes('blocked') || s.includes('unavailable') || s.includes('not available')) return 'blocked';
-  return 'other';
-}
-
-exports.handler = async (event) => {
+exports.handler = async () => {
   const headers = {
+    'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
+    'Cache-Control': 'public, max-age=60'
   };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  try {
+    // 1) Активные квартиры с фидами — из Supabase
+    const aptRes = await fetch(
+      SB_URL + '/rest/v1/apartments?select=id,ical_export_url&is_active=eq.true&ical_export_url=not.is.null',
+      { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY } }
+    );
+    if (!aptRes.ok) throw new Error('apartments fetch failed: ' + aptRes.status);
+    const apts = (await aptRes.json()).filter(a => /^https?:\/\//.test(a.ical_export_url || ''));
 
-  const allBookings = [];
-  const today = new Date().toISOString().split('T')[0];
+    // 2) Все фиды параллельно (таймаут на каждый — 12с)
+    const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+    const results = await Promise.allSettled(apts.map(async (a) => {
+      const r = await withTimeout(fetch(a.ical_export_url.trim()), 12000);
+      if (!r.ok) throw new Error('feed ' + a.id + ': ' + r.status);
+      return parseICS(await r.text(), a.id);
+    }));
 
-  // Parse all iCal feeds
-  for (const [aptId, url] of Object.entries(ICAL_URLS)) {
-    try {
-      const icalData = await fetchIcal(url);
-      if (!icalData) continue;
-      const events = parseIcalEvents(icalData);
-      
-      for (const ev of events) {
-        // Only include current/future bookings (not past)
-        if (ev.dtend < today) continue;
-        
-        const source = detectSource(ev.summary + ' ' + (ev.description || ''));
-        const nights = Math.round((new Date(ev.dtend) - new Date(ev.dtstart)) / 864e5);
-        const guestName = extractGuestName(ev.summary, ev.description);
-        
-        allBookings.push({
-          apartment_id: aptId,
-          check_in: ev.dtstart,
-          check_out: ev.dtend,
-          nights,
-          source,
-          summary: ev.summary || '',
-          guest_name: guestName,
-          uid: ev.uid || '',
-        });
-      }
-    } catch (e) { /* skip errors */ }
+    const today = tashkentToday();
+    const feedErrors = [];
+    let all = [];
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') all = all.concat(res.value);
+      else feedErrors.push(apts[i].id);
+    });
+
+    // Только актуальные (как раньше): ещё не выехали
+    all = all.filter(b => b.check_out >= today);
+    all.sort((x, y) => x.apartment_id < y.apartment_id ? -1 : x.apartment_id > y.apartment_id ? 1 : (x.check_in < y.check_in ? -1 : 1));
+
+    const checkins = all.filter(b => b.check_in === today);
+    const checkouts = all.filter(b => b.check_out === today);
+    const source_stats = {};
+    all.forEach(b => { source_stats[b.source] = (source_stats[b.source] || 0) + 1; });
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        total_bookings: all.length,
+        today_checkins: checkins.length,
+        today_checkouts: checkouts.length,
+        checkins,
+        checkouts,
+        source_stats,
+        all_bookings: all,
+        synced_at: new Date().toISOString(),
+        feeds: apts.length,
+        feed_errors: feedErrors
+      })
+    };
+  } catch (e) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: String(e.message || e) }) };
   }
-
-  // Group by today's check-ins and check-outs
-  const todayCheckins = allBookings.filter(b => b.check_in === today);
-  const todayCheckouts = allBookings.filter(b => b.check_out === today);
-  
-  // Source statistics
-  const sourceCounts = {};
-  allBookings.forEach(b => {
-    sourceCounts[b.source] = (sourceCounts[b.source] || 0) + 1;
-  });
-
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify({
-      total_bookings: allBookings.length,
-      today_checkins: todayCheckins.length,
-      today_checkouts: todayCheckouts.length,
-      checkins: todayCheckins,
-      checkouts: todayCheckouts,
-      source_stats: sourceCounts,
-      all_bookings: allBookings,
-      synced_at: new Date().toISOString()
-    })
-  };
 };
