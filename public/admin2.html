@@ -202,11 +202,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ================= АНАЛИТИКА ================= -->
     <section class="sect" id="s-an">
-      <div class="pagehead"><h2>Операционная аналитика</h2><div class="sub" id="anSub"></div></div>
-      <div class="cards" id="anKpi"></div>
-      <div class="panel"><h3>Загрузка по комплексам <span class="r">ближайшие 30 дней · iCal</span></h3><div id="anCx" class="empty">Загрузка…</div></div>
-      <div class="panel"><h3>▲ Лучшие по загрузке (30 дней)</h3><div id="anTop" class="empty">Загрузка…</div></div>
-      <div class="panel"><h3>▼ Слабая загрузка (30 дней) — кандидаты на скидку</h3><div id="anBot" class="empty">Загрузка…</div></div>
+      <div class="pagehead"><h2>Аналитика</h2><div class="sub" id="anSub"></div></div>
+      <div class="panel"><h3>📊 Факт — <span id="anFactMonth"></span> <span class="r">из таблицы «Месяц»</span></h3>
+        <div class="cards" id="anKpi" style="margin-bottom:6px"></div>
+      </div>
+      <div class="panel"><h3>▲ Факт: лучшие по загрузке <span class="r" id="anTopSub"></span></h3><div id="anTop" class="empty">Загрузка…</div></div>
+      <div class="panel"><h3>▼ Факт: слабая загрузка <span class="r" id="anBotSub"></span></h3><div id="anBot" class="empty">Загрузка…</div></div>
+      <div class="panel"><h3>🔮 Брони вперёд — 30 дней <span class="r">RealtyCalendar · прогноз, не факт</span></h3>
+        <div class="cards" id="anPaceKpi" style="margin-bottom:10px"></div>
+        <div id="anCx" class="empty">Загрузка…</div>
+      </div>
+      <div class="panel"><h3>⚠ Мало броней на 30 дней вперёд — усилить продажи</h3><div id="anPaceLow" class="empty">Загрузка…</div></div>
     </section>
 
     <!-- ================= ЧАТ ================= -->
@@ -669,11 +675,49 @@ function renderCkForm(){
   };
 }
 
-/* ================= АНАЛИТИКА (операционная) ================= */
+/* ================= АНАЛИТИКА ================= */
+function cleanSheetName(n){return String(n||'').replace(/\s*\/?\s*[Бб]ронь.*$/,'').replace(/-?\s*\d+\s*\$\s*$/,'').trim()}
 function loadAn(){
+  /* -------- ФАКТ: последний заполненный месяц из «Месяц» -------- */
+  if(MONTH&&MONTH.months){
+    var rev=MONTH.summary.total_revenue||{}, bc=MONTH.summary.bookings_count||{}, np=MONTH.summary.net_profit||{};
+    var last=null; MONTH.months.forEach(function(m){if((rev[m.label+' '+m.year]||0)>0)last=m});
+    if(last){
+      var dim=new Date(Date.UTC(parseInt(last.year,10),MRU.indexOf(last.label)+1,0)).getUTCDate();
+      var r0=rev[last.label+' '+last.year]||0, n0=bc[last.label+' '+last.year]||0, p0=np[last.label+' '+last.year]||0;
+      /* по квартирам: факт ночей из блоков */
+      var stats=[];
+      (MONTH.apartments||[]).forEach(function(a){
+        var d=a.monthly[last.label]||{};
+        if(!d.revenue&&!d.occupancy)return;
+        stats.push({name:cleanSheetName(a.name),n:d.occupancy||0,rev:d.revenue||0,profit:d.profit||0,p:Math.min(100,Math.round((d.occupancy||0)/dim*100))});
+      });
+      var cap=stats.length*dim;
+      var occPct=cap?Math.round(stats.reduce(function(s,x){return s+x.n},0)/cap*100):0;
+      $('anFactMonth').textContent=last.label+' '+last.year;
+      $('anKpi').innerHTML=[
+        ['Загрузка',occPct+'%','var(--gold)'],['Ночей продано',n0||stats.reduce(function(s,x){return s+x.n},0),'var(--text)'],
+        ['Выручка',fmt$(r0),'var(--text)'],['Чистая прибыль',fmt$(p0),p0>=0?'var(--green)':'var(--red)'],
+        ['ADR (ср. тариф)',n0?fmt$(r0/n0):'—','var(--text)'],['REVPAR',cap?fmt$(r0/cap):'—','var(--text)']
+      ].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val" style="color:'+k[2]+'">'+k[1]+'</div></div>'}).join('');
+      stats.sort(function(x,y){return y.p-x.p||y.profit-x.profit});
+      function factRows(list){
+        return '<table><thead><tr><th>Квартира</th><th class="num">Ночей</th><th class="num">Загрузка</th><th class="num">Выручка</th><th class="num">Прибыль</th></tr></thead><tbody>'+list.map(function(s){
+          var col=s.p>=80?'var(--green)':s.p>=50?'var(--amber)':'var(--red)';
+          return '<tr><td>'+esc(s.name)+'</td><td class="num">'+s.n+'</td><td class="num" style="color:'+col+';font-weight:700">'+s.p+'%</td><td class="num">'+fmt$(s.rev)+'</td><td class="num" style="color:'+(s.profit>=0?'var(--green)':'var(--red)')+'">'+fmt$(s.profit)+'</td></tr>';
+        }).join('')+'</tbody></table>';
+      }
+      $('anTopSub').textContent=last.label;$('anBotSub').textContent=last.label;
+      $('anTop').className='';$('anTop').innerHTML=factRows(stats.slice(0,7));
+      $('anBot').className='';$('anBot').innerHTML=factRows(stats.slice(-7).reverse());
+    }else{
+      $('anKpi').innerHTML='<div class="empty">В «Месяц» пока нет заполненных месяцев</div>';
+    }
+  }
+  /* -------- ПРОГНОЗ: брони вперёд из iCal -------- */
   loadIcal().then(function(d){
     var t=todayISO(), end=isoDate(new Date(tashNow().getTime()+30*86400000));
-    $('anSub').textContent='окно: '+t+' → '+end;
+    $('anSub').textContent='прогнозное окно: '+t+' → '+end;
     var nights={}, cx={};
     APTS.forEach(function(a){nights[a.id]=0});
     (d.all_bookings||[]).forEach(function(b){
@@ -688,29 +732,19 @@ function loadAn(){
       var c=a.complex||'—'; cx[c]=cx[c]||{n:0,apts:0}; cx[c].n+=nights[a.id]; cx[c].apts++;
     });
     var cap=APTS.length*30;
-    /* ADR по последнему месяцу из Sheets */
-    var adr='—',revpar='—';
-    if(MONTH){
-      var rev=MONTH.summary.total_revenue||{}, bc=MONTH.summary.bookings_count||{};
-      var last=null; MONTH.months.forEach(function(m){if((rev[m.label+' '+m.year]||0)>0)last=m});
-      if(last){
-        var r0=rev[last.label+' '+last.year]||0, n0=bc[last.label+' '+last.year]||0;
-        if(n0)adr=fmt$(r0/n0);
-        revpar=fmt$(r0/(APTS.length*30));
-        $('anSub').textContent+=' · ADR/REVPAR за '+last.label;
-      }
-    }
-    $('anKpi').innerHTML=[['Загрузка 30 дн',Math.round(totalBusy/cap*100)+'%','var(--gold)'],['Ночей продано',Math.round(totalBusy),'var(--text)'],['ADR (ср. тариф)',adr,'var(--text)'],['REVPAR',revpar,'var(--text)']].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val" style="color:'+k[2]+'">'+k[1]+'</div></div>'}).join('');
+    $('anPaceKpi').innerHTML=[['Продано вперёд',Math.round(totalBusy/cap*100)+'%','var(--gold)'],['Ночей в броне',Math.round(totalBusy),'var(--text)'],['Свободно ночей',Math.round(cap-totalBusy),'var(--mut)']].map(function(k){return '<div class="card"><div class="lbl">'+k[0]+'</div><div class="val" style="color:'+k[2]+'">'+k[1]+'</div></div>'}).join('');
     $('anCx').className='';
     $('anCx').innerHTML=Object.keys(cx).map(function(c){
       var p=Math.round(cx[c].n/(cx[c].apts*30)*100);
-      var col=p>=80?'var(--green)':p>=50?'var(--amber)':'var(--red)';
+      var col=p>=60?'var(--green)':p>=30?'var(--amber)':'var(--red)';
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="width:150px;color:var(--text)">'+esc(c)+' <span style="color:var(--dim)">('+cx[c].apts+')</span></span><div style="flex:1;background:var(--panel2);border-radius:6px;height:10px;overflow:hidden"><div style="width:'+p+'%;height:100%;background:'+col+'"></div></div><b style="width:44px;text-align:right;color:'+col+'">'+p+'%</b></div>';
     }).join('');
-    var stats=APTS.map(function(a){return {name:a.name+' · '+(a.complex||''),p:Math.round(nights[a.id]/30*100)}}).sort(function(x,y){return y.p-x.p});
-    function rows(list){return '<table><tbody>'+list.map(function(s){var col=s.p>=80?'var(--green)':s.p>=50?'var(--amber)':'var(--red)';return '<tr><td>'+esc(s.name)+'</td><td class="num" style="color:'+col+';font-weight:700">'+s.p+'%</td></tr>'}).join('')+'</tbody></table>'}
-    $('anTop').className='';$('anTop').innerHTML=rows(stats.slice(0,7));
-    $('anBot').className='';$('anBot').innerHTML=rows(stats.slice(-7).reverse());
+    var pace=APTS.map(function(a){return {name:a.name+' · '+(a.complex||''),n:Math.round(nights[a.id]),p:Math.round(nights[a.id]/30*100)}}).sort(function(x,y){return x.p-y.p});
+    $('anPaceLow').className='';
+    $('anPaceLow').innerHTML='<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Будущие брони — это нормально, что их меньше 100%. Красное = почти пустой календарь на месяц вперёд.</div><table><tbody>'+pace.slice(0,8).map(function(s){
+      var col=s.p>=40?'var(--amber)':'var(--red)';
+      return '<tr><td>'+esc(s.name)+'</td><td class="num">'+s.n+' ноч.</td><td class="num" style="color:'+col+';font-weight:700">'+s.p+'%</td></tr>';
+    }).join('')+'</tbody></table>';
   });
 }
 
