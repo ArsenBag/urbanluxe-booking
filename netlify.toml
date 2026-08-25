@@ -5,6 +5,10 @@
 [functions]
   node_bundler = "esbuild"
 
+# Ежедневный снапшот занятости (04:00 UTC = 09:00 Ташкент): история для календаря и аналитики
+[functions."occupancy-snapshot"]
+  schedule = "0 4 * * *"
+
 # Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html).
 # Язык передаём через путь, а не query: Netlify теряет query-строку в rewrite-цели.
 [[redirects]]
