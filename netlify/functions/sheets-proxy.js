@@ -2,10 +2,12 @@ const https = require('https');
 
 // Google Sheets ID — таблица "Юнит экономика квартир"
 const SHEET_ID = '1NHqPZV8Dx2dKmfTCpb8LcdA4AtuqSfKyyyWs5UF2HtY';
+// Партнёрские квартиры (прибыль 50/50)
+const PARTNER_SHEET_ID = '191ila7T-7dUWUfITNffd7yjUDXqUBwAcfqLS52V_MhU';
 
-function fetchCSV(sheetName) {
+function fetchCSV(sheetName, bookId) {
   const encoded = encodeURIComponent(sheetName);
-  return fetchUrl(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encoded}`);
+  return fetchUrl(`https://docs.google.com/spreadsheets/d/${bookId || SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encoded}`);
 }
 
 // Сырой GET с обработкой редиректа Google — возвращает тело как есть
@@ -198,6 +200,77 @@ function parseWeeklyData(rows) {
   return blocks;
 }
 
+// Партнёрский «Месяц»: те же 5-строчные блоки, но имена без "$"/"Бронь" —
+// квартирой считаем строку, за которой идёт строка «Аренда».
+function parsePartnerMonthly(rows) {
+  const base = parseMonthlyData(rows) || { months: [], apartments: [], summary: {} };
+  const months = [];
+  {
+    const yearRow = rows[0] || [];
+    const MONTH_NAMES = ['Декабрь','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    let monthIdx = 0, prevYear = '';
+    for (let i = 1; i < yearRow.length; i++) {
+      const year = (yearRow[i] || '').trim();
+      if (!year) continue;
+      if (year !== prevYear) { monthIdx = year === '2025' ? 12 : 1; prevYear = year; }
+      if (monthIdx >= 1 && monthIdx <= 12) months.push({ label: MONTH_NAMES[monthIdx], year, index: i });
+      monthIdx++;
+    }
+  }
+  const apartments = [];
+  for (let r = 2; r < rows.length - 1; r++) {
+    const name = (rows[r] && rows[r][0] || '').trim();
+    const next = (rows[r + 1] && rows[r + 1][0] || '').trim();
+    if (!name || next !== 'Аренда') continue;
+    if (/аренда|комисси|заселени|прибыль|итого/i.test(name)) continue;
+    const apt = { name, monthly: {} };
+    for (const m of months) {
+      const ci = m.index;
+      apt.monthly[m.label] = {
+        revenue: parseNumber(rows[r][ci]),
+        rent: parseNumber(rows[r + 1] ? rows[r + 1][ci] : '0'),
+        commission: parseNumber(rows[r + 2] ? rows[r + 2][ci] : '0'),
+        occupancy: parseNumber(rows[r + 3] ? rows[r + 3][ci] : '0'),
+        profit: parseNumber(rows[r + 4] ? rows[r + 4][ci] : '0'),
+      };
+      apt.monthly[m.label + ' ' + m.year] = apt.monthly[m.label];
+    }
+    apartments.push(apt);
+    r += 4;
+  }
+  return { months: months.map(m => ({ label: m.label, year: m.year })), apartments, summary: base.summary || {} };
+}
+
+// Вкладка «АРЕНДА»: график оплат — квартира, сумма, день выплаты, чекбоксы по месяцам
+function parseRentData(rows) {
+  if (!rows.length) return { months: [], items: [], total_monthly: 0 };
+  const header = rows[0];
+  const months = [];
+  for (let i = 3; i < header.length; i++) {
+    if (header[i] && header[i].trim()) months.push({ label: header[i].trim(), index: i });
+  }
+  const items = [];
+  let total = 0;
+  for (let r = 1; r < rows.length; r++) {
+    const name = (rows[r][0] || '').trim();
+    if (!name) continue;
+    if (/итого/i.test(name)) { total = parseNumber(rows[r][1]); continue; }
+    const item = {
+      name,
+      rent: parseNumber(rows[r][1]),
+      pay_day: parseInt(rows[r][2], 10) || null,
+      paid: {}
+    };
+    for (const m of months) {
+      const v = (rows[r][m.index] || '').trim().toUpperCase();
+      item.paid[m.label] = v === 'TRUE' ? true : v === 'FALSE' ? false : null;
+    }
+    items.push(item);
+  }
+  if (!total) total = items.reduce((s, it) => s + (it.rent || 0), 0);
+  return { months: months.map(m => m.label), items, total_monthly: Math.round(total) };
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -246,6 +319,23 @@ exports.handler = async (event) => {
       const rows = parseCSVSimple(csv);
       const data = parseWeeklyData(rows);
       return { statusCode: 200, headers, body: JSON.stringify(data) };
+    }
+
+    // Партнёрские квартиры (50/50): помесячная экономика
+    if (sheet === 'partner_month') {
+      const csv = await fetchCSV('Месяц', PARTNER_SHEET_ID);
+      const data = parsePartnerMonthly(parseCSVSimple(csv));
+      return { statusCode: 200, headers, body: JSON.stringify(data) };
+    }
+
+    // Графики оплат аренды: своя книга, партнёрская или обе
+    if (sheet === 'rent' || sheet === 'partner_rent' || sheet === 'rent_all') {
+      const tasks = [];
+      if (sheet !== 'partner_rent') tasks.push(fetchCSV(' АРЕНДА').then(c => ({ own: parseRentData(parseCSVSimple(c)) })));
+      if (sheet !== 'rent') tasks.push(fetchCSV(' АРЕНДА', PARTNER_SHEET_ID).then(c => ({ partner: parseRentData(parseCSVSimple(c)) })));
+      const parts = await Promise.all(tasks);
+      const out = Object.assign({}, ...parts);
+      return { statusCode: 200, headers, body: JSON.stringify(out) };
     }
 
     const [monthCSV, weekCSV] = await Promise.all([fetchCSV('Месяц'), fetchCSV('Неделя')]);
