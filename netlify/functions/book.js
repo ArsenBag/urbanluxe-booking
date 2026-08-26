@@ -62,7 +62,7 @@ function nightPrice(dateIso, weekday, weekend) {
 function esc(s) { return String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
 
 async function sendGuestEmail(booking, aptName) {
-  const key = process.env.RESEND_API_KEY;
+  const key = process.env.RESEND_API_KEY || process.env.RESEND_KEY || process.env.EMAIL_API_KEY;
   if (!key || !booking.guest_email) return;
   const from = process.env.RESEND_FROM || 'Urban Luxe <booking@urbanluxe.cc>';
   const html =
