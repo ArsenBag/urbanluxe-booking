@@ -97,7 +97,23 @@
     });
   }
 
-  function init() { fixPhones(); fixNavMap(); }
+  // ---------- 3. Актуальное число объектов (в текстах зашито «25») ----------
+  function fixCounts() {
+    fetch('https://sebvfvtofiysbywxjqut.supabase.co/rest/v1/apartments?select=id&is_active=eq.true', {
+      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI' }
+    }).then(function (r) { return r.json(); }).then(function (list) {
+      var n = list.length; if (!n || n < 25) return;
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      var node;
+      while ((node = walker.nextNode())) {
+        var v = node.nodeValue;
+        if (/25\s*резиденций/i.test(v) || /25\s+квартир/i.test(v)) node.nodeValue = v.replace(/25(\s*(резиденций|квартир))/i, n + '$1');
+        else if (v.trim() === '25' && node.parentElement && /резиденц/i.test((node.parentElement.parentElement || {}).textContent || '')) node.nodeValue = String(n);
+      }
+    }).catch(function () {});
+  }
+
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
