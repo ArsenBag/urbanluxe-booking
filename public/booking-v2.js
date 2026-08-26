@@ -18,6 +18,7 @@
       eName: 'Укажите имя', ePhone: 'Телефон в международном формате: +998 90 123 45 67', eEmail: 'Укажите корректный email — на него придёт подтверждение',
       eCitizen: 'Выберите гражданство', eTime: 'Выберите время заезда',
       timeLabel: 'Время заезда *', cabBtn: 'Открыть личный кабинет',
+      mailHint: 'Письмо-подтверждение отправлено на {email}. Если его не видно — проверьте папку «Спам» и отметьте письмо как «Не спам».',
       openBrowser: 'Вы в браузере Instagram — для надёжного бронирования откройте сайт в обычном браузере (⋯ в углу → «Открыть в браузере»)', copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована ✓',
       accMade: '👤 Мы создали вам личный кабинет — на почту отправлена ссылка для установки пароля. Внутри: ваша бронь, отмена и инструкция по заселению.',
       accExists: '👤 У вас уже есть личный кабинет — войдите, там появится эта бронь.',
@@ -33,6 +34,7 @@
       eName: 'Enter your name', ePhone: 'Phone in international format: +998 90 123 45 67', eEmail: 'Enter a valid email — confirmation goes there',
       eCitizen: 'Select citizenship', eTime: 'Select arrival time',
       timeLabel: 'Arrival time *', cabBtn: 'Open my account',
+      mailHint: 'A confirmation email was sent to {email}. If you don\'t see it, check your Spam folder and mark it "Not spam".',
       openBrowser: 'You are in the Instagram browser — for reliable booking open the site in a regular browser (⋯ menu → "Open in browser")', copyLink: 'Copy link', copied: 'Link copied ✓',
       accMade: '👤 We created your personal account — a password link was sent to your email. Inside: your booking, cancellation and check-in instructions.',
       accExists: '👤 You already have an account — sign in to see this booking.',
@@ -48,6 +50,7 @@
       eName: 'Ismingizni kiriting', ePhone: 'Telefon xalqaro formatda: +998 90 123 45 67', eEmail: "To'g'ri email kiriting — tasdiq shu manzilga boradi",
       eCitizen: 'Fuqarolikni tanlang', eTime: 'Kelish vaqtini tanlang',
       timeLabel: 'Kelish vaqti *', cabBtn: 'Shaxsiy kabinetni ochish',
+      mailHint: "Tasdiqlash xati {email} manziliga yuborildi. Ko'rinmasa — Spam papkasini tekshiring.",
       openBrowser: "Siz Instagram brauzeridasiz — ishonchli bron uchun saytni oddiy brauzerda oching (⋯ menyu → «Brauzerda ochish»)", copyLink: 'Havolani nusxalash', copied: 'Nusxalandi ✓',
       accMade: "👤 Sizga shaxsiy kabinet yaratdik — parol o'rnatish havolasi emailga yuborildi. Ichida: broningiz, bekor qilish va joylashish ko'rsatmasi.",
       accExists: "👤 Sizda kabinet bor — kiring, bron o'sha yerda ko'rinadi.",
@@ -467,6 +470,40 @@
     });
   }
 
+  // Код сайта для ЗАЛОГИНЕННЫХ гостей игнорирует заполненные поля формы и берёт
+  // имя/телефон из modalBookData (куда они не пишутся) -> сервер получает пустой
+  // телефон и отвечает «Заполните обязательные поля». Чиним на уровне запроса:
+  // перед отправкой /book подставляем значения из полей формы.
+  (function fixBookPayload() {
+    var of = window.fetch;
+    window.fetch = function (url, opts) {
+      try {
+        if (typeof url === 'string' && /\/functions\/book(\?|$)/.test(url) &&
+            opts && (opts.method || '').toUpperCase() === 'POST' && typeof opts.body === 'string') {
+          var b = JSON.parse(opts.body);
+          var nm = (($('modalGuestName') || {}).value || '').trim();
+          var em = (($('modalGuestEmail') || {}).value || '').trim();
+          var phEl = $('modalGuestPhone');
+          var phv = phEl ? normPhone(phEl) : '';
+          var fo = $('modalForOther');
+          if (fo && fo.checked) {
+            // Гость — «другой человек» (заполнен в other-полях), а бронирующий — из формы
+            if (nm && !b.booker_name) b.booker_name = nm;
+            if (phv && !b.booker_phone) b.booker_phone = phv;
+            if (em && !b.booker_email) b.booker_email = em;
+          } else {
+            if (nm.length >= 2) b.guest_name = nm;
+            if (phv) b.guest_phone = phv;
+            if (em) b.guest_email = em;
+            if (phv && !b.booker_phone) b.booker_phone = phv;
+          }
+          opts = Object.assign({}, opts, { body: JSON.stringify(b) });
+        }
+      } catch (e) {}
+      return of.call(window, url, opts);
+    };
+  })();
+
   // После успешной заявки: QR с суммой (если выбран) + авто-создание кабинета
   function watchSuccess(contact) {
     var total = ($('modalTotalPrice') || {}).textContent || '';
@@ -486,6 +523,14 @@
           '<p style="text-align:center;color:#cfcabd;margin:0;font-size:14px">' + esc(t.qrHint) + ': <b style="color:#c9a96e">' + esc(total) + '</b></p>' +
           '<p style="text-align:center;color:#8a857a;font-size:12px;margin:6px 0 0">' + esc(t.qrDone) + '</p>';
         parent.appendChild(d);
+      }
+      // Подсказка про письмо и папку «Спам»
+      if (contact && contact.email && !$('ulv2-mailhint')) {
+        var mh = document.createElement('div');
+        mh.id = 'ulv2-mailhint';
+        mh.style.cssText = 'font-size:12px;color:#8a857a;text-align:center;margin:10px auto 0;max-width:420px;line-height:1.5';
+        mh.textContent = t.mailHint.replace('{email}', contact.email);
+        parent.appendChild(mh);
       }
       // Кнопка «Личный кабинет» и для незалогиненных (аккаунт создаётся автоматически)
       var cl = mc.querySelector('a[href*="cancel"]');

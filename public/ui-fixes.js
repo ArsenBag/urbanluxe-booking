@@ -290,6 +290,34 @@
     document.head.appendChild(st);
   })();
 
+  // ---------- 11. TG-уведомление о сообщении в чате главной ----------
+  // Чат на главной пишет в Supabase, но менеджера никто не оповещает — сообщения
+  // «висят» до захода в админку. Перехватываем insert и дёргаем notify.
+  (function chatNotify() {
+    var of = window.fetch;
+    window.fetch = function (url, opts) {
+      var p = of.call(window, url, opts);
+      try {
+        if (typeof url === 'string' && url.indexOf('/rest/v1/messages') > -1 &&
+            opts && (opts.method || '').toUpperCase() === 'POST' && typeof opts.body === 'string') {
+          var b = JSON.parse(opts.body);
+          var row = Array.isArray(b) ? b[0] : b;
+          if (row && row.sender_role === 'guest' && row.content) {
+            p.then(function (res) {
+              if (!res.ok) return;
+              of.call(window, '/.netlify/functions/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'message', guest_name: 'Гость (чат на сайте)', apartment: '', message: row.content })
+              }).catch(function () {});
+            }).catch(function () {});
+          }
+        }
+      } catch (e) {}
+      return p;
+    };
+  })();
+
   // ---------- 9. Фото заполняет карточку целиком ----------
   // CSS сайта: .card__img img{height:auto;object-fit:contain} при контейнере 4:3 ->
   // фото занимает ~80% высоты, снизу пустая полоса. Заполняем блок с обрезкой.
