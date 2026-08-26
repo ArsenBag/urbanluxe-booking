@@ -7,6 +7,7 @@
   // ====== ID (боевые) ======
   var GA4_ID = 'G-R00JJKB9E7';        // GA4: ресурс urbanluxe.cc, поток Urban Luxe Website (15234552415)
   var FB_PIXEL_ID = '1057396590583083'; // Meta Pixel: Urban Luxe Pixel (портфолио Tor)
+  var YM_ID = 111964874;               // Яндекс.Метрика: счётчик Urban Luxe
   // ============================
 
   var GA_ON = /^G-[A-Z0-9]+$/.test(GA4_ID);
@@ -24,6 +25,18 @@
     gtag('config', GA4_ID);
   } else if (!window.gtag) { window.gtag = function () {}; }
 
+  // --- Яндекс.Метрика ---
+  var YM_ON = typeof YM_ID === 'number' && YM_ID > 0;
+  if (YM_ON) {
+    (function (m, e, t, r, i, k, a) {
+      m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments); };
+      m[i].l = 1 * new Date();
+      k = e.createElement(t); a = e.getElementsByTagName(t)[0];
+      k.async = 1; k.src = r; a.parentNode.insertBefore(k, a);
+    })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
+    ym(YM_ID, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true });
+  } else if (!window.ym) { window.ym = function () {}; }
+
   // --- Facebook/Meta Pixel ---
   if (FB_ON) {
     !function (f, b, e, v, n, t, s) {
@@ -36,9 +49,11 @@
   } else if (!window.fbq) { window.fbq = function () {}; }
 
   // track(gaEvent, gaParams, fb {std, name}, fbParams)
+  var YM_GOALS = { view_item: 'VIEW_ITEM', search: 'SEARCH', begin_checkout: 'BEGIN_CHECKOUT', generate_lead: 'LEAD', telegram_click: 'TG_CLICK', share: 'SHARE' };
   function track(ga, gaParams, fb, fbParams) {
     try { if (GA_ON) gtag('event', ga, gaParams || {}); } catch (e) {}
     try { if (FB_ON && fb) fbq(fb.std ? 'track' : 'trackCustom', fb.name, fbParams || {}); } catch (e) {}
+    try { if (YM_ON && YM_GOALS[ga]) ym(YM_ID, 'reachGoal', YM_GOALS[ga]); } catch (e) {}
   }
 
   function curApt() {
