@@ -9,6 +9,10 @@
 [functions."occupancy-snapshot"]
   schedule = "0 4 * * *"
 
+# Утреннее сообщение горничным в Telegram (02:30 UTC = 07:30 Ташкент)
+[functions."morning-cleaning"]
+  schedule = "30 2 * * *"
+
 # Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html).
 # Язык передаём через путь, а не query: Netlify теряет query-строку в rewrite-цели.
 [[redirects]]
