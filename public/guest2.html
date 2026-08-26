@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Личный кабинет — Urban Luxe</title>
+<style>
+:root{--bg:#0c0c0e;--panel:#15151a;--panel2:#1c1c23;--line:#28282f;--text:#ece9e2;--mut:#98938a;--dim:#5f5c55;--gold:#c9a96e;--green:#31c46f;--red:#e5534b;--amber:#e8a33d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+a{color:var(--gold);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+img{display:block}
+
+/* вход */
+#auth{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+#auth.on{display:flex}
+#auth .box{width:360px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px}
+#auth h1{font:600 19px Georgia,serif;color:var(--gold);letter-spacing:.1em;text-align:center}
+#auth .sw{display:flex;gap:6px;margin:16px 0;background:var(--panel2);border-radius:10px;padding:4px}
+#auth .sw button{flex:1;background:transparent;border:0;color:var(--mut);padding:9px;border-radius:8px;font-size:13.5px}
+#auth .sw button.on{background:var(--gold);color:#1c1710;font-weight:700}
+#auth input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-size:16px;margin-bottom:10px;outline:none}
+#auth input:focus{border-color:var(--gold)}
+#auth .go{width:100%;background:var(--gold);border:0;border-radius:10px;color:#1c1710;padding:13px;font-size:15px;font-weight:700}
+#auth .err{color:var(--red);font-size:12.5px;min-height:16px;margin-top:8px}
+#auth .fp{display:block;text-align:center;font-size:13px;margin-top:12px}
+
+/* каркас */
+#app{display:none;max-width:860px;margin:0 auto;padding:0 16px 90px}
+#app.on{display:block}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+header .logo{font:700 15px Georgia,serif;color:var(--gold);letter-spacing:.15em}
+header .u{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mut)}
+header .ava{width:34px;height:34px;border-radius:50%;background:var(--gold);color:#1c1710;display:flex;align-items:center;justify-content:center;font-weight:700}
+nav.tabs{display:flex;gap:8px;margin-bottom:20px}
+nav.tabs button{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:24px;padding:9px 18px;font-size:13.5px}
+nav.tabs button.on{background:var(--gold);border-color:var(--gold);color:#1c1710;font-weight:700}
+.sect{display:none}
+.sect.on{display:block}
+h2{font:400 21px Georgia,serif;margin:8px 0 14px}
+h2 em{color:var(--gold);font-style:italic}
+.empty{color:var(--dim);padding:30px 0;text-align:center;font-size:14px}
+
+/* карточка поездки (Airbnb-стиль) */
+.trip{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:16px}
+.trip .top{display:flex;gap:0}
+.trip .ph{width:150px;min-height:130px;background:var(--panel2);flex-shrink:0;position:relative}
+.trip .ph img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.trip .inf{padding:14px 16px;flex:1;min-width:0}
+.trip .nm{font-weight:700;font-size:16px}
+.trip .cx{color:var(--mut);font-size:12.5px;margin-bottom:8px}
+.trip .dt{font-size:15px;margin-bottom:4px}
+.trip .dt b{color:var(--gold)}
+.trip .meta{color:var(--mut);font-size:12.5px}
+.tag{display:inline-block;font-size:11px;padding:3px 10px;border-radius:14px;margin-bottom:6px}
+.tag.g{background:rgba(49,196,111,.15);color:var(--green)}
+.tag.a{background:rgba(232,163,61,.15);color:var(--amber)}
+.tag.r{background:rgba(229,83,75,.14);color:var(--red)}
+.tag.m{background:rgba(152,147,138,.15);color:var(--mut)}
+.trip .soon{background:rgba(201,169,110,.12);color:var(--gold);font-size:12px;padding:6px 16px;border-top:1px solid var(--line)}
+.trip .acts{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.trip .acts button{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 14px;font-size:12.5px}
+.trip .acts button:hover{border-color:var(--gold);color:var(--gold)}
+.trip .acts button.gold{background:var(--gold);border-color:var(--gold);color:#1c1710;font-weight:700}
+.sub{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 10px}
+
+/* чат */
+#chatBox{background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;height:60vh}
+#chatMsgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+#chatMsgs .m{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.45}
+#chatMsgs .me{align-self:flex-end;background:var(--gold);color:#1c1710}
+#chatMsgs .them{align-self:flex-start;background:var(--panel2)}
+#chatMsgs .tm{font-size:10px;opacity:.6;margin-top:3px}
+#chatIn{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+#chatIn input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px 13px;font-size:15px;outline:none}
+#chatIn button{background:var(--gold);border:0;border-radius:10px;color:#1c1710;padding:0 18px;font-size:17px;font-weight:700}
+
+/* профиль */
+.prof{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;max-width:480px}
+.prof label{display:block;font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 5px}
+.prof input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px 13px;font-size:15px;outline:none}
+.prof input:disabled{opacity:.55}
+.prof .save{margin-top:16px;background:var(--gold);border:0;border-radius:10px;color:#1c1710;padding:12px 26px;font-size:14px;font-weight:700}
+.prof .pw{margin-top:10px;background:transparent;border:1px solid var(--line);border-radius:10px;color:var(--mut);padding:11px 20px;font-size:13px;display:block}
+
+/* модалки */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.ov .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;width:400px;max-width:94vw;max-height:82vh;overflow:auto}
+.ov h3{font-size:16px;margin-bottom:12px;color:var(--gold)}
+.ov .txt{white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--text)}
+.ov .row{display:flex;gap:8px;margin-top:16px}
+.ov button{flex:1;border-radius:10px;padding:12px;font-size:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.ov button.gold{background:var(--gold);border-color:var(--gold);color:#1c1710;font-weight:700}
+.stars{display:flex;gap:6px;font-size:26px;margin:8px 0 12px;cursor:pointer}
+.stars span{color:var(--dim)}
+.stars span.on{color:var(--gold)}
+.ov textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px;font-size:14px;font-family:inherit;resize:vertical}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--gold);color:var(--text);border-radius:10px;padding:10px 20px;font-size:13.5px;display:none;z-index:99}
+@media(max-width:560px){
+  .trip .top{flex-direction:column}
+  .trip .ph{width:100%;height:170px}
+  nav.tabs{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+
+<div id="auth">
+  <div class="box">
+    <h1>URBAN LUXE</h1>
+    <div class="sw"><button id="swIn" class="on">Вход</button><button id="swUp">Регистрация</button></div>
+    <div id="fIn">
+      <input id="liEmail" type="email" placeholder="Email" autocomplete="username">
+      <input id="liPass" type="password" placeholder="Пароль" autocomplete="current-password">
+      <button class="go" id="liGo">Войти</button>
+    </div>
+    <div id="fUp" style="display:none">
+      <input id="ruName" placeholder="Имя">
+      <input id="ruPhone" placeholder="Телефон">
+      <input id="ruEmail" type="email" placeholder="Email" autocomplete="username">
+      <input id="ruPass" type="password" placeholder="Пароль (мин. 8: строчная и заглавная)" autocomplete="new-password">
+      <button class="go" id="ruGo">Создать аккаунт</button>
+    </div>
+    <div class="err" id="aErr2"></div>
+    <a class="fp" id="fpLink">Забыли пароль?</a>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <a class="logo" href="/">URBAN LUXE</a>
+    <div class="u"><span id="uName"></span><div class="ava" id="uAva"></div><a id="uOut" style="font-size:12px">Выйти</a></div>
+  </header>
+  <nav class="tabs">
+    <button data-s="trips" class="on">🧳 Поездки</button>
+    <button data-s="chat">💬 Чат <span id="chBadge" class="tag r" style="display:none;padding:1px 7px"></span></button>
+    <button data-s="prof">👤 Профиль</button>
+  </nav>
+
+  <section class="sect on" id="s-trips">
+    <h2>Ваши <em>поездки</em></h2>
+    <div id="tripsBox"><div class="empty">Загрузка…</div></div>
+  </section>
+
+  <section class="sect" id="s-chat">
+    <h2>Чат с <em>Urban Luxe</em></h2>
+    <div id="chatBox">
+      <div id="chatMsgs"><div class="empty">Загрузка…</div></div>
+      <div id="chatIn"><input id="chatText" placeholder="Напишите нам…"><button id="chatSend">➤</button></div>
+    </div>
+  </section>
+
+  <section class="sect" id="s-prof">
+    <h2>Ваш <em>профиль</em></h2>
+    <div class="prof">
+      <label>Имя</label><input id="pName">
+      <label>Телефон</label><input id="pPhone">
+      <label>Email</label><input id="pEmail" disabled>
+      <button class="save" id="pSave">Сохранить</button>
+      <button class="pw" id="pPw">Сменить пароль (письмо на email)</button>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+var SB_URL='https://sebvfvtofiysbywxjqut.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+var sb=window.supabase.createClient(SB_URL,SB_KEY);
+var USER=null, APTS={};
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]})}
+function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none'},2800)}
+function fmt$(n){return '$'+Math.round(n||0).toLocaleString('ru-RU')}
+function thumb(url,w){if(!url)return '';return 'https://images.weserv.nl/?url=ssl:'+encodeURIComponent(url.replace(/^https?:\/\//,''))+'&w='+(w||480)+'&q=75&output=webp'}
+function dstr(iso){var d=new Date(iso);return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}
+
+/* ---------- auth ---------- */
+$('swIn').onclick=function(){$('swIn').classList.add('on');$('swUp').classList.remove('on');$('fIn').style.display='';$('fUp').style.display='none'};
+$('swUp').onclick=function(){$('swUp').classList.add('on');$('swIn').classList.remove('on');$('fUp').style.display='';$('fIn').style.display='none'};
+$('liGo').onclick=function(){
+  sb.auth.signInWithPassword({email:$('liEmail').value.trim(),password:$('liPass').value}).then(function(r){
+    if(r.error){$('aErr2').textContent='Неверный email или пароль';return}
+    boot(r.data.session);
+  });
+};
+$('liPass').addEventListener('keydown',function(e){if(e.key==='Enter')$('liGo').click()});
+$('ruGo').onclick=function(){
+  var p=$('ruPass').value;
+  if(p.length<8||!/[a-z]/.test(p)||!/[A-Z]/.test(p)||!/^[\x21-\x7E]+$/.test(p)){$('aErr2').textContent='Пароль: минимум 8 символов, строчная и заглавная латинские буквы';return}
+  sb.auth.signUp({email:$('ruEmail').value.trim(),password:p,options:{data:{name:$('ruName').value.trim(),phone:$('ruPhone').value.trim()}}}).then(function(r){
+    if(r.error){$('aErr2').textContent=/already|registered/i.test(r.error.message)?'Такой аккаунт уже есть — войдите':r.error.message;return}
+    if(r.data.session)boot(r.data.session);
+    else{$('aErr2').style.color='var(--green)';$('aErr2').textContent='Аккаунт создан — войдите'}
+  });
+};
+$('fpLink').onclick=function(){
+  var em=($('liEmail').value||$('ruEmail').value||prompt('Email аккаунта:')||'').trim();
+  if(!em)return;
+  sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+'/?pwreset=1'}).then(function(r){
+    $('aErr2').style.color=r.error?'var(--red)':'var(--green)';
+    $('aErr2').textContent=r.error?('Ошибка: '+r.error.message):('Письмо со ссылкой отправлено на '+em);
+  });
+};
+$('uOut').onclick=function(){sb.auth.signOut().then(function(){location.reload()})};
+
+sb.auth.getSession().then(function(r){
+  if(r.data&&r.data.session)boot(r.data.session);
+  else $('auth').classList.add('on');
+});
+
+/* ---------- каркас ---------- */
+document.querySelectorAll('nav.tabs button[data-s]').forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll('nav.tabs button').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    document.querySelectorAll('.sect').forEach(function(s){s.classList.remove('on')});
+    $('s-'+b.dataset.s).classList.add('on');
+    if(b.dataset.s==='chat')loadChat();
+  };
+});
+
+function boot(session){
+  USER=session.user;
+  $('auth').classList.remove('on');
+  $('app').classList.add('on');
+  var nm=(USER.user_metadata&&USER.user_metadata.name)||USER.email.split('@')[0];
+  $('uName').textContent=nm;
+  $('uAva').textContent=nm.slice(0,1).toUpperCase();
+  $('pName').value=(USER.user_metadata&&USER.user_metadata.name)||'';
+  $('pPhone').value=(USER.user_metadata&&USER.user_metadata.phone)||'';
+  $('pEmail').value=USER.email;
+  sb.from('apartments').select('id,name,complex,floor,photo_url').then(function(r){
+    (r.data||[]).forEach(function(a){APTS[a.id]=a});
+    loadTrips();
+  });
+  chatUnread();
+}
+
+/* ---------- поездки ---------- */
+function bookingPhoto(aptId){
+  var a=APTS[aptId]; if(!a||!a.photo_url)return '';
+  try{var arr=JSON.parse(a.photo_url);return thumb(arr[0],480)}catch(e){return thumb(a.photo_url,480)}
+}
+function loadTrips(){
+  sb.from('bookings').select('*')
+    .or('user_id.eq.'+USER.id+',guest_email.eq.'+USER.email)
+    .order('check_in',{ascending:false})
+    .then(function(r){
+      var list=r.data||[];
+      if(!list.length){$('tripsBox').innerHTML='<div class="empty">Пока нет броней.<br><a href="/#apartments">Выбрать апартаменты →</a></div>';return}
+      var today=new Date().toISOString().slice(0,10);
+      var upcoming=list.filter(function(b){return b.status!=='cancelled'&&b.check_out>=today}).sort(function(a,b){return a.check_in<b.check_in?-1:1});
+      var past=list.filter(function(b){return b.status==='cancelled'||b.check_out<today});
+      var h='';
+      if(upcoming.length){h+='<div class="sub">Предстоящие</div>';upcoming.forEach(function(b){h+=tripCard(b,today,true)})}
+      if(past.length){h+='<div class="sub">Прошедшие и отменённые</div>';past.forEach(function(b){h+=tripCard(b,today,false)})}
+      $('tripsBox').innerHTML=h;
+      bindTripActions();
+    });
+}
+function tripCard(b,today,up){
+  var a=APTS[b.apartment_id]||{name:b.apartment_id,complex:''};
+  var st=b.status==='confirmed'?'<span class="tag g">Подтверждена</span>':b.status==='cancelled'?'<span class="tag r">Отменена</span>':b.check_out<today?'<span class="tag m">Завершена</span>':'<span class="tag a">Ждёт подтверждения</span>';
+  var days=Math.round((new Date(b.check_in)-new Date(today))/86400000);
+  var soon=up&&b.status!=='cancelled'&&days>=0&&days<=7?'<div class="soon">'+(days===0?'🔑 Заезд сегодня!':days===1?'Заезд завтра':'Заезд через '+days+' дн.')+'</div>':'';
+  var ph=bookingPhoto(b.apartment_id);
+  var acts='';
+  if(up&&b.status==='confirmed')acts+='<button class="gold" data-a="instr" data-apt="'+esc(b.apartment_id)+'">🔑 Инструкция по заселению</button>';
+  if(up&&b.status!=='cancelled')acts+='<button data-a="cancel" data-id="'+b.id+'" data-ref="'+esc(b.booking_ref||'')+'">Отменить</button>';
+  if(!up)acts+='<button data-a="again" data-apt="'+esc(b.apartment_id)+'">↻ Забронировать снова</button>';
+  if(!up&&b.status!=='cancelled'&&!b.review_rating)acts+='<button data-a="review" data-id="'+b.id+'">★ Оставить отзыв</button>';
+  if(b.review_rating)acts+='<span style="color:var(--gold);font-size:13px;align-self:center">Ваша оценка: '+'★'.repeat(b.review_rating)+'</span>';
+  return '<div class="trip"><div class="top">'+
+    '<div class="ph">'+(ph?'<img loading="lazy" src="'+ph+'" alt="">':'')+'</div>'+
+    '<div class="inf">'+st+'<div class="nm">'+esc(a.name)+'</div><div class="cx">'+esc(a.complex||'')+(a.floor?' · этаж '+a.floor:'')+'</div>'+
+    '<div class="dt"><b>'+dstr(b.check_in)+'</b> → <b>'+dstr(b.check_out)+'</b> · '+b.nights+' ноч.</div>'+
+    '<div class="meta">'+fmt$(b.total_price)+' · '+(b.guests_count||1)+' гост. · '+esc(b.booking_ref||'')+'</div></div></div>'+
+    soon+(acts?'<div class="acts">'+acts+'</div>':'')+'</div>';
+}
+function bindTripActions(){
+  document.querySelectorAll('[data-a=instr]').forEach(function(b){b.onclick=function(){showInstr(b.dataset.apt)}});
+  document.querySelectorAll('[data-a=again]').forEach(function(b){b.onclick=function(){location.href='/?book='+encodeURIComponent(b.dataset.apt)}});
+  document.querySelectorAll('[data-a=cancel]').forEach(function(b){
+    b.onclick=function(){
+      if(!confirm('Отменить бронь '+b.dataset.ref+'? Отмена бесплатна до 18:00 дня заезда.'))return;
+      sb.from('bookings').update({status:'cancelled'}).eq('id',b.dataset.id).then(function(r){
+        if(r.error){toast('Не получилось: '+r.error.message);return}
+        toast('Бронь отменена');loadTrips();
+      });
+    };
+  });
+  document.querySelectorAll('[data-a=review]').forEach(function(b){b.onclick=function(){reviewModal(b.dataset.id)}});
+}
+function showInstr(aptId){
+  sb.from('checkin_instructions').select('*').eq('apartment_id',aptId).maybeSingle().then(function(r){
+    var row=r.data;
+    var text=row&&(row.content_ru||row.content_en);
+    modal('🔑 Инструкция по заселению', text?esc(text):'Инструкция появится ближе к заезду. Если нужна сейчас — напишите нам в чат.');
+  });
+}
+function modal(title,html,extra){
+  var ov=document.createElement('div');ov.className='ov';
+  ov.innerHTML='<div class="box"><h3>'+title+'</h3><div class="txt">'+html+'</div>'+(extra||'')+'<div class="row"><button class="gold" data-x>Закрыть</button></div></div>';
+  ov.onclick=function(e){if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()};
+  document.body.appendChild(ov);
+  return ov;
+}
+function reviewModal(id){
+  var ov=document.createElement('div');ov.className='ov';
+  ov.innerHTML='<div class="box"><h3>★ Как вам жильё?</h3><div class="stars" id="rvS">'+[1,2,3,4,5].map(function(i){return '<span data-v="'+i+'">★</span>'}).join('')+'</div>'+
+    '<textarea id="rvT" rows="4" placeholder="Пара слов о проживании (необязательно)"></textarea>'+
+    '<div class="row"><button data-x>Отмена</button><button class="gold" id="rvGo">Отправить</button></div></div>';
+  var rating=0;
+  ov.querySelectorAll('#rvS span').forEach(function(s){
+    s.onclick=function(){rating=+s.dataset.v;ov.querySelectorAll('#rvS span').forEach(function(x){x.classList.toggle('on',+x.dataset.v<=rating)})};
+  });
+  ov.querySelector('#rvGo').onclick=function(){
+    if(!rating){toast('Поставьте оценку');return}
+    sb.from('bookings').update({review_rating:rating,review_text:ov.querySelector('#rvT').value.trim()||null}).eq('id',id).then(function(r){
+      if(r.error){toast('Ошибка: '+r.error.message);return}
+      ov.remove();toast('Спасибо за отзыв! ★'.replace('★','★'.repeat(rating)));loadTrips();
+    });
+  };
+  ov.onclick=function(e){if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()};
+  document.body.appendChild(ov);
+}
+
+/* ---------- чат ---------- */
+var chatTimer=null;
+function chatUnread(){
+  sb.from('messages').select('id').eq('conversation_id',USER.id).eq('is_read',false).eq('sender_role','admin').then(function(r){
+    var n=(r.data||[]).length,b=$('chBadge');
+    if(n){b.style.display='inline-block';b.textContent=n}else b.style.display='none';
+  });
+}
+function loadChat(){
+  sb.from('messages').select('*').eq('conversation_id',USER.id).order('created_at').then(function(r){
+    var msgs=r.data||[];
+    $('chatMsgs').innerHTML=msgs.length?msgs.map(function(m){
+      var me=m.sender_role!=='admin';
+      return '<div class="m '+(me?'me':'them')+'">'+esc(m.content)+'<div class="tm">'+new Date(m.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>';
+    }).join(''):'<div class="empty">Напишите нам — обычно отвечаем за 5 минут</div>';
+    $('chatMsgs').scrollTop=$('chatMsgs').scrollHeight;
+    var unread=msgs.filter(function(m){return m.sender_role==='admin'&&!m.is_read}).map(function(m){return m.id});
+    if(unread.length)sb.from('messages').update({is_read:true}).in('id',unread).then(chatUnread);
+  });
+  clearInterval(chatTimer);
+  chatTimer=setInterval(function(){if($('s-chat').classList.contains('on'))loadChat();else clearInterval(chatTimer)},20000);
+}
+$('chatSend').onclick=function(){
+  var t=$('chatText').value.trim();if(!t)return;
+  sb.from('messages').insert({conversation_id:USER.id,sender_id:USER.id,sender_role:'guest',content:t,is_read:false}).then(function(r){
+    if(r.error){toast('Не отправилось: '+r.error.message);return}
+    $('chatText').value='';loadChat();
+  });
+};
+$('chatText').addEventListener('keydown',function(e){if(e.key==='Enter')$('chatSend').click()});
+
+/* ---------- профиль ---------- */
+$('pSave').onclick=function(){
+  var name=$('pName').value.trim(),phone=$('pPhone').value.trim();
+  sb.auth.updateUser({data:{name:name,phone:phone}}).then(function(r){
+    if(r.error){toast('Ошибка: '+r.error.message);return}
+    sb.from('guest_profiles').upsert({user_id:USER.id,name:name,phone:phone},{onConflict:'user_id'}).then(function(){});
+    $('uName').textContent=name||USER.email.split('@')[0];
+    $('uAva').textContent=(name||USER.email).slice(0,1).toUpperCase();
+    toast('Профиль сохранён ✓');
+  });
+};
+$('pPw').onclick=function(){
+  sb.auth.resetPasswordForEmail(USER.email,{redirectTo:location.origin+'/?pwreset=1'}).then(function(r){
+    toast(r.error?('Ошибка: '+r.error.message):'Письмо для смены пароля отправлено на '+USER.email);
+  });
+};
+</script>
+</body>
+</html>
