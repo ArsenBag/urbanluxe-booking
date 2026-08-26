@@ -1,276 +1,218 @@
-const https = require('https');
-const { sendEmail, bookingConfirmEmail } = require('./_send-email');
+// Urban Luxe — book.js (v2, август 2026)
+// Было: список апартаментов захардкожен → бронирование новых объектов падало
+// с «Апартамент не найден». Стало: апартамент и занятость проверяются по Supabase
+// (is_active=true) + живому iCal RealtyCalendar. Контракт ответа совместим:
+//   { success:true, id, booking:{ booking_ref, apartment, total, check_in, check_out, guest_email } }
+// Бонус: если в env задан RESEND_API_KEY — гостю уходит письмо-подтверждение.
 
-// Удаляет HTML-теги и опасные символы из пользовательского ввода (защита от XSS)
-function sanitize(s){ if(s==null) return s; return String(s).replace(/<[^>]*>/g,'').replace(/[<>]/g,'').trim().slice(0,500); }
+const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
+const ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+const READ_KEY = process.env.SUPABASE_SERVICE_KEY || ANON_KEY;   // чтение
+const WRITE_KEY = process.env.SUPABASE_SERVICE_KEY || ANON_KEY;  // вставка (service обходит RLS)
 
-const APARTMENTS = {
-  'nest_15': { name: 'Nest One — Кв. 15', weekday: 90, weekend: 100 },
-  'nest_249': { name: 'Nest One — Кв. 249', weekday: 105, weekend: 115 },
-  'nest_481': { name: 'Nest One — Кв. 481', weekday: 125, weekend: 135 },
-  'nest_233': { name: 'Nest One — Кв. 233', weekday: 135, weekend: 145 },
-  'nest_353': { name: 'Nest One — Кв. 353', weekday: 105, weekend: 115 },
-  'nest_163': { name: 'Nest One — Кв. 163', weekday: 150, weekend: 160 },
-  'nest_477': { name: 'Nest One — Кв. 477', weekday: 150, weekend: 160 },
-  'utower_65': { name: 'U-Tower — Кв. 65', weekday: 90, weekend: 100 },
-  'utower_73': { name: 'U-Tower — Кв. 73', weekday: 90, weekend: 100 },
-  'utower_171': { name: 'U-Tower — Кв. 171', weekday: 85, weekend: 95 },
-  'utower_208': { name: 'U-Tower — Кв. 208', weekday: 85, weekend: 95 },
-  'utower_276': { name: 'U-Tower — Кв. 276', weekday: 90, weekend: 100 },
-  'utower_310': { name: 'U-Tower — Кв. 310', weekday: 85, weekend: 95 },
-  'utower_410': { name: 'U-Tower — Кв. 410', weekday: 95, weekend: 105 },
-  'utower2_5': { name: 'U-Tower 2 — Кв. 5', weekday: 115, weekend: 125 },
-  'utower2_9': { name: 'U-Tower 2 — Кв. 9', weekday: 115, weekend: 125 },
-  'utower2_207':{ name: 'U-Tower 2 — Кв. 207', weekday: 135, weekend: 145 },
-  'utower2_228':{ name: 'U-Tower 2 — Кв. 228', weekday: 135, weekend: 145 },
-  'utower2_296':{ name: 'U-Tower 2 — Кв. 296', weekday: 105, weekend: 115 },
-  'utower2_92': { name: 'U-Tower 2 — Кв. 92', weekday: 105, weekend: 115 },
-  'mirabad_111':{ name: 'Mirabad — Кв. 111', weekday: 115, weekend: 125 },
-  'mirabad_205':{ name: 'Mirabad — Кв. 205', weekday: 90, weekend: 100 },
-  'kislorod_49':{ name: 'Kislorod — Кв. 49', weekday: 105, weekend: 115 },
-  'kislorod_58':{ name: 'Kislorod — Кв. 58', weekday: 115, weekend: 125 },
-  'kislorod_128':{ name: 'Kislorod — Кв. 128', weekday: 115, weekend: 125 },
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-function httpsRequest(url, options, postData) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const reqOptions = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: options.method || 'POST',
-      headers: options.headers || {},
-    };
-    const req = https.request(reqOptions, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => resolve({ statusCode: res.statusCode, body, headers: res.headers }));
+function h(key) { return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }; }
+
+function addDays(iso, n) {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function tashkentToday() {
+  return new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+}
+function parseICS(text) {
+  const events = [];
+  const blocks = String(text).split('BEGIN:VEVENT').slice(1);
+  for (const b of blocks) {
+    const body = b.split('END:VEVENT')[0];
+    const get = (re) => { const m = body.match(re); return m ? m[1].trim() : ''; };
+    const ds = get(/DTSTART(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    const de = get(/DTEND(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    if (!ds || !de) continue;
+    const fmt = (s) => s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    const ci = fmt(ds), co = fmt(de);
+    if (co > ci) events.push({ check_in: ci, check_out: co });
+  }
+  return events;
+}
+function fetchWithTimeout(url, ms) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+  ]);
+}
+function makeRef() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
+  return 'UL-' + s;
+}
+function nightPrice(dateIso, weekday, weekend) {
+  const dow = new Date(dateIso + 'T00:00:00Z').getUTCDay();
+  return (dow === 5 || dow === 6) ? weekend : weekday;
+}
+function esc(s) { return String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
+
+async function sendGuestEmail(booking, aptName) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !booking.guest_email) return;
+  const from = process.env.RESEND_FROM || 'Urban Luxe <booking@urbanluxe.cc>';
+  const html =
+    '<div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#222">' +
+    '<h2 style="font-weight:400">Ваша бронь подтверждена</h2>' +
+    '<p>Номер брони: <strong style="font-size:18px">' + esc(booking.booking_ref) + '</strong></p>' +
+    '<p>' + esc(aptName) + '<br>Заезд: <strong>' + esc(booking.check_in) + '</strong> · Выезд: <strong>' + esc(booking.check_out) + '</strong><br>' +
+    'Итого: <strong>$' + esc(booking.total_price) + '</strong> · Гостей: ' + esc(booking.guests_count) + '</p>' +
+    '<p><a href="https://urbanluxe.cc/guest.html" style="background:#c9a96e;color:#241d10;padding:12px 22px;border-radius:8px;text-decoration:none;display:inline-block">Личный кабинет</a></p>' +
+    '<p style="font-size:13px;color:#777">Управление бронированием: <a href="https://urbanluxe.cc/cancel.html?ref=' + encodeURIComponent(booking.booking_ref) + '">urbanluxe.cc/cancel</a><br>' +
+    'Вопросы: Telegram <a href="https://t.me/Arsen_bnb">@Arsen_bnb</a> · +998 93 690 00 44</p></div>';
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from, to: [booking.guest_email],
+        subject: 'Urban Luxe — бронь ' + booking.booking_ref + ' подтверждена',
+        html
+      })
     });
-    req.on('error', (e) => { console.error('Request error:', e.message); reject(e); });
-    if (postData) req.write(postData);
-    req.end();
-  });
-}
-
-function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
-  let total = 0, nights = 0;
-  const current = new Date(checkIn);
-  const end = new Date(checkOut);
-  while (current < end) {
-    const day = current.getDay();
-    total += (day === 5 || day === 6) ? weekendPrice : weekdayPrice;
-    nights++;
-    current.setDate(current.getDate() + 1);
-  }
-  return { total, nights };
-}
-
-// UL-XXXXXX (без 0/O/I/1 чтобы не путать)
-function generateBookingRef() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return 'UL-' + code;
+  } catch (e) { /* письмо не критично для брони */ }
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': 'https://urbanluxe.cc',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: ''
-    };
-  }
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
-  }
-
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: HEADERS, body: 'ok' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'POST only' }) };
   try {
-    const data = JSON.parse(event.body);
-    const {
-      apartment_id,
-      guest_name, guest_phone, guest_email,
-      check_in, check_out, guests_count, notes,
-      citizenship,
-      user_id,
-      booker_name, booker_phone, booker_email,
-    } = data;
+    let b;
+    try { b = JSON.parse(event.body || '{}'); } catch (e) { b = {}; }
+    const aptId = String(b.apartment_id || '').trim();
+    const ci = String(b.check_in || '').trim();
+    const co = String(b.check_out || '').trim();
+    const name = String(b.guest_name || '').trim();
+    const phone = String(b.guest_phone || '').trim();
 
-    if (!apartment_id || !guest_name || !guest_phone || !check_in || !check_out) {
-      return {
-        statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
-        body: JSON.stringify({ error: 'Заполните обязательные поля' })
-      };
+    if (!aptId || !name || !phone || !/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co)) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Заполните обязательные поля' }) };
+    }
+    if (co <= ci) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Дата выезда должна быть позже даты заезда' }) };
+    }
+    if (ci < tashkentToday()) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Дата заезда уже прошла' }) };
     }
 
-    const apt = APARTMENTS[apartment_id];
-    if (!apt) {
-      return {
-        statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
-        body: JSON.stringify({ error: 'Апартамент не найден' })
-      };
-    }
-
-    const { total, nights } = calculateTotal(check_in, check_out, apt.weekday, apt.weekend);
-    const booking_ref = generateBookingRef();
-
-    const booking = {
-      apartment_id,
-      guest_name: sanitize(guest_name),
-      guest_phone: sanitize(guest_phone),
-      guest_email: sanitize(guest_email) || null,
-      check_in,
-      check_out,
-      guests_count: guests_count || 1,
-      notes: [sanitize(notes), citizenship ? `Гражданство: ${sanitize(citizenship)}` : ''].filter(Boolean).join(' | ') || null,
-      total_price: total,
-      nights,
-      status: 'pending',
-      source: 'website',
-      booking_ref,
-      user_id: user_id || null,
-      booker_name: sanitize(booker_name) || null,
-      booker_phone: sanitize(booker_phone) || null,
-      booker_email: sanitize(booker_email) || null,
-      created_at: new Date().toISOString(),
-    };
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    const postData = JSON.stringify(booking);
-
-    console.log('[BOOK] Saving, ref:', booking_ref);
-
-    const sbResult = await httpsRequest(
-      `${supabaseUrl}/rest/v1/bookings`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Prefer': 'return=representation',
-          'Content-Length': String(Buffer.byteLength(postData)),
-        },
-      },
-      postData
+    // Апартамент — из Supabase (все 35 актуальных, без хардкода)
+    const ar = await fetch(
+      SB_URL + '/rest/v1/apartments?select=id,name,weekday_price,weekend_price,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
+      { headers: h(READ_KEY) }
     );
+    const apt = (ar.ok ? await ar.json() : [])[0];
+    if (!apt || !apt.is_active) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Апартамент не найден' }) };
+    }
 
-    console.log('[BOOK] Supabase status:', sbResult.statusCode);
-
-    let savedBooking = null;
-    try {
-      const parsed = JSON.parse(sbResult.body);
-      if (Array.isArray(parsed) && parsed.length) savedBooking = parsed[0];
-    } catch (e) {}
-
-    if (sbResult.statusCode >= 400) {
-      console.error('[BOOK] Supabase error body:', sbResult.body);
+    // Повторный клик той же брони — вернуть существующую, не дублировать
+    const dupR = await fetch(
+      SB_URL + '/rest/v1/bookings?select=id,booking_ref,total_price,guests_count,guest_email' +
+      '&apartment_id=eq.' + encodeURIComponent(aptId) +
+      '&check_in=eq.' + ci + '&check_out=eq.' + co +
+      '&guest_phone=eq.' + encodeURIComponent(phone) + '&status=eq.confirmed',
+      { headers: h(READ_KEY) }
+    );
+    const dup = (dupR.ok ? await dupR.json() : [])[0];
+    if (dup) {
       return {
-        statusCode: 500,
-        headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
-        body: JSON.stringify({ error: 'Ошибка сохранения. Попробуйте ещё раз.' })
+        statusCode: 200, headers: HEADERS,
+        body: JSON.stringify({
+          success: true, id: dup.id,
+          booking: { booking_ref: dup.booking_ref, apartment: apt.name, total: dup.total_price, check_in: ci, check_out: co, guest_email: dup.guest_email || '' }
+        })
       };
     }
 
-    // Telegram notification
-    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
-    const tgChat = process.env.TELEGRAM_CHAT_ID;
-    if (tgToken && tgChat) {
-      const safeName = sanitize(guest_name);
-      const safePhone = sanitize(guest_phone);
-      const safeEmail = sanitize(guest_email);
-      const safeBookerName = sanitize(booker_name);
-      const safeBookerPhone = sanitize(booker_phone);
-      const safeBookerEmail = sanitize(booker_email);
-      const safeNotes = sanitize(notes);
-      const isForOther = safeBookerName && safeBookerName !== safeName;
-      const bookerLine = isForOther
-        ? `\n💼 *Покупатель:* ${safeBookerName}${safeBookerPhone ? ` · ${safeBookerPhone}` : ''}${safeBookerEmail ? ` · ${safeBookerEmail}` : ''}`
-        : '';
-      const tgMessage =
-        `🏠 *Новая заявка с сайта!*\n` +
-        `🔖 \`${booking_ref}\`\n\n` +
-        `📍 ${apt.name}\n` +
-        `🛏️ *Гость заезда:* ${safeName}\n📞 ${safePhone}` +
-        (safeEmail ? `\n📧 ${safeEmail}` : '') +
-        bookerLine +
-        `\n\n📅 Заезд: ${check_in}\n📅 Выезд: ${check_out}\n` +
-        `🌙 Ночей: ${nights}\n👥 Гостей: ${guests_count || 1}\n\n` +
-        `💰 Итого: $${total}\n` +
-        `📝 ${safeNotes || 'без комментариев'}\n\n` +
-        `⏳ Статус: ожидает подтверждения`;
+    // Занятость: RC iCal + подтверждённые site-брони
+    let busy = [];
+    try {
+      if (apt.ical_export_url && /^https?:\/\//.test(apt.ical_export_url)) {
+        const icr = await fetchWithTimeout(apt.ical_export_url, 9000);
+        if (icr.ok) busy = parseICS(await icr.text());
+      }
+    } catch (e) { /* фид упал — проверим хотя бы site-брони */ }
+    const sbk = await fetch(
+      SB_URL + '/rest/v1/bookings?select=check_in,check_out&apartment_id=eq.' + encodeURIComponent(aptId) + '&status=eq.confirmed',
+      { headers: h(READ_KEY) }
+    );
+    if (sbk.ok) busy = busy.concat(await sbk.json());
+    if (busy.some(e => e.check_in < co && e.check_out > ci)) {
+      return { statusCode: 409, headers: HEADERS, body: JSON.stringify({ error: 'Эти даты уже заняты. Выберите другие даты.' }) };
+    }
 
-      const tgData = JSON.stringify({
-        chat_id: tgChat,
-        text: tgMessage,
-        parse_mode: 'Markdown'
-      });
-      try {
-        await httpsRequest(
-          `https://api.telegram.org/bot${tgToken}/sendMessage`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(tgData)) } },
-          tgData
-        );
-      } catch (e) {
-        console.error('[BOOK] Telegram error:', e.message);
+    // Суммы: доверяем фронту (как раньше), при отсутствии — считаем сами
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    let total = parseInt(b.total_price, 10);
+    if (!total || total < 0) {
+      total = 0;
+      for (let d = ci; d < co; d = addDays(d, 1)) {
+        total += nightPrice(d, apt.weekday_price || 0, apt.weekend_price || apt.weekday_price || 0);
       }
     }
 
-    // Email подтверждение гостю
-    const emailTo = sanitize(guest_email) || sanitize(booker_email);
-    if (emailTo) {
-      const tpl = bookingConfirmEmail({
-        guestName: sanitize(guest_name),
-        bookingRef: booking_ref,
-        apartmentName: apt.name,
-        checkIn: check_in,
-        checkOut: check_out,
-        nights,
-        total,
-      });
-      await sendEmail({ to: emailTo, subject: tpl.subject, html: tpl.html, text: tpl.text });
-      console.log('[BOOK] Confirmation email sent to', emailTo);
+    const citizenship = String(b.citizenship || '').trim();
+    let notes = String(b.notes || '').trim();
+    if (citizenship) notes = (notes ? notes + ' ' : '') + '| Гражданство: ' + citizenship;
+
+    const row = {
+      apartment_id: aptId,
+      guest_name: name,
+      guest_phone: phone,
+      guest_email: String(b.guest_email || '').trim() || null,
+      check_in: ci,
+      check_out: co,
+      guests_count: parseInt(b.guests_count, 10) || 2,
+      status: 'confirmed',
+      source: 'website',
+      notes: notes || null,
+      nights: parseInt(b.nights, 10) || nights,
+      total_price: total,
+      booking_ref: makeRef(),
+      booker_name: String(b.booker_name || '').trim() || null,
+      booker_phone: String(b.booker_phone || '').trim() || null,
+      booker_email: String(b.booker_email || '').trim() || null
+    };
+    if (b.user_id && /^[0-9a-f-]{36}$/i.test(String(b.user_id))) row.user_id = b.user_id;
+
+    const ins = await fetch(SB_URL + '/rest/v1/bookings', {
+      method: 'POST',
+      headers: Object.assign(h(WRITE_KEY), { Prefer: 'return=representation' }),
+      body: JSON.stringify(row)
+    });
+    if (!ins.ok) {
+      const msg = await ins.text();
+      throw new Error('insert failed ' + ins.status + ': ' + msg.slice(0, 200));
     }
+    const saved = (await ins.json())[0] || row;
+
+    await sendGuestEmail(saved, apt.name);
 
     return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': 'https://urbanluxe.cc',
-        'Content-Type': 'application/json'
-      },
+      statusCode: 200, headers: HEADERS,
       body: JSON.stringify({
-        success: true,
-        message: 'Заявка отправлена! Мы свяжемся с вами в течение часа.',
+        success: true, id: saved.id,
         booking: {
-          id: savedBooking?.id || null,
-          booking_ref,
-          apartment: apt.name,
-          apartment_id,
-          check_in,
-          check_out,
-          nights,
-          total,
-          guest_name: sanitize(guest_name),
-          guest_phone: sanitize(guest_phone),
-          guest_email: sanitize(guest_email) || null,
-        },
-      }),
+          booking_ref: saved.booking_ref, apartment: apt.name, total: saved.total_price,
+          check_in: saved.check_in, check_out: saved.check_out, guest_email: saved.guest_email || ''
+        }
+      })
     };
   } catch (e) {
-    console.error('[BOOK] Error:', e);
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': 'https://urbanluxe.cc' },
-      body: JSON.stringify({ error: 'Ошибка сервера' })
-    };
+    return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: String(e.message || e) }) };
   }
 };

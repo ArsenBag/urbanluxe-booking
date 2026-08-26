@@ -1,253 +1,156 @@
-const https = require('https');
-const http = require('http');
+// Urban Luxe — availability.js (v2, август 2026)
+// Было: список апартаментов захардкожен → новые объекты (август 2026) отвечали
+// «Apartment not found». Стало: апартаменты и занятость берутся из Supabase
+// (is_active=true) + живые iCal-фиды RealtyCalendar. Форматы ответов совместимы:
+//   ?apt=<id>                          -> { apartment, booked_dates:[{start,end}...] }
+//   ?check_in=YYYY-MM-DD&check_out=…   -> { check_in, check_out, total_apartments,
+//                                          available_count, available:[{...}] }
 
-const ICAL_URLS = {
-  'nest_15': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDUz%0A',
-  'nest_249': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwNDI4%0A',
-  'nest_481': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDM2%0A',
-  'nest_233': 'https://realtycalendar.ru/apartments/export.ics?q=MzI5NTQz%0A',
-  'nest_353': 'https://realtycalendar.ru/apartments/export.ics?q=MzM3MTgz%0A',
-  'utower_65': 'https://realtycalendar.ru/apartments/export.ics?q=MzQwODEz%0A',
-  'utower_73': 'https://realtycalendar.ru/apartments/export.ics?q=MzQwODE1%0A',
-  'utower_171': 'https://realtycalendar.ru/apartments/export.ics?q=MzI5NTQ0%0A',
-  'utower_208': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDMw%0A',
-  'utower_310': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwMjMx%0A',
-  'utower_410': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk3%0A',
-  'utower2_5': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTc4%0A',
-  'utower2_9': 'https://realtycalendar.ru/apartments/export.ics?q=MzEyMDM0%0A',
-  'utower2_207': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk0%0A',
-  'utower2_228': 'https://realtycalendar.ru/apartments/export.ics?q=MzE2MTk2%0A',
-  'utower2_296': 'https://realtycalendar.ru/apartments/export.ics?q=MzAwMjMy%0A',
-  'utower2_92': 'https://realtycalendar.ru/apartments/export.ics?q=MzMxNTg1%0A',
-  'mirabad_111': 'https://realtycalendar.ru/apartments/export.ics?q=MzAyMTk1%0A',
-  'mirabad_205': 'https://realtycalendar.ru/apartments/export.ics?q=MzQzMDU1%0A',
-  'kislorod_49': 'https://realtycalendar.ru/apartments/export.ics?q=MzM0MTk0%0A',
-  'kislorod_58': 'https://realtycalendar.ru/apartments/export.ics?q=MzIxNzg5%0A',
-  'kislorod_128': 'https://realtycalendar.ru/apartments/export.ics?q=MzI3ODg3%0A',
+const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Cache-Control': 'public, max-age=60'
 };
 
-const APARTMENTS = {
-  'nest_15':     { name: 'Апартамент 15',   complex: 'Nest One',   floor: 3,  weekday: 90,  weekend: 100, style: 'Оливковая студия' },
-  'nest_249':    { name: 'Апартамент 249',  complex: 'Nest One',   floor: 13, weekday: 105, weekend: 115, style: 'Лофт · Чёрный мрамор' },
-  'nest_481':    { name: 'Апартамент 481',  complex: 'Nest One',   floor: 25, weekday: 125, weekend: 135, style: 'Светлый · Золотые акценты' },
-  'nest_233':    { name: 'Апартамент 233',  complex: 'Nest One',   floor: 12, weekday: 135, weekend: 145, style: 'Классика · 3+1' },
-  'nest_353':    { name: 'Апартамент 353',  complex: 'Nest One',   floor: 18, weekday: 105, weekend: 115, style: 'Студия' },
-  'utower_65':   { name: 'Апартамент 65',   complex: 'U-Tower',    floor: 6,  weekday: 90,  weekend: 100, style: 'Студия' },
-  'utower_73':   { name: 'Апартамент 73',   complex: 'U-Tower',    floor: 6,  weekday: 90,  weekend: 100, style: 'Дерево + оранжевый' },
-  'utower_171':  { name: 'Апартамент 171',  complex: 'U-Tower',    floor: 11, weekday: 85,  weekend: 95,  style: 'Студия' },
-  'utower_208':  { name: 'Апартамент 208',  complex: 'U-Tower',    floor: 13, weekday: 85,  weekend: 95,  style: 'Премиум' },
-  'utower_310':  { name: 'Апартамент 310',  complex: 'U-Tower',    floor: 18, weekday: 85,  weekend: 95,  style: 'Студия' },
-  'utower_410':  { name: 'Апартамент 410',  complex: 'U-Tower',    floor: 24, weekday: 95,  weekend: 105, style: 'Студия · Высокий этаж' },
-  'utower2_5':   { name: 'Апартамент 5',    complex: 'U-Tower 2',  floor: 3,  weekday: 115, weekend: 125, style: '2+1 · Просторный' },
-  'utower2_9':   { name: 'Апартамент 9',    complex: 'U-Tower 2',  floor: 4,  weekday: 115, weekend: 125, style: '2+1' },
-  'utower2_207': { name: 'Апартамент 207',  complex: 'U-Tower 2',  floor: 13, weekday: 135, weekend: 145, style: 'Премиум · Панорамный вид' },
-  'utower2_228': { name: 'Апартамент 228',  complex: 'U-Tower 2',  floor: 13, weekday: 135, weekend: 145, style: 'Премиум · Панорамный вид' },
-  'utower2_296': { name: 'Апартамент 296',  complex: 'U-Tower 2',  floor: 17, weekday: 105, weekend: 115, style: 'Студия' },
-  'utower2_92':  { name: 'Апартамент 92',   complex: 'U-Tower 2',  floor: 7,  weekday: 105, weekend: 115, style: 'Студия' },
-  'mirabad_111': { name: 'Апартамент 111',  complex: 'Mirabad',    floor: 8,  weekday: 115, weekend: 125, style: '2+1 · Просторный' },
-  'mirabad_205': { name: 'Апартамент 205',  complex: 'Mirabad',    floor: 8,  weekday: 90,  weekend: 100, style: 'Студия' },
-  'kislorod_49': { name: 'Апартамент 49',   complex: 'Kislorod',   floor: 10, weekday: 105, weekend: 115, style: '2+1' },
-  'kislorod_58': { name: 'Апартамент 58',   complex: 'Kislorod',   floor: 11, weekday: 115, weekend: 125, style: '2+1' },
-  'kislorod_128':{ name: 'Апартамент 128',  complex: 'Kislorod',   floor: 13, weekday: 115, weekend: 125, style: '2+1' },
-};
+function sbHeaders() { return { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }; }
 
-function fetchIcal(url) {
-  return new Promise((resolve) => {
-    const client = url.startsWith('https') ? https : http;
-    const req = client.get(url, { timeout: 8000 }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchIcal(res.headers.location).then(resolve);
-        return;
-      }
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
-    });
-    req.on('error', () => resolve(''));
-    req.on('timeout', () => { req.destroy(); resolve(''); });
-  });
+function addDays(iso, n) {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
-function parseIcalDates(icalData) {
+// iCal RealtyCalendar -> [{check_in, check_out}]
+function parseICS(text) {
   const events = [];
-  const lines = icalData.split(/\r?\n/);
-  let inEvent = false;
-  let start = null, end = null;
-  for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') { inEvent = true; start = null; end = null; }
-    if (line === 'END:VEVENT' && inEvent) {
-      if (start && end) events.push({ start, end });
-      inEvent = false;
-    }
-    if (inEvent) {
-      const dtMatch = line.match(/^(DTSTART|DTEND)[^:]*:(\d{4})(\d{2})(\d{2})/);
-      if (dtMatch) {
-        const dateStr = `${dtMatch[2]}-${dtMatch[3]}-${dtMatch[4]}`;
-        if (dtMatch[1] === 'DTSTART') start = dateStr;
-        else end = dateStr;
-      }
-    }
+  const blocks = String(text).split('BEGIN:VEVENT').slice(1);
+  for (const b of blocks) {
+    const body = b.split('END:VEVENT')[0];
+    const get = (re) => { const m = body.match(re); return m ? m[1].trim() : ''; };
+    const ds = get(/DTSTART(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    const de = get(/DTEND(?:;VALUE=DATE)?[^:]*:(\d{8})/);
+    if (!ds || !de) continue;
+    const fmt = (s) => s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    const ci = fmt(ds), co = fmt(de);
+    if (co <= ci) continue;
+    events.push({ check_in: ci, check_out: co });
   }
   return events;
 }
 
-function isAvailable(events, checkIn, checkOut) {
-  const reqStart = new Date(checkIn);
-  const reqEnd = new Date(checkOut);
-  for (const ev of events) {
-    const evStart = new Date(ev.start);
-    const evEnd = new Date(ev.end);
-    if (reqStart < evEnd && reqEnd > evStart) return false;
-  }
-  return true;
+function fetchWithTimeout(url, ms) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+  ]);
 }
 
-function calculateTotal(checkIn, checkOut, weekdayPrice, weekendPrice) {
-  let total = 0, nights = 0;
-  const current = new Date(checkIn);
-  const end = new Date(checkOut);
-  while (current < end) {
-    const day = current.getDay();
-    total += (day === 5 || day === 6) ? weekendPrice : weekdayPrice;
-    nights++;
-    current.setDate(current.getDate() + 1);
+// Кэш на тёплую лямбду: apartment_id -> { at, events }
+const icalCache = global.__ulIcalCache || (global.__ulIcalCache = {});
+const CACHE_MS = 90 * 1000;
+
+async function icalEvents(apt) {
+  if (!apt.ical_export_url || !/^https?:\/\//.test(apt.ical_export_url)) return [];
+  const c = icalCache[apt.id];
+  if (c && Date.now() - c.at < CACHE_MS) return c.events;
+  try {
+    const r = await fetchWithTimeout(apt.ical_export_url, 9000);
+    if (!r.ok) throw new Error('ical ' + r.status);
+    const events = parseICS(await r.text());
+    icalCache[apt.id] = { at: Date.now(), events };
+    return events;
+  } catch (e) {
+    // Фид недоступен: используем протухший кэш, если есть; иначе пусто
+    return c ? c.events : [];
   }
-  return { total, nights };
 }
 
-// Fetch photo_url and description from Supabase
-function fetchAptPhotos() {
-  return new Promise((resolve) => {
-    const sbUrl = process.env.SUPABASE_URL;
-    const sbKey = process.env.SUPABASE_SERVICE_KEY;
-    if (!sbUrl || !sbKey) { resolve({}); return; }
-    const url = sbUrl + '/rest/v1/apartments?select=id,photo_url,description,amenities';
-    const urlObj = new URL(url);
-    const req = https.request({
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: 'GET',
-      headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          const map = {};
-          if (Array.isArray(parsed)) {
-            parsed.forEach(a => {
-              let photos = [];
-              try { const p = JSON.parse(a.photo_url); if (Array.isArray(p)) photos = p; } catch(e) { if (a.photo_url) photos = [a.photo_url]; }
-              map[a.id] = { photo_url: photos[0] || '', photos, description: a.description || '', amenities: a.amenities || [] };
-            });
-          }
-          resolve(map);
-        } catch(e) { resolve({}); }
-      });
-    });
-    req.on('error', () => resolve({}));
-    req.end();
-  });
+async function siteBookings(aptId) {
+  const q = SB_URL + '/rest/v1/bookings?select=apartment_id,check_in,check_out' +
+    '&status=eq.confirmed' + (aptId ? '&apartment_id=eq.' + encodeURIComponent(aptId) : '');
+  const r = await fetch(q, { headers: sbHeaders() });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+function overlaps(events, ci, co) {
+  return events.some(e => e.check_in < co && e.check_out > ci);
+}
+
+function nightPrice(dateIso, weekday, weekend) {
+  const dow = new Date(dateIso + 'T00:00:00Z').getUTCDay(); // 5=пт, 6=сб
+  return (dow === 5 || dow === 6) ? weekend : weekday;
 }
 
 exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json',
-    'Cache-Control': 'public, max-age=300',
-  };
+  try {
+    const p = (event && event.queryStringParameters) || {};
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  const params = event.queryStringParameters || {};
-  const checkIn = params.check_in;
-  const checkOut = params.check_out;
-  const aptId = params.apt;
-
-  // Mode 1: Get booked dates for a single apartment
-  if (aptId && !checkIn) {
-    const url = ICAL_URLS[aptId];
-    if (!url) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Apartment not found' }) };
-    const icalData = await fetchIcal(url);
-    const events = parseIcalDates(icalData);
-    return { statusCode: 200, headers, body: JSON.stringify({ apartment: aptId, booked_dates: events }) };
-  }
-
-  // Mode 2: Search available apartments for given dates
-  if (checkIn && checkOut) {
-    const results = [];
-    
-    // Fetch photos from Supabase in parallel with iCal
-    const [photoMap] = await Promise.all([fetchAptPhotos()]);
-    
-    const fetchPromises = Object.entries(ICAL_URLS).map(async ([id, url]) => {
-      try {
-        const icalData = await fetchIcal(url);
-        const events = parseIcalDates(icalData);
-        const available = isAvailable(events, checkIn, checkOut);
-        const apt = APARTMENTS[id];
-        const { total, nights } = calculateTotal(checkIn, checkOut, apt.weekday, apt.weekend);
-        const photos = photoMap[id] || {};
-        
-        results.push({
-          id,
-          ...apt,
-          available,
-          total,
-          nights,
-          check_in: checkIn,
-          check_out: checkOut,
-          photo_url: photos.photo_url || '',
-          photos: photos.photos || [],
-          description: photos.description || '',
-          amenities: photos.amenities || [],
-        });
-      } catch (e) {
-        const apt = APARTMENTS[id];
-        const { total, nights } = calculateTotal(checkIn, checkOut, apt.weekday, apt.weekend);
-        const photos = photoMap[id] || {};
-        results.push({ id, ...apt, available: true, total, nights, check_in: checkIn, check_out: checkOut, error: true, photo_url: photos.photo_url || '', photos: photos.photos || [] });
+    // ---------- режим 1: календарь занятости одного апартамента ----------
+    if (p.apt) {
+      const r = await fetch(
+        SB_URL + '/rest/v1/apartments?select=id,ical_export_url,is_active&id=eq.' + encodeURIComponent(p.apt),
+        { headers: sbHeaders() }
+      );
+      const rows = r.ok ? await r.json() : [];
+      const apt = rows[0];
+      if (!apt || !apt.is_active) {
+        return { statusCode: 404, headers: HEADERS, body: JSON.stringify({ error: 'Apartment not found' }) };
       }
-    });
+      const [rc, site] = await Promise.all([icalEvents(apt), siteBookings(apt.id)]);
+      const days = new Set();
+      rc.concat(site).forEach(e => {
+        for (let d = e.check_in; d < e.check_out; d = addDays(d, 1)) days.add(d);
+      });
+      const booked_dates = [...days].sort().map(d => ({ start: d, end: addDays(d, 1) }));
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ apartment: apt.id, booked_dates }) };
+    }
 
-    await Promise.all(fetchPromises);
+    // ---------- режим 2: поиск свободных по датам ----------
+    const ci = p.check_in, co = p.check_out;
+    if (!ci || !co || !/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || co <= ci) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Некорректные даты' }) };
+    }
+    const ar = await fetch(
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,weekday_price,weekend_price,ical_export_url&is_active=eq.true',
+      { headers: sbHeaders() }
+    );
+    if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
+    const apts = await ar.json();
+    const site = await siteBookings(null);
+    const siteByApt = {};
+    site.forEach(b => { (siteByApt[b.apartment_id] = siteByApt[b.apartment_id] || []).push(b); });
 
-    results.sort((a, b) => {
-      if (a.available !== b.available) return a.available ? -1 : 1;
-      return a.weekday - b.weekday;
-    });
-
-    const available = results.filter(r => r.available);
-    const unavailable = results.filter(r => !r.available);
-
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    const results = await Promise.all(apts.map(async (a) => {
+      const rc = await icalEvents(a);
+      const busy = rc.concat(siteByApt[a.id] || []);
+      if (overlaps(busy, ci, co)) return null;
+      let total = 0;
+      for (let d = ci; d < co; d = addDays(d, 1)) {
+        total += nightPrice(d, a.weekday_price || 0, a.weekend_price || a.weekday_price || 0);
+      }
+      return {
+        id: a.id, name: a.name, complex: a.complex, floor: a.floor,
+        weekday: a.weekday_price, weekend: a.weekend_price, style: a.style,
+        available: true, total, nights, check_in: ci, check_out: co
+      };
+    }));
+    const available = results.filter(Boolean);
     return {
-      statusCode: 200,
-      headers,
+      statusCode: 200, headers: HEADERS,
       body: JSON.stringify({
-        check_in: checkIn,
-        check_out: checkOut,
-        total_apartments: results.length,
+        check_in: ci, check_out: co,
+        total_apartments: apts.length,
         available_count: available.length,
-        available,
-        unavailable,
-      }),
+        available
+      })
     };
+  } catch (e) {
+    return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: String(e.message || e) }) };
   }
-
-  // Mode 3: No params — return info
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify({
-      usage: {
-        search: '?check_in=2026-05-01&check_out=2026-05-05',
-        single: '?apt=nest_15',
-      },
-      apartments: Object.keys(APARTMENTS),
-    }),
-  };
 };
