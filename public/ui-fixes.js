@@ -86,6 +86,32 @@
     return true;
   }
 
+  // ---------- 1b. Стрелки карусели: текстовые ‹ › → SVG ----------
+  // У части пользователей символы ‹ › коверкаются (автоперевод браузера/шрифты)
+  // и выглядят как «л»/«ы». SVG не зависит ни от шрифта, ни от переводчика.
+  var SVG_L = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
+  var SVG_R = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+  function fixArrows() {
+    [].forEach.call(document.querySelectorAll('.sf-arrow'), function (b) {
+      if (b.querySelector('svg')) return;
+      var txt = b.textContent.trim();
+      var isLeft = txt === '‹' || txt === '<' || txt === '←' || b.className.indexOf('prev') > -1;
+      var isRight = txt === '›' || txt === '>' || txt === '→' || b.className.indexOf('next') > -1;
+      if (!isLeft && !isRight) { isLeft = b === b.parentElement.firstElementChild; isRight = !isLeft; }
+      b.setAttribute('translate', 'no');
+      b.innerHTML = isLeft ? SVG_L : SVG_R;
+      b.style.display = 'inline-flex'; b.style.alignItems = 'center'; b.style.justifyContent = 'center';
+    });
+    var wrap = document.querySelectorAll('.sf-arrows');
+    [].forEach.call(wrap, function (w) { w.setAttribute('translate', 'no'); });
+  }
+  var moArr = new MutationObserver(function () { fixArrows(); });
+  function startArrowFix() {
+    fixArrows();
+    moArr.observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startArrowFix); else startArrowFix();
+
   // ---------- 2. Страховка NAV_MAP ----------
   var MAP_LABEL = { ru: 'Карта', en: 'Map', uz: 'Xarita' };
   function fixNavMap() {
