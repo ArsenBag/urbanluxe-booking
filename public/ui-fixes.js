@@ -139,7 +139,130 @@
     }).catch(function () {});
   }
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); }
+  // ---------- 4. Блок «адреса одного стиля»: живая карта + 6 комплексов ----------
+  var COMPLEXES = [
+    { key: 'Nest One', url: '/nest-one', lat: 41.3111, lng: 69.2513, color: '#31c46f', addr: 'ул. Батыра Закирова 1А, Tashkent City', desc: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамные виды.' },
+    { key: 'U-Tower', url: '/u-tower', lat: 41.3025, lng: 69.2408, color: '#5b9dd9', addr: 'мкр. Бешагач 1/1, Шайхантахурский район', desc: 'Бизнес-класс, 30 этажей, Smart Home.' },
+    { key: 'U-Tower 2', url: '/u-tower', lat: 41.3028, lng: 69.2425, color: '#7fb8e8', addr: 'мкр. Бешагач, Шайхантахурский район', desc: 'Вторая башня U-Tower NRG.' },
+    { key: 'Mirabad', url: '/mirabad', lat: 41.2955, lng: 69.2740, color: '#e8a33d', addr: 'ул. Айбек 38А, Мирабадский район', desc: 'Престижный центр: парки, рестораны, метро.' },
+    { key: 'Kislorod', url: '/kislorod', lat: 41.2846, lng: 69.2452, color: '#e5534b', addr: 'ул. Бурижар 1, Яккасарайский район', desc: 'Эко-комплекс с зелёным двором вдоль реки.' },
+    { key: 'Gardens Residence', url: '/gardens-residence', lat: 41.3130, lng: 69.2480, color: '#9fd356', addr: 'Tashkent City, Шайхантахурский район', desc: 'Квартал-сад от Dream City рядом с Nest One.' },
+    { key: 'Modera Towers', url: '/modera-towers', lat: 41.2860, lng: 69.2710, color: '#b48be8', addr: 'ул. Шота Руставели 19, Яккасарайский район', desc: 'Две 24-этажные башни у парка Дружбы.' }
+  ];
+  function mapUpgrade() {
+    if (document.getElementById('ulmap')) return true;
+    /* находим секцию с заглушкой карты по заголовку */
+    var head = [].find.call(document.querySelectorAll('h2,h3'), function (h) { return /адрес(а|ов) одного стиля/i.test(h.textContent); });
+    if (!head) return false;
+    var section = head.closest('section') || head.parentElement;
+    if (!section) return false;
+    /* контейнер после заголовка */
+    var holder = document.createElement('div');
+    holder.id = 'ulmap-wrap';
+    holder.innerHTML =
+      '<div id="ulmap" style="border-radius:16px;overflow:hidden;border:1px solid rgba(201,169,110,.25);height:440px;background:#15151a"></div>' +
+      '<div id="ulmap-cards" style="display:grid;gap:10px;align-content:start;max-height:440px;overflow:auto;padding-right:4px"></div>';
+    holder.style.cssText = 'display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-top:22px';
+    if (window.innerWidth < 800) holder.style.gridTemplateColumns = '1fr';
+    /* прячем старое содержимое секции после заголовка */
+    var nodes = [].slice.call(section.children);
+    var afterHead = false;
+    nodes.forEach(function (nd) {
+      if (nd === head || nd.contains(head)) { afterHead = true; return; }
+      if (afterHead) nd.style.display = 'none';
+    });
+    section.appendChild(holder);
+    head.innerHTML = head.innerHTML.replace(/Четыре|Пять|Шесть/i, 'Шесть');
+    /* карточки комплексов с живыми данными */
+    fetch('https://sebvfvtofiysbywxjqut.supabase.co/rest/v1/apartments?select=complex,weekday_price&is_active=eq.true', {
+      headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI' }
+    }).then(function (r) { return r.json(); }).then(function (apts) {
+      var agg = {};
+      apts.forEach(function (a) {
+        var c = a.complex || '—';
+        agg[c] = agg[c] || { n: 0, min: 1e9 };
+        agg[c].n++; if (a.weekday_price) agg[c].min = Math.min(agg[c].min, a.weekday_price);
+      });
+      var cardsBox = document.getElementById('ulmap-cards');
+      cardsBox.innerHTML = COMPLEXES.filter(function (c) { return agg[c.key] && agg[c.key].n; }).map(function (c, i) {
+        var a = agg[c.key];
+        return '<a href="' + c.url + '" data-ci="' + i + '" style="display:block;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px;text-decoration:none;transition:border-color .2s,transform .15s" ' +
+          'onmouseover="this.style.borderColor=\'rgba(201,169,110,.6)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,.09)\';this.style.transform=\'none\'">' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:' + c.color + ';box-shadow:0 0 8px ' + c.color + '"></span>' +
+          '<b style="color:#ece9e2;font-size:15px">' + c.key + '</b></div>' +
+          '<div style="color:#8b8578;font-size:12px;margin:4px 0 2px">' + c.addr + '</div>' +
+          '<div style="color:#b5b0a5;font-size:12.5px;margin-bottom:6px">' + c.desc + '</div>' +
+          '<div style="color:#c9a96e;font-size:12.5px">' + a.n + ' апартаментов · от $' + a.min + '/ночь · <u>смотреть →</u></div></a>';
+      }).join('');
+      /* Leaflet: тёмная карта с пульсирующими маркерами */
+      var css = document.createElement('link');
+      css.rel = 'stylesheet'; css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css';
+      document.head.appendChild(css);
+      var sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
+      sc.onload = function () {
+        var L = window.L;
+        var map = L.map('ulmap', { scrollWheelZoom: false, attributionControl: false }).setView([41.299, 69.256], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(map);
+        COMPLEXES.forEach(function (c) {
+          if (!agg[c.key] || !agg[c.key].n) return;
+          var m = L.circleMarker([c.lat, c.lng], { radius: 9, color: c.color, weight: 2, fillColor: c.color, fillOpacity: .55 }).addTo(map);
+          m.bindPopup('<b style="font-size:14px">' + c.key + '</b><br><span style="color:#666">' + c.addr + '</span><br>' + agg[c.key].n + ' апартаментов · от $' + agg[c.key].min + '<br><a href="' + c.url + '">Смотреть →</a>', { closeButton: false });
+          m.on('mouseover', function () { m.openPopup(); });
+        });
+      };
+      document.head.appendChild(sc);
+    }).catch(function () {});
+    return true;
+  }
+
+  // ---------- 5. «Вау»-слой: появление секций и оживший счётчик ----------
+  function wowLayer() {
+    if (document.getElementById('ul-wow-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ul-wow-css';
+    st.textContent =
+      '.ul-reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.6,.2,1),transform .7s cubic-bezier(.2,.6,.2,1)}' +
+      '.ul-reveal.ul-in{opacity:1;transform:none}' +
+      '@media(prefers-reduced-motion:reduce){.ul-reveal{opacity:1;transform:none;transition:none}}';
+    document.head.appendChild(st);
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('ul-in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12 });
+    [].forEach.call(document.querySelectorAll('section, footer'), function (s, i) {
+      if (i === 0) return; /* hero не трогаем */
+      s.classList.add('ul-reveal');
+      io.observe(s);
+    });
+    /* набегающие числа в статистике hero (35, 4.9 и т.п.) */
+    var st2 = [].filter.call(document.querySelectorAll('div,span,b'), function (e) {
+      return e.children.length === 0 && /^\d{1,3}([.,]\d)?$/.test(e.textContent.trim()) && e.offsetParent !== null &&
+        parseFloat(getComputedStyle(e).fontSize) >= 24;
+    }).slice(0, 6);
+    st2.forEach(function (el) {
+      var raw = el.textContent.trim().replace(',', '.');
+      var target = parseFloat(raw); if (!target) return;
+      var dec = raw.indexOf('.') > -1 ? 1 : 0;
+      var t0 = null;
+      var io2 = new IntersectionObserver(function (ens) {
+        ens.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          io2.unobserve(el);
+          function stepFn(ts) {
+            if (!t0) t0 = ts;
+            var p = Math.min(1, (ts - t0) / 1100);
+            var eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = (target * eased).toFixed(dec).replace('.', dec ? ',' : '.');
+            if (p < 1) requestAnimationFrame(stepFn); else el.textContent = raw.replace('.', dec ? ',' : '.');
+          }
+          requestAnimationFrame(stepFn);
+        });
+      }, { threshold: 0.5 });
+      io2.observe(el);
+    });
+  }
+
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
