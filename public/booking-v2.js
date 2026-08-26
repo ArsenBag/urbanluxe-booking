@@ -15,8 +15,9 @@
       next: 'Далее', back: 'Назад', confirm: 'Подтвердить бронь',
       needDates: 'Выберите даты заезда и выезда', needContact: 'Укажите имя и телефон',
       calHint: 'Или нажмите на свободную (зелёную) дату в календаре: первый тап — заезд, второй — выезд',
-      eName: 'Укажите имя', ePhone: 'Укажите телефон (минимум 9 цифр)', eEmail: 'Укажите корректный email — на него придёт подтверждение',
-      eCitizen: 'Выберите гражданство', eTime: 'Укажите время заезда',
+      eName: 'Укажите имя', ePhone: 'Телефон в международном формате: +998 90 123 45 67', eEmail: 'Укажите корректный email — на него придёт подтверждение',
+      eCitizen: 'Выберите гражданство', eTime: 'Выберите время заезда',
+      timeLabel: 'Время заезда *', cabBtn: 'Открыть личный кабинет',
       openBrowser: 'Вы в браузере Instagram — для надёжного бронирования откройте сайт в обычном браузере (⋯ в углу → «Открыть в браузере»)', copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована ✓',
       accMade: '👤 Мы создали вам личный кабинет — на почту отправлена ссылка для установки пароля. Внутри: ваша бронь, отмена и инструкция по заселению.',
       accExists: '👤 У вас уже есть личный кабинет — войдите, там появится эта бронь.',
@@ -29,8 +30,9 @@
       next: 'Next', back: 'Back', confirm: 'Confirm booking',
       needDates: 'Select check-in and check-out dates', needContact: 'Enter your name and phone',
       calHint: 'Or tap a free (green) date in the calendar: first tap — check-in, second — check-out',
-      eName: 'Enter your name', ePhone: 'Enter phone (min 9 digits)', eEmail: 'Enter a valid email — confirmation goes there',
-      eCitizen: 'Select citizenship', eTime: 'Enter arrival time',
+      eName: 'Enter your name', ePhone: 'Phone in international format: +998 90 123 45 67', eEmail: 'Enter a valid email — confirmation goes there',
+      eCitizen: 'Select citizenship', eTime: 'Select arrival time',
+      timeLabel: 'Arrival time *', cabBtn: 'Open my account',
       openBrowser: 'You are in the Instagram browser — for reliable booking open the site in a regular browser (⋯ menu → "Open in browser")', copyLink: 'Copy link', copied: 'Link copied ✓',
       accMade: '👤 We created your personal account — a password link was sent to your email. Inside: your booking, cancellation and check-in instructions.',
       accExists: '👤 You already have an account — sign in to see this booking.',
@@ -43,8 +45,9 @@
       next: 'Keyingi', back: 'Orqaga', confirm: 'Bronni tasdiqlash',
       needDates: 'Kirish va chiqish sanalarini tanlang', needContact: 'Ism va telefon raqamini kiriting',
       calHint: "Yoki kalendardagi bo'sh (yashil) sanani bosing: birinchi bosish — kirish, ikkinchisi — chiqish",
-      eName: 'Ismingizni kiriting', ePhone: 'Telefon kiriting (kamida 9 raqam)', eEmail: "To'g'ri email kiriting — tasdiq shu manzilga boradi",
-      eCitizen: 'Fuqarolikni tanlang', eTime: 'Kelish vaqtini kiriting',
+      eName: 'Ismingizni kiriting', ePhone: 'Telefon xalqaro formatda: +998 90 123 45 67', eEmail: "To'g'ri email kiriting — tasdiq shu manzilga boradi",
+      eCitizen: 'Fuqarolikni tanlang', eTime: 'Kelish vaqtini tanlang',
+      timeLabel: 'Kelish vaqti *', cabBtn: 'Shaxsiy kabinetni ochish',
       openBrowser: "Siz Instagram brauzeridasiz — ishonchli bron uchun saytni oddiy brauzerda oching (⋯ menyu → «Brauzerda ochish»)", copyLink: 'Havolani nusxalash', copied: 'Nusxalandi ✓',
       accMade: "👤 Sizga shaxsiy kabinet yaratdik — parol o'rnatish havolasi emailga yuborildi. Ichida: broningiz, bekor qilish va joylashish ko'rsatmasi.",
       accExists: "👤 Sizda kabinet bor — kiring, bron o'sha yerda ko'rinadi.",
@@ -222,6 +225,19 @@
       el.addEventListener('change', function () { el.style.border = ''; });
     }
   }
+  // Строгий формат телефона: +<код страны><номер>, 10–15 цифр.
+  // Нормализует поле (убирает пробелы/скобки/дефисы, добавляет + к 998...).
+  // Возвращает нормализованный номер или '' если формат неверный.
+  function normPhone(el) {
+    if (!el) return '';
+    var v = (el.value || '').trim().replace(/[\s\-().]/g, '');
+    if (/^998\d{9}$/.test(v)) v = '+' + v;          // набрали без плюса
+    if (/^8?9\d{8}$/.test(v)) v = '+998' + v.replace(/^8/, ''); // локальный узбекский
+    if (!/^\+\d{10,15}$/.test(v)) return '';
+    el.value = v;
+    return v;
+  }
+
   function validate(n) {
     var t = lang();
     if (n === 1) {
@@ -230,20 +246,20 @@
     if (n === 2) {
       var bad = [];
       var nm = $('modalGuestName'), ph = $('modalGuestPhone'), em = $('modalGuestEmail'),
-          cz = $('modalCitizenship'), nt = $('modalGuestNotes');
+          cz = $('modalCitizenship'), nt = $('modalGuestNotes'),
+          ntEl = $('ulv2-time') || nt;
       if (!nm || nm.value.trim().length < 2) bad.push([nm, t.eName]);
-      var digits = (ph && ph.value || '').replace(/\D/g, '');
-      if (digits.length < 9) bad.push([ph, t.ePhone]);
+      if (!normPhone(ph)) bad.push([ph, t.ePhone]);
       if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em.value.trim())) bad.push([em, t.eEmail]);
       if (cz && !cz.value) bad.push([cz, t.eCitizen]);
-      if (nt && !nt.value.trim()) bad.push([nt, t.eTime]);
+      if (nt && !nt.value.trim()) bad.push([ntEl, t.eTime]);
       var fo = $('modalForOther');
       if (fo && fo.checked) {
         var on = $('modalOtherName'), op = $('modalOtherPhone');
         if (on && on.value.trim().length < 2) bad.push([on, t.eName]);
-        if (op && (op.value || '').replace(/\D/g, '').length < 9) bad.push([op, t.ePhone]);
+        if (!normPhone(op)) bad.push([op, t.ePhone]);
       }
-      [nm, ph, em, cz, nt].forEach(function (el) { markBad(el, false); });
+      [nm, ph, em, cz, ntEl].forEach(function (el) { markBad(el, false); });
       if (bad.length) {
         bad.forEach(function (b) { markBad(b[0], true); });
         try { bad[0][0].scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
@@ -304,6 +320,35 @@
     gf.style.display = '';
     s2.appendChild(gf);
     if ($('modalForOtherWrap')) s2.appendChild($('modalForOtherWrap'));
+
+    // Телефон: подсказка формата + автоплюс
+    var phEl = $('modalGuestPhone');
+    if (phEl) {
+      phEl.placeholder = '+998 90 123 45 67';
+      phEl.setAttribute('inputmode', 'tel');
+      phEl.addEventListener('focus', function () { if (!phEl.value.trim()) phEl.value = '+998'; });
+      phEl.addEventListener('blur', function () { if (phEl.value.trim() === '+998' || phEl.value.trim() === '+') phEl.value = ''; });
+    }
+
+    // Время заезда: выпадающий список часов вместо свободного текста
+    var ntIn = $('modalGuestNotes');
+    if (ntIn && !$('ulv2-time')) {
+      ntIn.style.display = 'none';
+      var sel = document.createElement('select');
+      sel.id = 'ulv2-time';
+      sel.style.cssText = 'width:100%;box-sizing:border-box;padding:11px 14px;background:var(--bg,#111);border:1px solid var(--line,#3a3a3a);color:inherit;font-size:16px;font-family:inherit;border-radius:6px;margin-bottom:8px;min-height:48px';
+      var o0 = document.createElement('option');
+      o0.value = ''; o0.textContent = t.timeLabel; o0.disabled = true; o0.selected = true;
+      sel.appendChild(o0);
+      for (var hh = 0; hh < 24; hh++) {
+        var hs = (hh < 10 ? '0' : '') + hh + ':00';
+        var op = document.createElement('option');
+        op.value = hs; op.textContent = hs;
+        sel.appendChild(op);
+      }
+      sel.addEventListener('change', function () { ntIn.value = sel.value; markBad(sel, false); });
+      ntIn.parentElement.insertBefore(sel, ntIn);
+    }
 
     // Шаг 3: кнопка бронирования + статус
     $('ulv2-s3btn').appendChild(btn);
@@ -441,6 +486,16 @@
           '<p style="text-align:center;color:#cfcabd;margin:0;font-size:14px">' + esc(t.qrHint) + ': <b style="color:#c9a96e">' + esc(total) + '</b></p>' +
           '<p style="text-align:center;color:#8a857a;font-size:12px;margin:6px 0 0">' + esc(t.qrDone) + '</p>';
         parent.appendChild(d);
+      }
+      // Кнопка «Личный кабинет» и для незалогиненных (аккаунт создаётся автоматически)
+      var cl = mc.querySelector('a[href*="cancel"]');
+      if (cl && !mc.querySelector('a[href*="guest"]')) {
+        var g = document.createElement('a');
+        g.href = '/guest.html';
+        g.className = cl.className || '';
+        g.style.cssText = 'text-decoration:none;text-align:center;padding:14px;display:block;background:#c9a96e;color:#241d10;border-radius:8px;font-weight:600';
+        g.textContent = t.cabBtn;
+        cl.parentElement.insertBefore(g, cl);
       }
       autoAccount(contact, parent, t);
     }, 500);
