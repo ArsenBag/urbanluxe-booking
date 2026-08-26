@@ -155,7 +155,22 @@ async function sendGuestEmail(booking, apt) {
       body: JSON.stringify({
         from, to: [booking.guest_email],
         subject: 'Спасибо за бронирование! Ваша бронь ' + booking.booking_ref + ' подтверждена · Urban Luxe',
-        html
+        html,
+        text:
+          'Спасибо за бронирование! Ваша бронь подтверждена.\n\n' +
+          'Номер брони: ' + booking.booking_ref + '\n' +
+          'Апартамент: ' + apt.name + (apt.complex ? ' (' + apt.complex + ')' : '') + '\n' +
+          'Адрес: ' + addr + '\n' +
+          'Заезд: ' + ruDate(booking.check_in) + ' c 15:00\n' +
+          'Выезд: ' + ruDate(booking.check_out) + ' до 12:00\n' +
+          'Гостей: ' + booking.guests_count + '\n' +
+          'Итого: $' + booking.total_price + '\n\n' +
+          'Личный кабинет: https://urbanluxe.cc/guest.html\n' +
+          'Управление бронированием: https://urbanluxe.cc/cancel.html?ref=' + encodeURIComponent(booking.booking_ref) + '\n\n' +
+          'Адрес, код доступа и инструкцию отправим перед заездом.\n\n' +
+          'В апартаментах запрещено: курить; проводить вечеринки и шумные мероприятия; шуметь после 22:00; заселять посторонних без согласования; передавать ключи третьим лицам; нарушать правила ЖК. При нарушении правил может быть удержан депозит и/или начислен штраф.\n\n' +
+          'Будем рады видеть вас в наших апартаментах!\n' +
+          'Вопросы 24/7: Telegram @Arsen_bnb · +998 93 690 00 44 · urbanluxe.cc'
       })
     });
   } catch (e) { /* письмо не критично для брони */ }
