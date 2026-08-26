@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Urban Luxe — Уборки</title>
+<style>
+:root{--bg:#0b0d12;--panel:#141823;--line:#252b3b;--text:#eceef4;--mut:#8d95a9;--gold:#c9a96e;--green:#31c46f;--red:#e5534b;--amber:#e8a33d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:16px;max-width:560px;margin:0 auto}
+h1{font-size:17px;color:var(--gold);letter-spacing:.1em;margin-bottom:2px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:16px}
+h2{font-size:15px;margin:20px 0 10px;color:var(--text)}
+h2 small{color:var(--mut);font-weight:400;font-size:12px}
+.task{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:9px}
+.task.done{opacity:.55}
+.task .info{flex:1;min-width:0}
+.task .nm{font-weight:700;font-size:16px}
+.task .cx{color:var(--mut);font-size:13px}
+.task .urgent{display:inline-block;background:rgba(229,83,75,.15);color:var(--red);font-size:11px;padding:2px 9px;border-radius:12px;margin-top:3px}
+.task button{width:52px;height:52px;border-radius:14px;border:2px solid var(--line);background:transparent;color:var(--mut);font-size:24px;flex-shrink:0}
+.task.done button{border-color:var(--green);color:var(--green);background:rgba(49,196,111,.1)}
+.ci{display:flex;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:7px;font-size:14.5px}
+.ci .cx{color:var(--mut)}
+.empty{color:var(--mut);font-size:14px;padding:8px 2px}
+#err{color:var(--red);padding:20px 0;font-size:15px}
+.foot{color:#5a6275;font-size:11.5px;margin-top:24px;text-align:center}
+</style>
+</head>
+<body>
+<h1>URBAN LUXE · УБОРКИ</h1>
+<div class="sub" id="who">Загрузка…</div>
+<div id="err" style="display:none"></div>
+<div id="content"></div>
+<div class="foot">Обновляется автоматически · потяни вниз для обновления</div>
+<script>
+'use strict';
+var TOKEN=new URLSearchParams(location.search).get('t')||localStorage.getItem('ul_staff_t')||'';
+if(TOKEN)localStorage.setItem('ul_staff_t',TOKEN);
+var API='/.netlify/functions/staff-portal';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]})}
+function load(){
+  if(!TOKEN){showErr('Нет доступа. Открой свою личную ссылку из сообщения менеджера.');return}
+  fetch(API+'?token='+encodeURIComponent(TOKEN)).then(function(r){return r.json()}).then(function(d){
+    if(d.error){showErr(d.error==='invalid token'?'Ссылка недействительна — попроси новую у менеджера.':d.error);return}
+    document.getElementById('who').textContent=d.staff.name+' · '+new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+    render(d);
+  }).catch(function(e){showErr('Нет связи: '+e.message)});
+}
+function showErr(m){var e=document.getElementById('err');e.style.display='block';e.textContent=m}
+function render(d){
+  var h='';
+  h+=day('СЕГОДНЯ',d.today,true);
+  h+=day('ЗАВТРА',d.tomorrow,false);
+  document.getElementById('content').innerHTML=h;
+  document.querySelectorAll('.task button[data-apt]').forEach(function(b){
+    b.onclick=function(){
+      var card=b.closest('.task'), done=!card.classList.contains('done');
+      card.classList.toggle('done',done); b.textContent=done?'✓':'';
+      fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,apartment_id:b.dataset.apt,date:b.dataset.date,done:done})})
+        .then(function(r){return r.json()}).then(function(res){if(res.error){card.classList.toggle('done');alert('Не сохранилось: '+res.error)}});
+    };
+  });
+}
+function day(title,dd,withActions){
+  var h='<h2>🧹 Уборки — '+title+' <small>'+dd.cleanings.length+'</small></h2>';
+  if(!dd.cleanings.length)h+='<div class="empty">Уборок нет 🎉</div>';
+  dd.cleanings.sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)});
+  dd.cleanings.forEach(function(c){
+    h+='<div class="task'+(c.done?' done':'')+'"><div class="info"><div class="nm">'+esc(c.name)+'</div><div class="cx">'+esc(c.complex)+(c.floor?' · этаж '+c.floor:'')+'</div>'+(c.urgent?'<span class="urgent">⚡ сегодня заезд — убрать в первую очередь</span>':'')+'</div>'+
+      (withActions?'<button data-apt="'+esc(c.apartment_id)+'" data-date="'+dd.date+'">'+(c.done?'✓':'')+'</button>':'')+'</div>';
+  });
+  h+='<h2>🔑 Заезды — '+title.toLowerCase()+' <small>'+dd.checkins.length+'</small></h2>';
+  if(!dd.checkins.length)h+='<div class="empty">Заездов нет</div>';
+  dd.checkins.forEach(function(c){
+    h+='<div class="ci"><span><b>'+esc(c.name)+'</b> <span class="cx">'+esc(c.complex)+(c.floor?' · эт. '+c.floor:'')+'</span></span><span class="cx">'+c.nights+' ноч.</span></div>';
+  });
+  return h;
+}
+load();
+setInterval(load,5*60*1000);
+</script>
+</body>
+</html>
