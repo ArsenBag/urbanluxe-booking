@@ -14,6 +14,11 @@
     ru: { step: 'Шаг', of: 'из', s1: 'Даты и гости', s2: 'Контакты', s3: 'Подтверждение',
       next: 'Далее', back: 'Назад', confirm: 'Подтвердить бронь',
       needDates: 'Выберите даты заезда и выезда', needContact: 'Укажите имя и телефон',
+      eName: 'Укажите имя', ePhone: 'Укажите телефон (минимум 9 цифр)', eEmail: 'Укажите корректный email — на него придёт подтверждение',
+      eCitizen: 'Выберите гражданство', eTime: 'Укажите время заезда',
+      openBrowser: 'Вы в браузере Instagram — для надёжного бронирования откройте сайт в обычном браузере (⋯ в углу → «Открыть в браузере»)', copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована ✓',
+      accMade: '👤 Мы создали вам личный кабинет — на почту отправлена ссылка для установки пароля. Внутри: ваша бронь, отмена и инструкция по заселению.',
+      accExists: '👤 У вас уже есть личный кабинет — войдите, там появится эта бронь.',
       summary: 'Ваша бронь', nights: 'ночей', guests: 'гостей', total: 'Итого',
       payTitle: 'Оплата', payQr: 'Оплатить по QR', payQrHint: 'любое банковское приложение',
       payLater: 'Оплата при заселении', payLaterHint: 'наличные или карта, подходит иностранным гостям',
@@ -22,6 +27,11 @@
     en: { step: 'Step', of: 'of', s1: 'Dates & guests', s2: 'Contacts', s3: 'Confirmation',
       next: 'Next', back: 'Back', confirm: 'Confirm booking',
       needDates: 'Select check-in and check-out dates', needContact: 'Enter your name and phone',
+      eName: 'Enter your name', ePhone: 'Enter phone (min 9 digits)', eEmail: 'Enter a valid email — confirmation goes there',
+      eCitizen: 'Select citizenship', eTime: 'Enter arrival time',
+      openBrowser: 'You are in the Instagram browser — for reliable booking open the site in a regular browser (⋯ menu → "Open in browser")', copyLink: 'Copy link', copied: 'Link copied ✓',
+      accMade: '👤 We created your personal account — a password link was sent to your email. Inside: your booking, cancellation and check-in instructions.',
+      accExists: '👤 You already have an account — sign in to see this booking.',
       summary: 'Your booking', nights: 'nights', guests: 'guests', total: 'Total',
       payTitle: 'Payment', payQr: 'Pay by QR', payQrHint: 'any banking app',
       payLater: 'Pay at check-in', payLaterHint: 'cash or card, best for foreign guests',
@@ -30,6 +40,11 @@
     uz: { step: 'Qadam', of: '/', s1: 'Sanalar va mehmonlar', s2: 'Kontaktlar', s3: 'Tasdiqlash',
       next: 'Keyingi', back: 'Orqaga', confirm: 'Bronni tasdiqlash',
       needDates: 'Kirish va chiqish sanalarini tanlang', needContact: 'Ism va telefon raqamini kiriting',
+      eName: 'Ismingizni kiriting', ePhone: 'Telefon kiriting (kamida 9 raqam)', eEmail: "To'g'ri email kiriting — tasdiq shu manzilga boradi",
+      eCitizen: 'Fuqarolikni tanlang', eTime: 'Kelish vaqtini kiriting',
+      openBrowser: "Siz Instagram brauzeridasiz — ishonchli bron uchun saytni oddiy brauzerda oching (⋯ menyu → «Brauzerda ochish»)", copyLink: 'Havolani nusxalash', copied: 'Nusxalandi ✓',
+      accMade: "👤 Sizga shaxsiy kabinet yaratdik — parol o'rnatish havolasi emailga yuborildi. Ichida: broningiz, bekor qilish va joylashish ko'rsatmasi.",
+      accExists: "👤 Sizda kabinet bor — kiring, bron o'sha yerda ko'rinadi.",
       summary: 'Sizning broningiz', nights: 'kecha', guests: 'mehmon', total: 'Jami',
       payTitle: "To'lov", payQr: "QR orqali to'lash", payQrHint: 'istalgan bank ilovasi',
       payLater: "Joylashishda to'lash", payLaterHint: 'naqd yoki karta, chet ellik mehmonlar uchun qulay',
@@ -76,7 +91,17 @@
     '.ulv2-qr{text-align:center;padding:14px;background:#fff;border-radius:12px;margin:12px auto;max-width:240px}' +
     '.ulv2-qr img{width:100%;display:block}' +
     '#ulv2 input,#ulv2 select{font-size:16px}' +
-    '@media(max-width:640px){.ulv2-btn{min-height:52px}}';
+    '.ulv2-iab{background:rgba(232,163,61,.12);border:1px solid rgba(232,163,61,.5);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#e8a33d;margin:0 0 12px;line-height:1.5}' +
+    '.ulv2-iab button{margin-top:8px;background:#e8a33d;color:#241d10;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer}' +
+    '@media(max-width:640px){' +
+      '.ulv2-btn{min-height:52px}' +
+      '#modalGuestFields input,#modalGuestFields select{width:100% !important;box-sizing:border-box;display:block;margin:0 0 10px !important;min-height:48px;padding:12px 14px !important;border-radius:10px}' +
+      '#modalGuestFields{display:block !important}' +
+      '#ulv2 .ulv2-nav{position:sticky;bottom:0;background:linear-gradient(transparent,#14100c 30%);padding:10px 0 4px;z-index:5}' +
+      '#modalCheckIn,#modalCheckOut{min-height:48px;box-sizing:border-box}' +
+      '.ulv2-pay label{padding:14px}' +
+      '#modalAvailCal{overflow-x:auto}' +
+    '}';
   document.head.appendChild(css);
 
   // ---------- helpers ----------
@@ -90,12 +115,39 @@
 
   var state = { step: 1, pay: 'qr' };
 
+  // Встроенные браузеры Instagram/Facebook: урезанные localStorage/куки ломают бронь.
+  function inAppBrowser() {
+    var ua = navigator.userAgent || '';
+    return /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|TikTok/i.test(ua);
+  }
+  function storageOk() {
+    try { localStorage.setItem('__ul_t', '1'); localStorage.removeItem('__ul_t'); return true; }
+    catch (e) { return false; }
+  }
+  function iabBanner() {
+    if (!inAppBrowser() && storageOk()) return null;
+    var t = lang();
+    var d = document.createElement('div');
+    d.className = 'ulv2-iab';
+    d.innerHTML = esc(t.openBrowser) + '<br><button type="button">' + esc(t.copyLink) + '</button>';
+    d.querySelector('button').onclick = function (e) {
+      e.stopPropagation();
+      var url = location.origin + location.pathname + (location.search || '');
+      var done = function () { d.querySelector('button').textContent = t.copied; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { prompt('URL:', url); });
+      else prompt('URL:', url);
+    };
+    return d;
+  }
+
   // Свой supabase-клиент только для чтения сессии (общий localStorage с клиентом сайта)
   var SB_URL = 'https://sebvfvtofiysbywxjqut.supabase.co';
   var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
   var sbc = null;
   function sb() {
-    if (!sbc && window.supabase && window.supabase.createClient) sbc = window.supabase.createClient(SB_URL, SB_KEY);
+    try {
+      if (!sbc && window.supabase && window.supabase.createClient) sbc = window.supabase.createClient(SB_URL, SB_KEY);
+    } catch (e) { /* вебвью без storage — работаем без клиента */ }
     return sbc;
   }
   function prefillContacts() {
@@ -154,14 +206,42 @@
     if (qrOk === false) { payBox.style.display = 'none'; state.pay = 'later'; }
   }
 
+  function markBad(el, bad) {
+    if (!el) return;
+    el.style.border = bad ? '1px solid #e5534b' : '';
+    if (bad && !el.__badHook) {
+      el.__badHook = true;
+      el.addEventListener('input', function () { el.style.border = ''; });
+      el.addEventListener('change', function () { el.style.border = ''; });
+    }
+  }
   function validate(n) {
     var t = lang();
     if (n === 1) {
       if (!(($('modalCheckIn') || {}).value) || !(($('modalCheckOut') || {}).value)) return t.needDates;
     }
     if (n === 2) {
-      var nm = ($('modalGuestName') || {}).value || '', ph = ($('modalGuestPhone') || {}).value || '';
-      if (!nm.trim() || !ph.trim()) return t.needContact;
+      var bad = [];
+      var nm = $('modalGuestName'), ph = $('modalGuestPhone'), em = $('modalGuestEmail'),
+          cz = $('modalCitizenship'), nt = $('modalGuestNotes');
+      if (!nm || nm.value.trim().length < 2) bad.push([nm, t.eName]);
+      var digits = (ph && ph.value || '').replace(/\D/g, '');
+      if (digits.length < 9) bad.push([ph, t.ePhone]);
+      if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em.value.trim())) bad.push([em, t.eEmail]);
+      if (cz && !cz.value) bad.push([cz, t.eCitizen]);
+      if (nt && !nt.value.trim()) bad.push([nt, t.eTime]);
+      var fo = $('modalForOther');
+      if (fo && fo.checked) {
+        var on = $('modalOtherName'), op = $('modalOtherPhone');
+        if (on && on.value.trim().length < 2) bad.push([on, t.eName]);
+        if (op && (op.value || '').replace(/\D/g, '').length < 9) bad.push([op, t.ePhone]);
+      }
+      [nm, ph, em, cz, nt].forEach(function (el) { markBad(el, false); });
+      if (bad.length) {
+        bad.forEach(function (b) { markBad(b[0], true); });
+        try { bad[0][0].scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+        return bad[0][1];
+      }
     }
     return '';
   }
@@ -194,6 +274,8 @@
 
     // Шаг 1: даты + цена + календарь доступности
     var s1 = $('ulv2-s1');
+    var iab = iabBanner();
+    if (iab) s1.appendChild(iab);
     var datesRow = commonBox(ciEl, $('modalCheckOut'));
     if (datesRow && datesRow !== sidebar) s1.appendChild(datesRow);
     else { s1.appendChild(ciEl); s1.appendChild($('modalCheckOut')); }
@@ -237,7 +319,12 @@
       if (notes && !/\[pay:/.test(notes.value)) {
         notes.value = (notes.value ? notes.value + ' ' : '') + '[pay:' + (state.pay === 'qr' ? 'QR' : 'checkin') + ']';
       }
-      if (state.pay === 'qr') watchSuccess();
+      var contact = {
+        email: (($('modalGuestEmail') || {}).value || '').trim(),
+        name: (($('modalGuestName') || {}).value || '').trim(),
+        phone: (($('modalGuestPhone') || {}).value || '').trim()
+      };
+      watchSuccess(contact);
     }, true);
 
     state.step = 1; state.pay = qrOk === false ? 'later' : 'qr';
@@ -245,26 +332,54 @@
     return true;
   }
 
-  // После успешной заявки показываем QR с суммой
-  function watchSuccess() {
+  // После успешной заявки: QR с суммой (если выбран) + авто-создание кабинета
+  function watchSuccess(contact) {
     var total = ($('modalTotalPrice') || {}).textContent || '';
     var tries = 0, t = lang();
     var iv = setInterval(function () {
       var mc = $('modalContent');
       if (!mc) { clearInterval(iv); return; }
       var txt = mc.textContent || '';
-      if (/UL-[A-Z0-9]{4,}/.test(txt) && !$('ulv2-qrblock') && qrOk) {
-        clearInterval(iv);
-        var host = mc.querySelector('h2,h3') || mc.firstElementChild;
+      if (!/UL-[A-Z0-9]{4,}/.test(txt)) { if (++tries > 120) clearInterval(iv); return; }
+      clearInterval(iv);
+      var host = mc.querySelector('h2,h3') || mc.firstElementChild;
+      var parent = host && host.parentElement ? host.parentElement : mc;
+      if (state.pay === 'qr' && qrOk && !$('ulv2-qrblock')) {
         var d = document.createElement('div'); d.id = 'ulv2-qrblock';
         d.innerHTML = '<p style="text-align:center;color:#c9a96e;margin:14px 0 0;font-size:15px">' + esc(t.qrTitle) + '</p>' +
           '<div class="ulv2-qr"><img src="' + QR_SRC + '" alt="QR"></div>' +
           '<p style="text-align:center;color:#cfcabd;margin:0;font-size:14px">' + esc(t.qrHint) + ': <b style="color:#c9a96e">' + esc(total) + '</b></p>' +
           '<p style="text-align:center;color:#8a857a;font-size:12px;margin:6px 0 0">' + esc(t.qrDone) + '</p>';
-        (host && host.parentElement ? host.parentElement : mc).appendChild(d);
+        parent.appendChild(d);
       }
-      if (++tries > 120) clearInterval(iv);
+      autoAccount(contact, parent, t);
     }, 500);
+  }
+
+  // Гость бронирует без регистрации; кабинет создаём автоматически по email
+  function autoAccount(contact, parent, t) {
+    if (!contact || !contact.email || $('ulv2-accblock')) return;
+    var c = sb(); if (!c) return;
+    function show(msg) {
+      var d = document.createElement('div'); d.id = 'ulv2-accblock';
+      d.style.cssText = 'background:rgba(201,169,110,.1);border:1px solid rgba(201,169,110,.4);border-radius:10px;padding:12px 14px;font-size:13px;color:#c9a96e;margin:14px auto 0;max-width:420px;line-height:1.55';
+      d.textContent = msg;
+      parent.appendChild(d);
+    }
+    c.auth.getSession().then(function (r) {
+      if (r.data && r.data.session) return; // уже в кабинете
+      var rndPass = 'UL!' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase();
+      c.auth.signUp({ email: contact.email, password: rndPass, options: { data: { name: contact.name, phone: contact.phone } } })
+        .then(function (res) {
+          if (res.error) {
+            if (/already|registered|exists/i.test(res.error.message)) show(t.accExists);
+            return;
+          }
+          // письмо для установки пароля (наш password-reset flow)
+          c.auth.resetPasswordForEmail(contact.email, { redirectTo: location.origin + '/?pwreset=1' })
+            .then(function () { show(t.accMade); }, function () { show(t.accMade); });
+        }, function () {});
+    }).catch(function () {});
   }
 
   // ---------- hook openModal ----------
