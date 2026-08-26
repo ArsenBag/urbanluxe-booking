@@ -61,26 +61,100 @@ function nightPrice(dateIso, weekday, weekend) {
 }
 function esc(s) { return String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
 
-async function sendGuestEmail(booking, aptName) {
+// Адреса комплексов (для письма гостю)
+const COMPLEX_ADDR = {
+  'Nest One': 'ул. Батыра Закирова 1А, Tashkent City',
+  'U-Tower': 'мкр. Бешагач 1/1, Шайхантахурский район',
+  'U-Tower 2': 'мкр. Бешагач 1/1, Шайхантахурский район',
+  'Mirabad': 'ул. Айбек 38А, Мирабадский район',
+  'Kislorod': 'ул. Бурижар 1, Яккасарайский район',
+  'Gardens Residence': 'Tashkent City, Шайхантахурский район',
+  'Modera Towers': 'ул. Шота Руставели 19, Яккасарайский район'
+};
+
+function ruDate(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? m[3] + '.' + m[2] + '.' + m[1] : iso;
+}
+
+async function sendGuestEmail(booking, apt) {
   const key = process.env.RESEND_API_KEY || process.env.RESEND_KEY || process.env.EMAIL_API_KEY;
   if (!key || !booking.guest_email) return;
   const from = process.env.RESEND_FROM || 'Urban Luxe <booking@urbanluxe.cc>';
+  const gold = '#c9a96e', dark = '#171310';
+  const addr = COMPLEX_ADDR[apt.complex] || 'Ташкент';
+  const aptLine = esc(apt.name) + (apt.complex ? ' · ' + esc(apt.complex) : '') + (apt.floor ? ' · этаж ' + esc(apt.floor) : '');
+  const row = (label, val) =>
+    '<tr><td style="padding:7px 0;color:#8a8a8a;font-size:13px;vertical-align:top;white-space:nowrap">' + label + '</td>' +
+    '<td style="padding:7px 0 7px 18px;color:#222;font-size:14px;text-align:right">' + val + '</td></tr>';
   const html =
-    '<div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#222">' +
-    '<h2 style="font-weight:400">Ваша бронь подтверждена</h2>' +
-    '<p>Номер брони: <strong style="font-size:18px">' + esc(booking.booking_ref) + '</strong></p>' +
-    '<p>' + esc(aptName) + '<br>Заезд: <strong>' + esc(booking.check_in) + '</strong> · Выезд: <strong>' + esc(booking.check_out) + '</strong><br>' +
-    'Итого: <strong>$' + esc(booking.total_price) + '</strong> · Гостей: ' + esc(booking.guests_count) + '</p>' +
-    '<p><a href="https://urbanluxe.cc/guest.html" style="background:#c9a96e;color:#241d10;padding:12px 22px;border-radius:8px;text-decoration:none;display:inline-block">Личный кабинет</a></p>' +
-    '<p style="font-size:13px;color:#777">Управление бронированием: <a href="https://urbanluxe.cc/cancel.html?ref=' + encodeURIComponent(booking.booking_ref) + '">urbanluxe.cc/cancel</a><br>' +
-    'Вопросы: Telegram <a href="https://t.me/Arsen_bnb">@Arsen_bnb</a> · +998 93 690 00 44</p></div>';
+    '<div style="background:#f4f2ee;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">' +
+    '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e8e4dc">' +
+
+    // Шапка
+    '<div style="background:' + dark + ';padding:26px 32px;text-align:center">' +
+    '<div style="color:' + gold + ';font-size:20px;letter-spacing:.35em;font-family:Georgia,serif">URBAN&nbsp;LUXE</div>' +
+    '<div style="color:#9a938a;font-size:11px;letter-spacing:.18em;margin-top:6px">ПРЕМИАЛЬНЫЕ АПАРТАМЕНТЫ · ТАШКЕНТ</div>' +
+    '</div>' +
+
+    '<div style="padding:30px 32px">' +
+    '<h2 style="margin:0 0 6px;font-weight:600;font-size:21px;color:#1c1c1c">Спасибо за бронирование' + (booking.guest_name ? ', ' + esc(String(booking.guest_name).split(' ')[0]) : '') + '!</h2>' +
+    '<p style="margin:0 0 22px;color:#666;font-size:14px">Ваша бронь подтверждена. Ниже — все детали поездки.</p>' +
+
+    // Карточка деталей
+    '<div style="background:#faf8f4;border:1px solid #eee7d9;border-radius:12px;padding:18px 20px;margin-bottom:24px">' +
+    '<table style="width:100%;border-collapse:collapse">' +
+    row('Номер брони', '<strong style="font-size:16px;color:' + gold + ';letter-spacing:.05em">' + esc(booking.booking_ref) + '</strong>') +
+    row('Апартамент', '<strong>' + aptLine + '</strong>') +
+    row('Адрес', esc(addr)) +
+    row('Заезд', '<strong>' + ruDate(booking.check_in) + '</strong> · c 15:00') +
+    row('Выезд', '<strong>' + ruDate(booking.check_out) + '</strong> · до 12:00') +
+    row('Гостей', esc(booking.guests_count)) +
+    row('Итого', '<strong style="font-size:17px">$' + esc(booking.total_price) + '</strong>') +
+    '</table></div>' +
+
+    // Кнопки
+    '<div style="text-align:center;margin-bottom:26px">' +
+    '<a href="https://urbanluxe.cc/guest.html" style="background:' + gold + ';color:#241d10;padding:13px 26px;border-radius:9px;text-decoration:none;display:inline-block;font-weight:bold;font-size:14px">Личный кабинет</a>' +
+    '<div style="margin-top:10px"><a href="https://urbanluxe.cc/cancel.html?ref=' + encodeURIComponent(booking.booking_ref) + '" style="color:#8a8a8a;font-size:12px">Управление бронированием / отмена</a></div>' +
+    '</div>' +
+
+    // Заселение
+    '<div style="border-top:1px solid #eee7d9;padding-top:20px;margin-bottom:20px">' +
+    '<div style="font-size:14px;font-weight:bold;color:#1c1c1c;margin-bottom:8px">🔑 Заселение</div>' +
+    '<p style="margin:0;color:#555;font-size:13px;line-height:1.65">Заезд с 15:00, выезд до 12:00. Адрес, код доступа и подробную инструкцию мы отправим перед заездом.</p>' +
+    '</div>' +
+
+    // Правила
+    '<div style="border-top:1px solid #eee7d9;padding-top:20px;margin-bottom:20px">' +
+    '<div style="font-size:14px;font-weight:bold;color:#1c1c1c;margin-bottom:8px">❌ В апартаментах запрещено</div>' +
+    '<p style="margin:0;color:#555;font-size:13px;line-height:1.9">' +
+    '🚭 Курить внутри апартамента<br>' +
+    '🎉 Проводить вечеринки и шумные мероприятия<br>' +
+    '🔊 Шуметь после 22:00<br>' +
+    '👥 Заселять посторонних гостей без согласования<br>' +
+    '🔑 Передавать ключи и карту третьим лицам<br>' +
+    '🚫 Нарушать правила ЖК и заниматься незаконной деятельностью</p>' +
+    '<p style="margin:12px 0 0;color:#9a6b1f;font-size:12px;line-height:1.6;background:#fdf6e7;border-radius:8px;padding:10px 12px">⚠️ При нарушении правил проживания может быть удержан депозит и/или начислен штраф согласно условиям договора.</p>' +
+    '</div>' +
+
+    // Футер
+    '<div style="border-top:1px solid #eee7d9;padding-top:18px;text-align:center">' +
+    '<p style="margin:0 0 10px;color:#444;font-size:14px">Будем рады видеть вас в наших апартаментах! ✨</p>' +
+    '<p style="margin:0;color:#8a8a8a;font-size:12px;line-height:1.8">' +
+    'Вопросы 24/7: <a href="https://t.me/Arsen_bnb" style="color:' + gold + '">Telegram @Arsen_bnb</a><br>' +
+    '+998 93 690 00 44 · +998 99 957 94 85<br>' +
+    '<a href="https://urbanluxe.cc" style="color:' + gold + '">urbanluxe.cc</a></p>' +
+    '</div>' +
+
+    '</div></div></div>';
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from, to: [booking.guest_email],
-        subject: 'Urban Luxe — бронь ' + booking.booking_ref + ' подтверждена',
+        subject: 'Спасибо за бронирование! Ваша бронь ' + booking.booking_ref + ' подтверждена · Urban Luxe',
         html
       })
     });
@@ -111,7 +185,7 @@ exports.handler = async (event) => {
 
     // Апартамент — из Supabase (все 35 актуальных, без хардкода)
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,weekday_price,weekend_price,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,weekday_price,weekend_price,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
       { headers: h(READ_KEY) }
     );
     const apt = (ar.ok ? await ar.json() : [])[0];
@@ -200,7 +274,7 @@ exports.handler = async (event) => {
     }
     const saved = (await ins.json())[0] || row;
 
-    await sendGuestEmail(saved, apt.name);
+    await sendGuestEmail(saved, apt);
 
     return {
       statusCode: 200, headers: HEADERS,
