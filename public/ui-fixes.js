@@ -290,7 +290,45 @@
     document.head.appendChild(st);
   })();
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); }
+  // ---------- 8. Мобильная модалка апартамента ----------
+  // Сетка модалки задана инлайн-стилем grid-template-columns:1fr 320px и на телефоне
+  // не складывается -> контент шире экрана, всё «плывёт». Складываем в столбик
+  // и прячем горизонтальный скролл.
+  (function modalMobile() {
+    var st = document.createElement('style');
+    st.textContent =
+      '@media (max-width:760px){' +
+      '.modal{overflow-x:hidden !important;}' +
+      '.modal-body > div[style*="grid-template-columns"]{display:block !important;}' +
+      '.modal-body > div > div[style*="sticky"]{position:static !important;margin-top:18px;}' +
+      '.gallery-nav{opacity:1 !important;width:42px !important;height:42px !important;}' +
+      '}';
+    document.head.appendChild(st);
+  })();
+
+  // Свайп фото в галерее модалки (на телефоне листание пальцем)
+  function galSwipe() {
+    var g = document.querySelector('.modal .gallery');
+    if (!g) return false;
+    if (g.dataset.ulSwipe) return true;
+    g.dataset.ulSwipe = '1';
+    var x0 = null, y0 = null;
+    g.addEventListener('touchstart', function (e) {
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    g.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0;
+      var dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        try { window.gNav(dx < 0 ? 1 : -1); } catch (err) {}
+      }
+    }, { passive: true });
+    return true;
+  }
+
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
