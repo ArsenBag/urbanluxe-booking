@@ -14,6 +14,7 @@
     ru: { step: 'Шаг', of: 'из', s1: 'Даты и гости', s2: 'Контакты', s3: 'Подтверждение',
       next: 'Далее', back: 'Назад', confirm: 'Подтвердить бронь',
       needDates: 'Выберите даты заезда и выезда', needContact: 'Укажите имя и телефон',
+      calHint: 'Или нажмите на свободную (зелёную) дату в календаре: первый тап — заезд, второй — выезд',
       eName: 'Укажите имя', ePhone: 'Укажите телефон (минимум 9 цифр)', eEmail: 'Укажите корректный email — на него придёт подтверждение',
       eCitizen: 'Выберите гражданство', eTime: 'Укажите время заезда',
       openBrowser: 'Вы в браузере Instagram — для надёжного бронирования откройте сайт в обычном браузере (⋯ в углу → «Открыть в браузере»)', copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована ✓',
@@ -27,6 +28,7 @@
     en: { step: 'Step', of: 'of', s1: 'Dates & guests', s2: 'Contacts', s3: 'Confirmation',
       next: 'Next', back: 'Back', confirm: 'Confirm booking',
       needDates: 'Select check-in and check-out dates', needContact: 'Enter your name and phone',
+      calHint: 'Or tap a free (green) date in the calendar: first tap — check-in, second — check-out',
       eName: 'Enter your name', ePhone: 'Enter phone (min 9 digits)', eEmail: 'Enter a valid email — confirmation goes there',
       eCitizen: 'Select citizenship', eTime: 'Enter arrival time',
       openBrowser: 'You are in the Instagram browser — for reliable booking open the site in a regular browser (⋯ menu → "Open in browser")', copyLink: 'Copy link', copied: 'Link copied ✓',
@@ -40,6 +42,7 @@
     uz: { step: 'Qadam', of: '/', s1: 'Sanalar va mehmonlar', s2: 'Kontaktlar', s3: 'Tasdiqlash',
       next: 'Keyingi', back: 'Orqaga', confirm: 'Bronni tasdiqlash',
       needDates: 'Kirish va chiqish sanalarini tanlang', needContact: 'Ism va telefon raqamini kiriting',
+      calHint: "Yoki kalendardagi bo'sh (yashil) sanani bosing: birinchi bosish — kirish, ikkinchisi — chiqish",
       eName: 'Ismingizni kiriting', ePhone: 'Telefon kiriting (kamida 9 raqam)', eEmail: "To'g'ri email kiriting — tasdiq shu manzilga boradi",
       eCitizen: 'Fuqarolikni tanlang', eTime: 'Kelish vaqtini kiriting',
       openBrowser: "Siz Instagram brauzeridasiz — ishonchli bron uchun saytni oddiy brauzerda oching (⋯ menyu → «Brauzerda ochish»)", copyLink: 'Havolani nusxalash', copied: 'Nusxalandi ✓',
@@ -91,6 +94,10 @@
     '.ulv2-qr{text-align:center;padding:14px;background:#fff;border-radius:12px;margin:12px auto;max-width:240px}' +
     '.ulv2-qr img{width:100%;display:block}' +
     '#ulv2 input,#ulv2 select{font-size:16px}' +
+    '#ulv2-s1 input.flatpickr-input,#ulv2-s1 input.flatpickr-mobile{background:rgba(255,255,255,.05) !important;border:1px solid rgba(201,169,110,.55) !important;border-radius:10px !important;padding:12px 14px !important;color:#e8e4dc !important;min-height:48px;box-sizing:border-box;width:100%}' +
+    '#ulv2-s1 input.flatpickr-input:focus,#ulv2-s1 input.flatpickr-mobile:focus{border-color:#c9a96e !important;box-shadow:0 0 0 2px rgba(201,169,110,.25)}' +
+    '.ulv2-calhint{font-size:12px;color:#8a857a;margin:8px 0 4px;text-align:center}' +
+    '#modalAvailCal div[data-ul-free]{cursor:pointer}' +
     '.ulv2-iab{background:rgba(232,163,61,.12);border:1px solid rgba(232,163,61,.5);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#e8a33d;margin:0 0 12px;line-height:1.5}' +
     '.ulv2-iab button{margin-top:8px;background:#e8a33d;color:#241d10;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer}' +
     '@media(max-width:640px){' +
@@ -280,7 +287,15 @@
     if (datesRow && datesRow !== sidebar) s1.appendChild(datesRow);
     else { s1.appendChild(ciEl); s1.appendChild($('modalCheckOut')); }
     if ($('modalPriceCalc')) s1.appendChild($('modalPriceCalc'));
-    if ($('modalAvailCal')) s1.appendChild($('modalAvailCal'));
+    if ($('modalAvailCal')) {
+      var hint = document.createElement('div');
+      hint.className = 'ulv2-calhint'; hint.textContent = t.calHint;
+      s1.appendChild(hint);
+      s1.appendChild($('modalAvailCal'));
+      calClicks();
+    }
+    setTimeout(fixModalPickers, 300);
+    setTimeout(fixModalPickers, 1200);
 
     // Шаг 2: контакты — показываем всегда (даже залогиненным), чтобы не было брони одним кликом
     var s2 = $('ulv2-s2');
@@ -330,6 +345,81 @@
     state.step = 1; state.pay = qrOk === false ? 'later' : 'qr';
     goto(1);
     return true;
+  }
+
+  // flatpickr в модалке создан с minDate: new Date() (с текущим временем) —
+  // на телефоне нативный пикер возвращает дату 00:00, setDate() её отбрасывает.
+  // Обнуляем время в minDate.
+  function fixModalPickers() {
+    ['modalCheckIn', 'modalCheckOut'].forEach(function (id) {
+      var el = $(id), fp = el && el._flatpickr;
+      if (!fp || !fp.config.minDate) return;
+      var d = fp.config.minDate;
+      if (d.getHours() || d.getMinutes() || d.getSeconds()) {
+        var z = new Date(d); z.setHours(0, 0, 0, 0);
+        fp.config.minDate = z;
+        if (fp.mobileInput) { try { fp.mobileInput.min = fp.formatDate(z, 'Y-m-d'); } catch (e) {} }
+      }
+    });
+  }
+
+  // Выбор дат тапом по календарю доступности: зелёная ячейка = свободно.
+  // Первый тап — заезд, второй (позже заезда) — выезд.
+  var CAL_MONTHS = {
+    'янв': 0, 'фев': 1, 'мар': 2, 'апр': 3, 'май': 4, 'мая': 4, 'июн': 5, 'июл': 6, 'авг': 7, 'сен': 8, 'окт': 9, 'ноя': 10, 'дек': 11,
+    'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5, 'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11,
+    'yan': 0, 'fev': 1, 'iyn': 5, 'iyl': 6, 'avg': 7, 'sen': 8, 'okt': 9, 'noy': 10, 'dek': 11
+  };
+  function calHeadDate(cal) {
+    var head = cal.querySelector('div');
+    var m = ((head && head.textContent) || '').trim().toLowerCase().match(/([a-zа-яё']+)[.\s]+(\d{4})/);
+    if (!m) return null;
+    var mo = CAL_MONTHS[m[1].slice(0, 3)];
+    return mo === undefined ? null : { mo: mo, yr: +m[2] };
+  }
+  function calMark(cal) {
+    var h = calHeadDate(cal); if (!h) return;
+    var fi = $('modalCheckIn'), fo = $('modalCheckOut');
+    var a = fi && fi._flatpickr && fi._flatpickr.selectedDates[0];
+    var b = fo && fo._flatpickr && fo._flatpickr.selectedDates[0];
+    cal.querySelectorAll('div').forEach(function (c) {
+      var tx = (c.textContent || '').trim();
+      if (!/^\d{1,2}$/.test(tx) || c.children.length) return;
+      var st = c.getAttribute('style') || '';
+      if (st.indexOf('46,204,113') > -1) c.setAttribute('data-ul-free', '1');
+      var d = new Date(h.yr, h.mo, +tx).getTime();
+      var sel = a && ((b && d >= a.getTime() && d <= b.getTime()) || (!b && d === a.getTime()));
+      c.style.outline = sel ? '2px solid #c9a96e' : '';
+      c.style.outlineOffset = sel ? '-2px' : '';
+    });
+  }
+  function calClicks() {
+    var cal = $('modalAvailCal');
+    if (!cal || cal.dataset.ulClick) return;
+    cal.dataset.ulClick = '1';
+    calMark(cal);
+    var mo = new MutationObserver(function () { calMark(cal); });
+    mo.observe(cal, { childList: true, subtree: true });
+    cal.addEventListener('click', function (e) {
+      var cell = e.target;
+      var tx = (cell.textContent || '').trim();
+      if (!/^\d{1,2}$/.test(tx) || cell.children.length) return;
+      var st = cell.getAttribute('style') || '';
+      if (st.indexOf('46,204,113') === -1) return; // только свободные
+      var h = calHeadDate(cal); if (!h) return;
+      var d = new Date(h.yr, h.mo, +tx);
+      var fi = $('modalCheckIn'), fo = $('modalCheckOut');
+      var fpi = fi && fi._flatpickr, fpo = fo && fo._flatpickr;
+      if (!fpi || !fpo) return;
+      fixModalPickers();
+      var ci = fpi.selectedDates[0];
+      if (!ci || fpo.selectedDates[0] || d <= ci) {
+        fpi.setDate(d, true); fpo.clear();
+      } else {
+        fpo.setDate(d, true);
+      }
+      calMark(cal);
+    });
   }
 
   // После успешной заявки: QR с суммой (если выбран) + авто-создание кабинета

@@ -290,6 +290,32 @@
     document.head.appendChild(st);
   })();
 
+  // ---------- 9. Фото заполняет карточку целиком ----------
+  // CSS сайта: .card__img img{height:auto;object-fit:contain} при контейнере 4:3 ->
+  // фото занимает ~80% высоты, снизу пустая полоса. Заполняем блок с обрезкой.
+  (function cardImgFill() {
+    var st = document.createElement('style');
+    st.textContent = '.card__img img{height:100% !important;object-fit:cover !important;max-height:none !important;}';
+    document.head.appendChild(st);
+  })();
+
+  // ---------- 10. Фильтры Gardens Residence и Modera Towers ----------
+  function addFilters() {
+    var btns = document.querySelectorAll('.filters button');
+    if (!btns.length) return false;
+    if (document.getElementById('ul-flt-gardens')) return true;
+    var wrap = btns[btns.length - 1].parentElement;
+    [['ul-flt-gardens', 'Gardens', 'Gardens Residence'], ['ul-flt-modera', 'Modera', 'Modera Towers']].forEach(function (f) {
+      var b = document.createElement('button');
+      b.id = f[0];
+      b.className = btns[btns.length - 1].className.replace('active', '').trim();
+      b.textContent = f[1];
+      b.setAttribute('onclick', "filterApts('" + f[2] + "')");
+      wrap.appendChild(b);
+    });
+    return true;
+  }
+
   // ---------- 8. Мобильная модалка апартамента ----------
   // Сетка модалки задана инлайн-стилем grid-template-columns:1fr 320px и на телефоне
   // не складывается -> контент шире экрана, всё «плывёт». Складываем в столбик
@@ -328,7 +354,7 @@
     return true;
   }
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); }
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); var fTry = 0, fIv = setInterval(function () { if (addFilters() || ++fTry > 30) clearInterval(fIv); }, 500); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
