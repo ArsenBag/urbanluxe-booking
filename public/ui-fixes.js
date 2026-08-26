@@ -142,8 +142,7 @@
   // ---------- 4. Блок «адреса одного стиля»: живая карта + 6 комплексов ----------
   var COMPLEXES = [
     { key: 'Nest One', url: '/nest-one', lat: 41.3111, lng: 69.2513, color: '#31c46f', addr: 'ул. Батыра Закирова 1А, Tashkent City', desc: 'Самый высокий небоскрёб Узбекистана. 51 этаж, панорамные виды.' },
-    { key: 'U-Tower', url: '/u-tower', lat: 41.3025, lng: 69.2408, color: '#5b9dd9', addr: 'мкр. Бешагач 1/1, Шайхантахурский район', desc: 'Бизнес-класс, 30 этажей, Smart Home.' },
-    { key: 'U-Tower 2', url: '/u-tower', lat: 41.3028, lng: 69.2425, color: '#7fb8e8', addr: 'мкр. Бешагач, Шайхантахурский район', desc: 'Вторая башня U-Tower NRG.' },
+    { key: 'U-Tower', url: '/u-tower', lat: 41.3025, lng: 69.2408, color: '#5b9dd9', addr: 'мкр. Бешагач 1/1, Шайхантахурский район', desc: 'Бизнес-класс, 27 этажей, Smart Home.' },
     { key: 'Mirabad', url: '/mirabad', lat: 41.2955, lng: 69.2740, color: '#e8a33d', addr: 'ул. Айбек 38А, Мирабадский район', desc: 'Престижный центр: парки, рестораны, метро.' },
     { key: 'Kislorod', url: '/kislorod', lat: 41.2846, lng: 69.2452, color: '#e5534b', addr: 'ул. Бурижар 1, Яккасарайский район', desc: 'Эко-комплекс с зелёным двором вдоль реки.' },
     { key: 'Gardens Residence', url: '/gardens-residence', lat: 41.3130, lng: 69.2480, color: '#9fd356', addr: 'Tashkent City, Шайхантахурский район', desc: 'Квартал-сад от Dream City рядом с Nest One.' },
@@ -172,7 +171,7 @@
       if (afterHead) nd.style.display = 'none';
     });
     section.appendChild(holder);
-    head.innerHTML = head.innerHTML.replace(/Четыре|Пять|Шесть/i, 'Шесть');
+    head.innerHTML = head.innerHTML.replace(/Четыре|Пять|Семь/i, 'Шесть');
     /* карточки комплексов с живыми данными */
     fetch('https://sebvfvtofiysbywxjqut.supabase.co/rest/v1/apartments?select=complex,weekday_price&is_active=eq.true', {
       headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI' }
@@ -262,7 +261,36 @@
     });
   }
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); }
+  // ---------- 6. Мобильный выбор даты: flatpickr minDate с временем ----------
+  // На телефоне flatpickr подменяется нативным пикером; выбранное «сегодня» = 00:00,
+  // а minDate: new Date() несёт текущее время -> setDate() отбрасывает дату (пустое поле).
+  // Обнуляем время в minDate у всех инстансов.
+  function fixDates() {
+    var found = false;
+    ['searchCheckIn', 'searchCheckOut'].forEach(function (id) {
+      var el = document.getElementById(id);
+      var fp = el && el._flatpickr;
+      if (!fp) return;
+      found = true;
+      var d = fp.config.minDate;
+      if (d && (d.getHours() || d.getMinutes() || d.getSeconds())) {
+        var z = new Date(d); z.setHours(0, 0, 0, 0);
+        fp.config.minDate = z;
+        if (fp.mobileInput) { try { fp.mobileInput.min = fp.formatDate(z, 'Y-m-d'); } catch (e) {} }
+      }
+    });
+    return found;
+  }
+
+  // ---------- 7. FAB-ы не перекрываются на мобильном ----------
+  // На <=900px чат уезжает на bottom:80, а Telegram-кнопка на 84 -> накладываются.
+  (function fabStack() {
+    var st = document.createElement('style');
+    st.textContent = '@media (max-width:900px){.ul-tg-fab{bottom:144px !important;right:16px !important;}}';
+    document.head.appendChild(st);
+  })();
+
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
