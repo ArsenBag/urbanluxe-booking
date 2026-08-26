@@ -6,9 +6,10 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Личный кабинет — Urban Luxe</title>
 <style>
-:root{--bg:#0c0c0e;--panel:#15151a;--panel2:#1c1c23;--line:#28282f;--text:#ece9e2;--mut:#98938a;--dim:#5f5c55;--gold:#c9a96e;--green:#31c46f;--red:#e5534b;--amber:#e8a33d}
+:root{--bg:#0d0c0a;--panel:#161511;--panel2:#1e1c17;--line:#2c2a22;--text:#ece9e2;--mut:#9a958a;--dim:#635f55;--gold:#c9a96e;--green:#31c46f;--red:#e5534b;--amber:#e8a33d}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+body{background:radial-gradient(1200px 500px at 50% -100px,#1a1710 0%,var(--bg) 60%);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+body:before{content:'';position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent);z-index:100}
 a{color:var(--gold);text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 img{display:block}
@@ -33,7 +34,22 @@ img{display:block}
 header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
 header .logo{font:700 15px Georgia,serif;color:var(--gold);letter-spacing:.15em}
 header .u{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mut)}
-header .ava{width:34px;height:34px;border-radius:50%;background:var(--gold);color:#1c1710;display:flex;align-items:center;justify-content:center;font-weight:700}
+header .ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#e0c68f,var(--gold));color:#1c1710;display:flex;align-items:center;justify-content:center;font-weight:700}
+header .site{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:7px 14px;font-size:12.5px;color:var(--mut)}
+header .site:hover{border-color:var(--gold);color:var(--gold)}
+.hello{display:flex;justify-content:space-between;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(201,169,110,.12),rgba(201,169,110,.03));border:1px solid rgba(201,169,110,.3);border-radius:18px;padding:18px 20px;margin-bottom:18px;flex-wrap:wrap}
+.hello .hi{font:400 20px Georgia,serif}
+.hello .hi em{color:var(--gold);font-style:italic}
+.hello .his{color:var(--mut);font-size:12.5px;margin-top:3px}
+.newbook{background:var(--gold);color:#1c1710;font-weight:700;font-size:13.5px;padding:12px 20px;border-radius:12px;white-space:nowrap;box-shadow:0 4px 18px rgba(201,169,110,.25)}
+.contacts{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-top:26px}
+.contacts .ct{font:400 17px Georgia,serif;margin-bottom:4px}
+.contacts .ct em{color:var(--gold);font-style:italic}
+.contacts .cs{color:var(--mut);font-size:12.5px;margin-bottom:14px}
+.contacts .row2{display:flex;gap:10px;flex-wrap:wrap}
+.contacts a.cbtn{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 16px;font-size:13.5px;color:var(--text)}
+.contacts a.cbtn:hover{border-color:var(--gold);color:var(--gold)}
+.contacts a.cbtn.tg{background:rgba(91,157,217,.12);border-color:rgba(91,157,217,.4)}
 nav.tabs{display:flex;gap:8px;margin-bottom:20px}
 nav.tabs button{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:24px;padding:9px 18px;font-size:13.5px}
 nav.tabs button.on{background:var(--gold);border-color:var(--gold);color:#1c1710;font-weight:700}
@@ -44,9 +60,10 @@ h2 em{color:var(--gold);font-style:italic}
 .empty{color:var(--dim);padding:30px 0;text-align:center;font-size:14px}
 
 /* карточка поездки (Airbnb-стиль) */
-.trip{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:16px}
+.trip{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:16px;transition:border-color .2s,transform .15s}
+.trip:hover{border-color:rgba(201,169,110,.5);transform:translateY(-2px)}
 .trip .top{display:flex;gap:0}
-.trip .ph{width:150px;min-height:130px;background:var(--panel2);flex-shrink:0;position:relative}
+.trip .ph{width:170px;min-height:140px;background:var(--panel2);flex-shrink:0;position:relative}
 .trip .ph img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
 .trip .inf{padding:14px 16px;flex:1;min-width:0}
 .trip .nm{font-weight:700;font-size:16px}
@@ -131,8 +148,12 @@ h2 em{color:var(--gold);font-style:italic}
 <div id="app">
   <header>
     <a class="logo" href="/">URBAN LUXE</a>
-    <div class="u"><span id="uName"></span><div class="ava" id="uAva"></div><a id="uOut" style="font-size:12px">Выйти</a></div>
+    <div class="u"><a href="/" class="site">← На сайт</a><span id="uName"></span><div class="ava" id="uAva"></div><a id="uOut" style="font-size:12px">Выйти</a></div>
   </header>
+  <div class="hello">
+    <div><div class="hi" id="helloName">Здравствуйте! 👋</div><div class="his" id="helloStats"></div></div>
+    <a class="newbook" href="/#apartments">+ Новая бронь</a>
+  </div>
   <nav class="tabs">
     <button data-s="trips" class="on">🧳 Поездки</button>
     <button data-s="chat">💬 Чат <span id="chBadge" class="tag r" style="display:none;padding:1px 7px"></span></button>
@@ -162,6 +183,19 @@ h2 em{color:var(--gold);font-style:italic}
       <button class="pw" id="pPw">Сменить пароль (письмо на email)</button>
     </div>
   </section>
+
+  <div class="contacts">
+    <div class="ct">Мы всегда <em>на связи</em></div>
+    <div class="cs">Консьерж 24/7 — звоните или пишите, отвечаем в течение 5 минут</div>
+    <div class="row2">
+      <a class="cbtn" href="tel:+998936900044">📞 +998 93 690 00 44</a>
+      <a class="cbtn" href="tel:+998999579485">📞 +998 99 957 94 85</a>
+      <a class="cbtn tg" href="https://t.me/Arsen_bnb" target="_blank" rel="noopener">✈️ Telegram @Arsen_bnb</a>
+      <a class="cbtn" href="https://t.me/UrbanLuxehotel" target="_blank" rel="noopener">📣 Канал с каталогом</a>
+      <a class="cbtn" href="https://instagram.com/urbanluxe.uz" target="_blank" rel="noopener">📷 Instagram</a>
+      <a class="cbtn" href="/#apartments">🏙 Все апартаменты на сайте →</a>
+    </div>
+  </div>
 </div>
 <div id="toast"></div>
 
@@ -231,6 +265,7 @@ function boot(session){
   var nm=(USER.user_metadata&&USER.user_metadata.name)||USER.email.split('@')[0];
   $('uName').textContent=nm;
   $('uAva').textContent=nm.slice(0,1).toUpperCase();
+  $('helloName').innerHTML='Здравствуйте, <em>'+esc(nm)+'</em>! 👋';
   $('pName').value=(USER.user_metadata&&USER.user_metadata.name)||'';
   $('pPhone').value=(USER.user_metadata&&USER.user_metadata.phone)||'';
   $('pEmail').value=USER.email;
@@ -252,7 +287,10 @@ function loadTrips(){
     .order('check_in',{ascending:false})
     .then(function(r){
       var list=r.data||[];
-      if(!list.length){$('tripsBox').innerHTML='<div class="empty">Пока нет броней.<br><a href="/#apartments">Выбрать апартаменты →</a></div>';return}
+      var doneTrips=list.filter(function(b){return b.status!=='cancelled'});
+      var nights=doneTrips.reduce(function(s,b){return s+(b.nights||0)},0);
+      $('helloStats').textContent=doneTrips.length?('С Urban Luxe: '+doneTrips.length+' '+(doneTrips.length===1?'поездка':doneTrips.length<5?'поездки':'поездок')+' · '+nights+' ночей'):'Добро пожаловать в Urban Luxe';
+      if(!list.length){$('tripsBox').innerHTML='<div class="empty">У вас пока нет броней.<br><br><a class="newbook" href="/#apartments">Выбрать апартаменты →</a></div>';return}
       var today=new Date().toISOString().slice(0,10);
       var upcoming=list.filter(function(b){return b.status!=='cancelled'&&b.check_out>=today}).sort(function(a,b){return a.check_in<b.check_in?-1:1});
       var past=list.filter(function(b){return b.status==='cancelled'||b.check_out<today});
