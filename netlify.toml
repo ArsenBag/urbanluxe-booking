@@ -25,6 +25,18 @@
   to = "/.netlify/functions/lang/uz"
   status = 200
 
+# SEO-страницы апартаментов: /apartments и /apartments/<id> собираются функцией
+# apt-page.js из Supabase (настоящие индексируемые страницы вместо /?apt=...).
+[[redirects]]
+  from = "/apartments"
+  to = "/.netlify/functions/apt-page/"
+  status = 200
+
+[[redirects]]
+  from = "/apartments/*"
+  to = "/.netlify/functions/apt-page/:splat"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
