@@ -355,6 +355,41 @@
     };
   })();
 
+  // ---------- 14. SEO-перелинковка: страницы /apartments/<id> ----------
+  // Ссылка на индексируемую страницу объекта в модалке + «Все апартаменты» в футере,
+  // чтобы Google находил новые страницы с главной.
+  function seoLinks() {
+    var oo = window.openModal;
+    if (typeof oo === 'function' && !oo.__ulSeo) {
+      var wrapped = function (id) {
+        var r = oo.apply(this, arguments);
+        setTimeout(function () {
+          var mb = document.querySelector('.modal-body');
+          if (!mb || document.getElementById('ul-apt-link')) return;
+          var a = document.createElement('a');
+          a.id = 'ul-apt-link'; a.href = '/apartments/' + encodeURIComponent(id);
+          a.textContent = 'Подробная страница апартамента →';
+          a.style.cssText = 'display:inline-block;margin:6px 0 14px;font-size:12px;color:#c9a96e;letter-spacing:.04em;text-decoration:none;border-bottom:1px solid rgba(201,169,110,.4)';
+          var host = mb.querySelector('.modal-title');
+          if (host && host.parentElement) host.parentElement.appendChild(a); else mb.insertBefore(a, mb.firstChild);
+        }, 400);
+        return r;
+      };
+      wrapped.__ulSeo = true;
+      window.openModal = wrapped;
+    }
+    // Футер: ссылка «Все апартаменты» в колонку «Комплексы»
+    var h = [].find.call(document.querySelectorAll('footer h4, footer h3'), function (e) { return /Комплексы|Complexes|Majmualar/i.test(e.textContent); });
+    if (h && !document.getElementById('ul-all-apts')) {
+      var link = document.createElement('a');
+      link.id = 'ul-all-apts'; link.href = '/apartments'; link.textContent = 'Все апартаменты';
+      var sib = h.nextElementSibling && h.nextElementSibling.tagName === 'A' ? h.nextElementSibling : null;
+      if (sib) { link.className = sib.className; link.setAttribute('style', sib.getAttribute('style') || ''); }
+      h.parentElement.insertBefore(link, h.nextSibling);
+    }
+    return !!(window.openModal && window.openModal.__ulSeo) && !!document.getElementById('ul-all-apts');
+  }
+
   // ---------- 9. Фото заполняет карточку целиком ----------
   // CSS сайта: .card__img img{height:auto;object-fit:contain} при контейнере 4:3 ->
   // фото занимает ~80% высоты, снизу пустая полоса. Заполняем блок с обрезкой.
@@ -419,7 +454,7 @@
     return true;
   }
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); var fTry = 0, fIv = setInterval(function () { if (addFilters() || ++fTry > 30) clearInterval(fIv); }, 500); setTimeout(promoBanner, 800); setTimeout(cleanFooterOta, 1500); }
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); var fTry = 0, fIv = setInterval(function () { if (addFilters() || ++fTry > 30) clearInterval(fIv); }, 500); setTimeout(promoBanner, 800); setTimeout(cleanFooterOta, 1500); var sTry = 0, sIv = setInterval(function () { if (seoLinks() || ++sTry > 20) clearInterval(sIv); }, 700); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
