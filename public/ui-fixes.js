@@ -290,6 +290,43 @@
     document.head.appendChild(st);
   })();
 
+  // ---------- 12. Промо-лента «Сентябрь −15%» ----------
+  // Скидка задана в базе (seasonal_prices low, сентябрь) — цены сайт считает сам.
+  // Здесь только сообщаем о ней. Лента исчезнет сама после 30.09.
+  function promoBanner() {
+    if (document.getElementById('ul-promo')) return true;
+    var now = new Date();
+    if (!(now.getFullYear() === 2026 && now.getMonth() === 8)) return true; // только сентябрь 2026
+    var hero = document.querySelector('header, .nav, nav');
+    var texts = {
+      ru: '✨ Весь сентябрь −15% на все резиденции — скидка уже включена в цену',
+      en: '✨ All September −15% on every residence — discount already in the price',
+      uz: "✨ Sentyabr davomida barcha rezidensiyalarga −15% — chegirma narxga kiritilgan"
+    };
+    var lang = (document.documentElement.lang || 'ru').slice(0, 2);
+    var bar = document.createElement('div');
+    bar.id = 'ul-promo';
+    bar.style.cssText = 'background:linear-gradient(90deg,#2a2115,#3a2d1a,#2a2115);color:#e8cf9e;text-align:center;padding:10px 16px;font-size:13.5px;letter-spacing:.04em;border-bottom:1px solid rgba(201,169,110,.35);cursor:pointer';
+    bar.textContent = texts[lang] || texts.ru;
+    bar.addEventListener('click', function () {
+      var el = document.getElementById('apartments');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    });
+    document.body.insertBefore(bar, document.body.firstChild);
+    return true;
+  }
+
+  // ---------- 13. Футер: убрать ссылки-заглушки OTA ----------
+  // «Бронируйте на: Booking.com / Airbnb / Ostrovok» ведут на «#» — прячем,
+  // пока каналы реально не подключены (вернём при подключении).
+  function cleanFooterOta() {
+    var links = [].filter.call(document.querySelectorAll('a[href="#"]'), function (a) {
+      return /booking\.com|airbnb|ostrovok/i.test(a.textContent);
+    });
+    links.forEach(function (a) { a.style.display = 'none'; });
+    return true;
+  }
+
   // ---------- 11. TG-уведомление о сообщении в чате главной ----------
   // Чат на главной пишет в Supabase, но менеджера никто не оповещает — сообщения
   // «висят» до захода в админку. Перехватываем insert и дёргаем notify.
@@ -382,7 +419,7 @@
     return true;
   }
 
-  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); var fTry = 0, fIv = setInterval(function () { if (addFilters() || ++fTry > 30) clearInterval(fIv); }, 500); }
+  function init() { fixPhones(); fixNavMap(); setTimeout(fixCounts, 1200); setTimeout(wowLayer, 2300); var mTry = 0, mIv = setInterval(function () { if (mapUpgrade() || ++mTry > 25) clearInterval(mIv); }, 500); var dTry = 0, dIv = setInterval(function () { if (fixDates() || ++dTry > 30) clearInterval(dIv); }, 400); var gTry = 0, gIv = setInterval(function () { if (galSwipe() || ++gTry > 30) clearInterval(gIv); }, 500); var fTry = 0, fIv = setInterval(function () { if (addFilters() || ++fTry > 30) clearInterval(fIv); }, 500); setTimeout(promoBanner, 800); setTimeout(cleanFooterOta, 1500); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   var n = 0, iv = setInterval(function () {
     var done = fixPhones(); fixNavMap();
