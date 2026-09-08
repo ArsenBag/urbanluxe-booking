@@ -81,9 +81,17 @@ function overlaps(events, ci, co) {
   return events.some(e => e.check_in < co && e.check_out > ci);
 }
 
-function nightPrice(dateIso, weekday, weekend) {
-  const dow = new Date(dateIso + 'T00:00:00Z').getUTCDay(); // 5=пт, 6=сб
-  return (dow === 5 || dow === 6) ? weekend : weekday;
+function nightPrice(dateIso, apt) {
+  const d = new Date(dateIso + 'T00:00:00Z');
+  const dow = d.getUTCDay(); // 5=пт, 6=сб
+  const month = d.getUTCMonth() + 1;
+  let price = (dow === 5 || dow === 6)
+    ? (apt.weekend_price || apt.weekday_price || 0)
+    : (apt.weekday_price || 0);
+  const s = apt.seasonal_prices || {};
+  if (s.high && s.high.months && s.high.months.indexOf(month) > -1) price = Math.round(price * (s.high.multiplier || 1.2));
+  else if (s.low && s.low.months && s.low.months.indexOf(month) > -1) price = Math.round(price * (s.low.multiplier || 0.85));
+  return price;
 }
 
 exports.handler = async (event) => {
@@ -116,7 +124,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Некорректные даты' }) };
     }
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,weekday_price,weekend_price,ical_export_url&is_active=eq.true',
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,weekday_price,weekend_price,seasonal_prices,ical_export_url&is_active=eq.true',
       { headers: sbHeaders() }
     );
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
@@ -132,7 +140,7 @@ exports.handler = async (event) => {
       if (overlaps(busy, ci, co)) return null;
       let total = 0;
       for (let d = ci; d < co; d = addDays(d, 1)) {
-        total += nightPrice(d, a.weekday_price || 0, a.weekend_price || a.weekday_price || 0);
+        total += nightPrice(d, a);
       }
       return {
         id: a.id, name: a.name, complex: a.complex, floor: a.floor,

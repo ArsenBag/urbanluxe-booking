@@ -55,9 +55,17 @@ function makeRef() {
   for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
   return 'UL-' + s;
 }
-function nightPrice(dateIso, weekday, weekend) {
-  const dow = new Date(dateIso + 'T00:00:00Z').getUTCDay();
-  return (dow === 5 || dow === 6) ? weekend : weekday;
+function nightPrice(dateIso, apt) {
+  const d = new Date(dateIso + 'T00:00:00Z');
+  const dow = d.getUTCDay();
+  const month = d.getUTCMonth() + 1;
+  let price = (dow === 5 || dow === 6)
+    ? (apt.weekend_price || apt.weekday_price || 0)
+    : (apt.weekday_price || 0);
+  const s = apt.seasonal_prices || {};
+  if (s.high && s.high.months && s.high.months.indexOf(month) > -1) price = Math.round(price * (s.high.multiplier || 1.2));
+  else if (s.low && s.low.months && s.low.months.indexOf(month) > -1) price = Math.round(price * (s.low.multiplier || 0.85));
+  return price;
 }
 function esc(s) { return String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
 
@@ -200,7 +208,7 @@ exports.handler = async (event) => {
 
     // Апартамент — из Supabase (все 35 актуальных, без хардкода)
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,weekday_price,weekend_price,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,weekday_price,weekend_price,seasonal_prices,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
       { headers: h(READ_KEY) }
     );
     const apt = (ar.ok ? await ar.json() : [])[0];
@@ -250,7 +258,7 @@ exports.handler = async (event) => {
     if (!total || total < 0) {
       total = 0;
       for (let d = ci; d < co; d = addDays(d, 1)) {
-        total += nightPrice(d, apt.weekday_price || 0, apt.weekend_price || apt.weekday_price || 0);
+        total += nightPrice(d, apt);
       }
     }
 
