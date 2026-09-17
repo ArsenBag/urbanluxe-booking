@@ -55,6 +55,7 @@ function layout(o) {
     (o.image ? '<meta property="og:image" content="' + esc(o.image) + '">' : '') + '<meta property="og:url" content="' + esc(o.url) + '"><meta property="og:locale" content="ru_RU">' +
     '<meta name="twitter:card" content="summary_large_image">' +
     '<link rel="icon" href="/favicon.ico">' +
+    '<script src="/tg-attribution.js" defer><\/script>' +
     (o.jsonld ? '<script type="application/ld+json">' + JSON.stringify(o.jsonld) + '</script>' : '') +
     '<style>' +
     ':root{--bg:#0b0a09;--bg2:#141210;--line:#2a2622;--gold:#c9a96e;--ink:#e8e4dc;--mut:#9a948a}' +
@@ -185,5 +186,4 @@ exports.handler = async (event) => {
   } catch (e) {
     return { statusCode: 500, headers: { 'Content-Type': 'text/plain' }, body: 'error: ' + (e.message || e) };
   }
-  <script src="/tg-attribution.js" defer></script>
 };
