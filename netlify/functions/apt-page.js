@@ -185,4 +185,5 @@ exports.handler = async (event) => {
   } catch (e) {
     return { statusCode: 500, headers: { 'Content-Type': 'text/plain' }, body: 'error: ' + (e.message || e) };
   }
+  <script src="/tg-attribution.js" defer></script>
 };
