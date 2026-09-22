@@ -27,8 +27,13 @@
   } else if (!window.gtag) { window.gtag = function () {}; }
 
   // --- Яндекс.Метрика ---
+  // 21.09.2026: счётчик можно стартовать раньше inline-сниппетом в <head> (он ставит window.__ulYmInit = true) —
+  // тогда здесь не инициализируем повторно (двойной init = двойные визиты). Замер 21.09: с defer-загрузкой
+  // хит Метрики уходил только на ~2,0 с даже на быстром канале; из-за этого часть кликов Директа не доходила до отчётов.
   var YM_ON = typeof YM_ID === 'number' && YM_ID > 0;
-  if (YM_ON) {
+  if (YM_ON && window.__ulYmInit) {
+    // уже инициализирован в <head>
+  } else if (YM_ON) {
     (function (m, e, t, r, i, k, a) {
       m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments); };
       m[i].l = 1 * new Date();
