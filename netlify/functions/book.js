@@ -282,7 +282,11 @@ exports.handler = async (event) => {
       booking_ref: makeRef(),
       booker_name: String(b.booker_name || '').trim() || null,
       booker_phone: String(b.booker_phone || '').trim() || null,
-      booker_email: String(b.booker_email || '').trim() || null
+      booker_email: String(b.booker_email || '').trim() || null,
+      // 22.09.2026: мессенджеры гостя (форма требует хотя бы один) — по ним связываемся,
+      // если телефон указан с ошибкой. Telegram: номер или @ник; WhatsApp: номер.
+      guest_telegram: String(b.guest_telegram || '').trim().slice(0, 64) || null,
+      guest_whatsapp: String(b.guest_whatsapp || '').trim().slice(0, 32) || null
     };
     if (b.user_id && /^[0-9a-f-]{36}$/i.test(String(b.user_id))) row.user_id = b.user_id;
 

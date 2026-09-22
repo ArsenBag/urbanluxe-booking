@@ -85,9 +85,9 @@ function layout(o) {
     '.item div{padding:12px 14px}.item b{font-weight:500}.item small{color:var(--mut);display:block;margin-top:3px}.item .p{color:var(--gold);margin-top:6px;display:block}' +
     'footer{border-top:1px solid var(--line);margin-top:40px;padding:24px 0;color:var(--mut);font-size:13px}footer a{color:var(--mut)}' +
     '</style></head><body>' +
-    '<header><div class="wrap"><a class="logo" href="/">URBAN LUXE</a><nav><a href="/apartments">Апартаменты</a><a href="/#booking">Бронирование</a><a href="https://t.me/Arsen_bnb">Telegram</a></nav></div></header>' +
+    '<header><div class="wrap"><a class="logo" href="/">URBAN LUXE</a><nav><a href="/apartments">Апартаменты</a><a href="/#booking">Бронирование</a><a href="https://t.me/Arsen_bnb">Telegram</a><a href="https://wa.me/998936900044">WhatsApp</a></nav></div></header>' +
     '<main class="wrap">' + o.body + '</main>' +
-    '<footer><div class="wrap">Urban Luxe · Премиальные апартаменты посуточно в Ташкенте · <a href="/">urbanluxe.cc</a> · <a href="https://t.me/Arsen_bnb">@Arsen_bnb</a> · +998 93 690 00 44<br>' +
+    '<footer><div class="wrap">Urban Luxe · Премиальные апартаменты посуточно в Ташкенте · <a href="/">urbanluxe.cc</a> · <a href="https://t.me/Arsen_bnb">Telegram @Arsen_bnb</a> · <a href="https://wa.me/998936900044">WhatsApp</a> · +998 93 690 00 44<br>' +
     'Комплексы: ' + Object.keys(COMPLEX).map(k => '<a href="' + COMPLEX[k].url + '">' + esc(k) + '</a>').join(' · ') + '</div></footer>' +
     '</body></html>';
 }
@@ -139,7 +139,7 @@ function pageApartment(a, siblings) {
     '<a class="btn" href="/?book=' + esc(a.id) + '">Забронировать</a>' +
     '<div style="text-align:center;font-size:12px;color:var(--mut)">подтверждение сразу · без комиссии</div>' +
     '<div class="facts"><span>Тип</span><b>' + esc(roomsLabel(a.rooms)) + '</b><span>Гостей</span><b>до ' + (a.max_guests || 2) + '</b><span>Этаж</span><b>' + (a.floor || '—') + '</b><span>Район</span><b>' + esc(c.district) + '</b></div>' +
-    '<div style="font-size:13px;color:var(--mut)">Вопросы: <a href="https://t.me/Arsen_bnb">Telegram @Arsen_bnb</a> · <a href="tel:+998936900044">+998 93 690 00 44</a></div>' +
+    '<div style="font-size:13px;color:var(--mut)">Вопросы: <a href="https://t.me/Arsen_bnb">Telegram @Arsen_bnb</a> · <a href="https://wa.me/998936900044">WhatsApp</a> · <a href="tel:+998936900044">+998 93 690 00 44</a></div>' +
     '</div></aside></div>' +
     (siblings.length ? '<h2>Другие апартаменты в ' + esc(a.complex) + '</h2><div class="list">' + siblings.map(itemCard).join('') + '</div>' : '') +
     '<p style="color:var(--mut);font-size:13px">Смотрите также: <a href="/apartments">все апартаменты посуточно в Ташкенте</a> · ' + Object.keys(COMPLEX).filter(k => k !== a.complex).map(k => '<a href="' + COMPLEX[k].url + '">' + esc(k) + '</a>').join(' · ') + '</p>';

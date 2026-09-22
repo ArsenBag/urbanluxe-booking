@@ -25,11 +25,19 @@ function buildText(b) {
   const dates = (b.check_in && b.check_out) ? '\n📅 ' + esc(b.check_in) + ' → ' + esc(b.check_out) : '';
 
   if (t === 'new_booking') {
+    // 22.09.2026: мессенджеры гостя (guest_telegram / guest_whatsapp) — кликабельные ссылки
+    const tg = String(b.guest_telegram || '').trim();
+    const wa = String(b.guest_whatsapp || '').trim();
+    const tgLink = tg ? (tg.charAt(0) === '@' ? 'https://t.me/' + tg.slice(1) : 'https://t.me/+' + tg.replace(/\D/g, '')) : '';
+    const waLink = wa ? 'https://wa.me/' + wa.replace(/\D/g, '') : '';
     return '🆕 <b>Новая бронь!</b>' + apt + dates +
       '\n👤 ' + who + (b.guest_phone ? ' · ' + esc(b.guest_phone) : '') +
+      (tg ? '\n✈️ Telegram: <a href="' + tgLink + '">' + esc(tg) + '</a>' : '') +
+      (wa ? '\n💬 WhatsApp: <a href="' + waLink + '">' + esc(wa) + '</a>' : '') +
       (b.total ? '\n💰 $' + esc(b.total) : '') +
       (b.nights ? ' · ' + esc(b.nights) + ' ноч.' : '') +
-      (b.ref ? '\n#️⃣ ' + esc(b.ref) : '');
+      (b.ref ? '\n#️⃣ ' + esc(b.ref) : '') +
+      '\n\nЧат по брони уже открыт: админка → Чат';
   }
   if (t === 'cancel' || t === 'cancelled' || t === 'cancellation') {
     return '❌ <b>Отмена брони</b>' + apt + dates + '\n👤 ' + who + (b.ref ? '\n#️⃣ ' + esc(b.ref) : '');
