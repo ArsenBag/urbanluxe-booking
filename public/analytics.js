@@ -55,7 +55,8 @@
   } else if (!window.fbq) { window.fbq = function () {}; }
 
   // track(gaEvent, gaParams, fb {std, name}, fbParams)
-  var YM_GOALS = { view_item: 'VIEW_ITEM', search: 'SEARCH', begin_checkout: 'BEGIN_CHECKOUT', generate_lead: 'LEAD', telegram_click: 'TG_CLICK', share: 'SHARE' };
+  // whatsapp_click → та же цель Метрики TG_CLICK («клик в мессенджер»); отдельная цель в Метрике не заведена.
+  var YM_GOALS = { view_item: 'VIEW_ITEM', search: 'SEARCH', begin_checkout: 'BEGIN_CHECKOUT', generate_lead: 'LEAD', telegram_click: 'TG_CLICK', whatsapp_click: 'TG_CLICK', share: 'SHARE' };
   function track(ga, gaParams, fb, fbParams) {
     try { if (GA_ON) gtag('event', ga, gaParams || {}); } catch (e) {}
     try { if (FB_ON && fb) fbq(fb.std ? 'track' : 'trackCustom', fb.name, fbParams || {}); } catch (e) {}
@@ -114,6 +115,10 @@
     if (!e.target.closest) return;
     if (e.target.closest('a[href*="t.me"], a[href*="telegram"]')) {
       track('telegram_click', { method: 'telegram' }, { std: true, name: 'Contact' });
+      return;
+    }
+    if (e.target.closest('a[href*="wa.me"], a[href*="whatsapp.com"]')) {
+      track('whatsapp_click', { method: 'whatsapp' }, { std: true, name: 'Contact' });
       return;
     }
     if (e.target.closest('.ul-share-btn')) {

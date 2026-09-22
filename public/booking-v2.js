@@ -26,7 +26,10 @@
       payTitle: 'Оплата', payQr: 'Оплатить по QR', payQrHint: 'любое банковское приложение',
       payLater: 'Оплата при заселении', payLaterHint: 'наличные или карта, подходит иностранным гостям',
       qrTitle: 'Отсканируйте QR для оплаты', qrHint: 'Сумма к оплате', qrDone: 'После оплаты мы подтвердим бронь и пришлём инструкцию по заселению.',
-      verify: 'Проверьте контактные данные — по ним мы подтвердим бронь' },
+      verify: 'Проверьте контактные данные — по ним мы подтвердим бронь',
+      msgTitle: 'Как с вами связаться? *', msgHint: 'Укажите Telegram или WhatsApp (можно оба) — если номер выше указан с ошибкой, мы всё равно найдём вас',
+      msgTg: 'Telegram: номер или @ник', msgWa: 'WhatsApp: номер', msgSame: 'тот же номер',
+      eMsg: 'Укажите Telegram или WhatsApp — хотя бы один', eTg: 'Telegram: номер в международном формате или @ник', eWa: 'WhatsApp: номер в международном формате' },
     en: { step: 'Step', of: 'of', s1: 'Dates & guests', s2: 'Contacts', s3: 'Confirmation',
       next: 'Next', back: 'Back', confirm: 'Confirm booking',
       needDates: 'Select check-in and check-out dates', needContact: 'Enter your name and phone',
@@ -42,7 +45,10 @@
       payTitle: 'Payment', payQr: 'Pay by QR', payQrHint: 'any banking app',
       payLater: 'Pay at check-in', payLaterHint: 'cash or card, best for foreign guests',
       qrTitle: 'Scan the QR to pay', qrHint: 'Amount due', qrDone: 'After payment we confirm your booking and send check-in instructions.',
-      verify: 'Check your contact details — we use them to confirm the booking' },
+      verify: 'Check your contact details — we use them to confirm the booking',
+      msgTitle: 'How can we reach you? *', msgHint: 'Add Telegram or WhatsApp (or both) — even if the phone above has a typo, we will still find you',
+      msgTg: 'Telegram: number or @username', msgWa: 'WhatsApp: number', msgSame: 'same number',
+      eMsg: 'Add Telegram or WhatsApp — at least one', eTg: 'Telegram: international number or @username', eWa: 'WhatsApp: international number' },
     uz: { step: 'Qadam', of: '/', s1: 'Sanalar va mehmonlar', s2: 'Kontaktlar', s3: 'Tasdiqlash',
       next: 'Keyingi', back: 'Orqaga', confirm: 'Bronni tasdiqlash',
       needDates: 'Kirish va chiqish sanalarini tanlang', needContact: 'Ism va telefon raqamini kiriting',
@@ -58,7 +64,10 @@
       payTitle: "To'lov", payQr: "QR orqali to'lash", payQrHint: 'istalgan bank ilovasi',
       payLater: "Joylashishda to'lash", payLaterHint: 'naqd yoki karta, chet ellik mehmonlar uchun qulay',
       qrTitle: "To'lov uchun QR ni skanerlang", qrHint: "To'lov summasi", qrDone: "To'lovdan so'ng bronni tasdiqlaymiz va joylashish bo'yicha ko'rsatma yuboramiz.",
-      verify: "Kontakt ma'lumotlarini tekshiring — bron shu orqali tasdiqlanadi" }
+      verify: "Kontakt ma'lumotlarini tekshiring — bron shu orqali tasdiqlanadi",
+      msgTitle: "Siz bilan qanday bog'lanamiz? *", msgHint: "Telegram yoki WhatsApp kiriting (ikkalasi ham mumkin) — yuqoridagi raqamda xato bo'lsa ham sizni topamiz",
+      msgTg: 'Telegram: raqam yoki @nik', msgWa: 'WhatsApp: raqam', msgSame: "o'sha raqam",
+      eMsg: 'Telegram yoki WhatsApp kiriting — kamida bittasi', eTg: 'Telegram: xalqaro formatdagi raqam yoki @nik', eWa: 'WhatsApp: xalqaro formatdagi raqam' }
   };
   function lang() {
     var l = (document.documentElement.lang || 'ru').slice(0, 2).toLowerCase();
@@ -103,6 +112,14 @@
     '#ulv2-s1 input.flatpickr-input,#ulv2-s1 input.flatpickr-mobile{background:rgba(255,255,255,.05) !important;border:1px solid rgba(201,169,110,.55) !important;border-radius:10px !important;padding:12px 14px !important;color:#e8e4dc !important;min-height:48px;box-sizing:border-box;width:100%}' +
     '#ulv2-s1 input.flatpickr-input:focus,#ulv2-s1 input.flatpickr-mobile:focus{border-color:#c9a96e !important;box-shadow:0 0 0 2px rgba(201,169,110,.25)}' +
     '.ulv2-calhint{font-size:12px;color:#8a857a;margin:8px 0 4px;text-align:center}' +
+    '#ulv2-msg{border:1px solid rgba(201,169,110,.35);border-radius:10px;padding:10px 12px;margin:2px 0 10px;background:rgba(201,169,110,.05)}' +
+    '.ulv2-msg-title{font-size:13px;color:#e8e4dc;margin:0 0 8px;font-weight:600}' +
+    '.ulv2-msg-row{display:flex;align-items:center;gap:8px;margin:0 0 8px}.ulv2-msg-row:last-of-type{margin-bottom:6px}' +
+    '.ulv2-msg-ic{width:20px;text-align:center;font-size:15px;flex:0 0 20px}' +
+    '#ulv2-msg input,#modalGuestFields #ulv2-msg input,#ulv2 #ulv2-msg input{margin:0 !important;flex:1 1 auto;min-width:0;width:auto !important;display:inline-block !important;min-height:44px}' +
+    '.ulv2-same{flex:0 0 auto;background:transparent;border:1px solid rgba(201,169,110,.5);color:#c9a96e;border-radius:8px;padding:8px 10px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;min-height:40px}' +
+    '.ulv2-same:active{background:rgba(201,169,110,.15)}' +
+    '.ulv2-msg-hint{font-size:11.5px;color:#8a857a;line-height:1.45}' +
     '#modalAvailCal div[data-ul-free]{cursor:pointer}' +
     '.ulv2-iab{background:rgba(232,163,61,.12);border:1px solid rgba(232,163,61,.5);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#e8a33d;margin:0 0 12px;line-height:1.5}' +
     '.ulv2-iab button{margin-top:8px;background:#e8a33d;color:#241d10;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer}' +
@@ -210,10 +227,13 @@
     var gc = ($('modalGuestsCount') || {}).value || '';
     var name = ($('modalGuestName') || {}).value || '';
     var phone = ($('modalGuestPhone') || {}).value || '';
+    var tgS = (($('ulv2-tg') || {}).value || '').trim(), waS = (($('ulv2-wa') || {}).value || '').trim();
+    var msgLine = (tgS ? '✈️ ' + tgS : '') + (tgS && waS ? ' · ' : '') + (waS ? '💬 ' + waS : '');
     $('ulv2-sum').innerHTML =
       '<div style="color:#fff;margin-bottom:6px">' + esc(t.summary) + '</div>' +
       '<div class="ulv2-sum-row"><span>' + esc(ci) + ' → ' + esc(co) + '</span><span>' + esc(nightsLbl) + '</span></div>' +
       '<div class="ulv2-sum-row"><span>' + esc(name) + ' · ' + esc(phone) + '</span><span>' + esc(gc) + ' ' + esc(t.guests) + '</span></div>' +
+      (msgLine ? '<div class="ulv2-sum-row"><span>' + esc(msgLine) + '</span><span></span></div>' : '') +
       '<div class="ulv2-sum-row ulv2-sum-total"><span>' + esc(t.total) + '</span><b>' + esc(total) + '</b></div>';
     var payBox = $('ulv2-pay');
     if (qrOk === false) { payBox.style.display = 'none'; state.pay = 'later'; }
@@ -240,6 +260,21 @@
     el.value = v;
     return v;
   }
+  // Мессенджер: Telegram принимает @ник (5–32 символа) или номер; WhatsApp — только номер.
+  // Возвращает нормализованное значение или '' (пустое поле тоже '').
+  function normMessenger(el, allowNick) {
+    if (!el) return '';
+    var raw = (el.value || '').trim();
+    if (!raw) return '';
+    if (allowNick) {
+      var nick = raw.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '@').replace(/^(t\.me\/)/i, '@');
+      if (/^@?[a-z][a-z0-9_]{3,31}$/i.test(nick) && !/^\+?\d+$/.test(nick)) { el.value = '@' + nick.replace(/^@/, ''); return el.value; }
+    }
+    var tmp = { value: raw };
+    var v = normPhone(tmp);
+    if (v) { el.value = v; return v; }
+    return '';
+  }
 
   function validate(n) {
     var t = lang();
@@ -254,6 +289,12 @@
       if (!nm || nm.value.trim().length < 2) bad.push([nm, t.eName]);
       if (!normPhone(ph)) bad.push([ph, t.ePhone]);
       if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em.value.trim())) bad.push([em, t.eEmail]);
+      // Мессенджеры: хотя бы один (Telegram — номер или @ник, WhatsApp — номер)
+      var tgEl = $('ulv2-tg'), waEl = $('ulv2-wa');
+      var tgv = normMessenger(tgEl, true), wav = normMessenger(waEl, false);
+      if (tgEl && tgEl.value.trim() && !tgv) bad.push([tgEl, t.eTg]);
+      if (waEl && waEl.value.trim() && !wav) bad.push([waEl, t.eWa]);
+      if (tgEl && waEl && !tgv && !wav && !bad.some(function (x) { return x[0] === tgEl || x[0] === waEl; })) { bad.push([tgEl, t.eMsg]); bad.push([waEl, t.eMsg]); }
       if (cz && !cz.value) bad.push([cz, t.eCitizen]);
       if (nt && !nt.value.trim()) bad.push([ntEl, t.eTime]);
       var fo = $('modalForOther');
@@ -262,7 +303,7 @@
         if (on && on.value.trim().length < 2) bad.push([on, t.eName]);
         if (!normPhone(op)) bad.push([op, t.ePhone]);
       }
-      [nm, ph, em, cz, ntEl].forEach(function (el) { markBad(el, false); });
+      [nm, ph, em, cz, ntEl, $('ulv2-tg'), $('ulv2-wa')].forEach(function (el) { markBad(el, false); });
       if (bad.length) {
         bad.forEach(function (b) { markBad(b[0], true); });
         try { bad[0][0].scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
@@ -331,6 +372,38 @@
       phEl.setAttribute('inputmode', 'tel');
       phEl.addEventListener('focus', function () { if (!phEl.value.trim()) phEl.value = '+998'; });
       phEl.addEventListener('blur', function () { if (phEl.value.trim() === '+998' || phEl.value.trim() === '+') phEl.value = ''; });
+    }
+
+    // Мессенджеры (22.09.2026): гости ошибаются в телефоне — просим Telegram или WhatsApp,
+    // хотя бы один. Кнопка «тот же номер» копирует телефон.
+    if (phEl && !$('ulv2-msg')) {
+      var mbox = document.createElement('div'); mbox.id = 'ulv2-msg';
+      mbox.innerHTML =
+        '<div class="ulv2-msg-title">' + esc(t.msgTitle) + '</div>' +
+        '<div class="ulv2-msg-row"><span class="ulv2-msg-ic" aria-hidden="true">✈️</span>' +
+          '<input type="text" id="ulv2-tg" autocomplete="off" inputmode="text" placeholder="' + esc(t.msgTg) + '">' +
+          '<button type="button" class="ulv2-same" data-for="ulv2-tg">' + esc(t.msgSame) + '</button></div>' +
+        '<div class="ulv2-msg-row"><span class="ulv2-msg-ic" aria-hidden="true">💬</span>' +
+          '<input type="tel" id="ulv2-wa" autocomplete="off" inputmode="tel" placeholder="' + esc(t.msgWa) + '">' +
+          '<button type="button" class="ulv2-same" data-for="ulv2-wa">' + esc(t.msgSame) + '</button></div>' +
+        '<div class="ulv2-msg-hint">' + esc(t.msgHint) + '</div>';
+      var after = $('modalGuestEmail') || phEl;
+      after.parentElement.insertBefore(mbox, after.nextSibling);
+      var inpStyle = phEl.getAttribute('style') || '';
+      ['ulv2-tg', 'ulv2-wa'].forEach(function (id) { var e = $(id); if (e) { e.setAttribute('style', inpStyle); e.style.marginBottom = '0'; e.style.flex = '1'; e.style.minWidth = '0'; } });
+      mbox.querySelectorAll('.ulv2-same').forEach(function (bt) {
+        bt.addEventListener('click', function () {
+          var pv = normPhone(phEl);
+          if (!pv) { markBad(phEl, true); try { phEl.focus(); } catch (e) {} return; }
+          var tgt = $(bt.dataset.for); if (tgt) { tgt.value = pv; markBad(tgt, false); }
+          if ($('ulv2-tg') && $('ulv2-wa')) markBad($('ulv2-tg') === tgt ? $('ulv2-wa') : $('ulv2-tg'), false);
+        });
+      });
+      // Подставили email из профиля/localStorage? — мессенджеры тоже помним (7 дней)
+      try {
+        var saved = JSON.parse(localStorage.getItem('ulv2_msg') || 'null');
+        if (saved && Date.now() - saved.t < 7 * 864e5) { if ($('ulv2-tg') && saved.tg) $('ulv2-tg').value = saved.tg; if ($('ulv2-wa') && saved.wa) $('ulv2-wa').value = saved.wa; }
+      } catch (e) {}
     }
 
     // Время заезда: выпадающий список часов вместо свободного текста
@@ -497,7 +570,22 @@
             if (em) b.guest_email = em;
             if (phv && !b.booker_phone) b.booker_phone = phv;
           }
+          var tgv = normMessenger($('ulv2-tg'), true), wav = normMessenger($('ulv2-wa'), false);
+          if (tgv) b.guest_telegram = tgv;
+          if (wav) b.guest_whatsapp = wav;
+          try { localStorage.setItem('ulv2_msg', JSON.stringify({ tg: tgv, wa: wav, t: Date.now() })); } catch (e) {}
           opts = Object.assign({}, opts, { body: JSON.stringify(b) });
+        }
+        // Уведомление менеджеру в Telegram: добавляем мессенджеры гостя (index.html шлёт фиксированный набор полей)
+        if (typeof url === 'string' && /\/functions\/notify(\?|$)/.test(url) &&
+            opts && (opts.method || '').toUpperCase() === 'POST' && typeof opts.body === 'string') {
+          var nb = JSON.parse(opts.body);
+          if (nb && nb.type === 'new_booking') {
+            var tgn = normMessenger($('ulv2-tg'), true), wan = normMessenger($('ulv2-wa'), false);
+            if (tgn) nb.guest_telegram = tgn;
+            if (wan) nb.guest_whatsapp = wan;
+            opts = Object.assign({}, opts, { body: JSON.stringify(nb) });
+          }
         }
       } catch (e) {}
       return of.call(window, url, opts);

@@ -3,14 +3,15 @@
    Что делает: в каждую ссылку на менеджера (t.me/Arsen_bnb) подставляет черновик
    первого сообщения с меткой источника и контекстом (квартира, даты):
      «Здравствуйте! Пишу с сайта urbanluxe.cc — интересует Nest One 325 на 20–22 сентября. #сайт #meta»
-   Гость просто нажимает «Отправить». В Telegram считаем по поиску: #сайт (все), #meta, #direct, #google.
+   Гость просто нажимает «Отправить». В Telegram/WhatsApp считаем по поиску: #сайт (все), #meta, #direct, #google.
+   С 22.09.2026 то же для кнопки WhatsApp (wa.me/998936900044?text=…).
    Канал @UrbanLuxehotel не трогаем. Подключение — в index.html и в layout apt-page.js:
      <script src="/tg-attribution.js" defer></script>
    Ничего в index.html не переписывает: только слушает клики (capture) и меняет href перед переходом. */
 (function () {
   'use strict';
 
-  var MANAGER = /t\.me\/Arsen_bnb/i;      // ссылки, куда добавляем черновик
+  var MANAGER = /t\.me\/Arsen_bnb|wa\.me\/998936900044|api\.whatsapp\.com\/send/i; // ссылки менеджера: Telegram и WhatsApp (22.09.2026)
   var KEY = 'ul_src';                        // localStorage: источник визита (7 дней)
   var TTL = 7 * 24 * 3600 * 1000;
 
@@ -97,6 +98,7 @@
     try {
       var u = new URL(href, location.href);
       if (u.searchParams.get('text')) return href; // уже есть черновик
+      // wa.me тоже принимает ?text= — тот же черновик с #сайт #meta/#direct, считаем в WhatsApp поиском по #сайт
       // encodeURIComponent (пробел = %20), а не URLSearchParams ('+'): Telegram '+' не всегда разбирает как пробел
       u.search = (u.search ? u.search + '&' : '?') + 'text=' + encodeURIComponent(draft());
       return u.toString();

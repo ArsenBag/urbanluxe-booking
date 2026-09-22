@@ -17,19 +17,22 @@
       title: 'Инструкция по заселению', close: 'Закрыть',
       today0: 'Заезд сегодня!', today1: 'Заезд завтра', todayN: 'Заезд через {n} дн.',
       newBook: '+ Новая бронь', ctTitle: 'Мы всегда на связи', ctSub: 'Консьерж 24/7 — звоните или пишите, отвечаем в течение 5 минут',
-      ctSite: '🏙 Все апартаменты на сайте →', ctChannel: '📣 Канал с каталогом' },
+      ctSite: '🏙 Все апартаменты на сайте →', ctChannel: '📣 Канал с каталогом',
+      cardTitle: 'Ваша бронь принята', cardHint: 'Напишите нам по этому бронированию — ответим здесь и на email' },
     en: { instr: '🔑 Check-in instructions', again: '↻ Book again',
       none: 'Instructions for this apartment are not added yet — message our manager on Telegram and we will help.',
       title: 'Check-in instructions', close: 'Close',
       today0: 'Check-in today!', today1: 'Check-in tomorrow', todayN: 'Check-in in {n} days',
       newBook: '+ New booking', ctTitle: 'We are always in touch', ctSub: 'Concierge 24/7 — call or write, we reply within 5 minutes',
-      ctSite: '🏙 All apartments on the site →', ctChannel: '📣 Catalog channel' },
+      ctSite: '🏙 All apartments on the site →', ctChannel: '📣 Catalog channel',
+      cardTitle: 'Your booking is confirmed', cardHint: 'Message us about this booking — we reply here and by email' },
     uz: { instr: '🔑 Joylashish koʼrsatmasi', again: '↻ Qayta bron qilish',
       none: 'Bu kvartira uchun koʼrsatma hali qoʼshilmagan — Telegram orqali menejerga yozing, yordam beramiz.',
       title: 'Joylashish koʼrsatmasi', close: 'Yopish',
       today0: 'Bugun kirish!', today1: 'Ertaga kirish', todayN: '{n} kundan keyin kirish',
       newBook: '+ Yangi bron', ctTitle: 'Doim aloqadamiz', ctSub: 'Konsyerj 24/7 — qoʼngʼiroq qiling yoki yozing, 5 daqiqada javob beramiz',
-      ctSite: '🏙 Saytdagi barcha kvartiralar →', ctChannel: '📣 Katalog kanali' }
+      ctSite: '🏙 Saytdagi barcha kvartiralar →', ctChannel: '📣 Katalog kanali',
+      cardTitle: 'Broningiz qabul qilindi', cardHint: 'Shu bron boʼyicha bizga yozing — shu yerda va emailga javob beramiz' }
   };
   function t() { var l = (document.documentElement.lang || 'ru').slice(0, 2).toLowerCase(); return L[l] || L.ru; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
@@ -174,6 +177,7 @@
         cbtn('tel:+998936900044', '📞 +998 93 690 00 44') +
         cbtn('tel:+998999579485', '📞 +998 99 957 94 85') +
         cbtn('https://t.me/Arsen_bnb', '✈️ Telegram @Arsen_bnb', true) +
+        cbtn('https://wa.me/998936900044', '💬 WhatsApp +998 93 690 00 44', true) +
         cbtn('https://t.me/UrbanLuxehotel', esc(s.ctChannel), true) +
         cbtn('https://instagram.com/urbanluxe.uz', '📷 Instagram', true) +
         cbtn('/#apartments', esc(s.ctSite));
@@ -181,7 +185,40 @@
     }
   }
 
+  // 3) Чат по брони (22.09.2026): первое сообщение — карточка брони, которую создаёт триггер
+  //    в базе (sender_role 'guest', текст начинается с «🆕 Новая бронь»). Гостю показываем её
+  //    как служебную карточку по центру, а не как «своё» сообщение; WhatsApp-кнопка в контактах.
+  function isCard(m) { return m && typeof m.content === 'string' && m.content.indexOf('🆕 Новая бронь') === 0; }
+  function hookMsgs() {
+    if (typeof window.loadMsgs !== 'function' || window.loadMsgs.__ulg) return;
+    var c = sb(); if (!c) return;
+    window.loadMsgs = async function (bid) {
+      try {
+        var r = await c.from('messages').select('*').eq('conversation_id', bid).order('created_at', { ascending: true });
+        var data = r.data || [];
+        var el = document.getElementById('msgs-' + bid);
+        if (!el) return;
+        var real = data.filter(function (m) { return !isCard(m); });
+        var s = t();
+        el.innerHTML = data.map(function (m) {
+          var tm = new Date(m.created_at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+          if (isCard(m)) {
+            return '<div style="align-self:center;max-width:92%;background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.3);border-radius:12px;padding:10px 14px;font-size:12.5px;color:#cfcabd;white-space:pre-line;line-height:1.5;margin:4px 0">' +
+              esc(m.content.replace(/^🆕 Новая бронь/, '✅ ' + (s.cardTitle || 'Ваша бронь принята'))) +
+              '<div style="font-size:10px;opacity:.6;margin-top:4px;text-align:right">' + tm + '</div></div>';
+          }
+          var me = m.sender_role === 'guest';
+          return '<div class="msg msg-' + (me ? 'me' : 'them') + '"><div class="msg-b"><div>' + esc(m.content) + '</div><div class="msg-t">' + tm + '</div></div></div>';
+        }).join('') + (real.length ? '' : '<div style="text-align:center;color:var(--ink-d,#8a857a);padding:10px;font-size:13px">' + esc(s.cardHint || 'Напишите нам по этому бронированию — ответим здесь и на email') + '</div>');
+        el.scrollTop = el.scrollHeight;
+        try { await c.from('messages').update({ is_read: true }).eq('conversation_id', bid).eq('sender_role', 'admin').eq('is_read', false); } catch (e) {}
+      } catch (e) { console.error('loadMsgs (upgrade) failed', e); }
+    };
+    window.loadMsgs.__ulg = true;
+  }
+
   function hook() {
+    hookMsgs();
     if (typeof window.renderBookings === 'function' && !window.renderBookings.__ulg) {
       var orig = window.renderBookings;
       window.renderBookings = function () {

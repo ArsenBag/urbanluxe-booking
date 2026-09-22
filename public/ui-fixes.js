@@ -290,6 +290,47 @@
     document.head.appendChild(st);
   })();
 
+  // ---------- 15. WhatsApp: плавающая кнопка над Telegram + ссылка в футере ----------
+  // 22.09.2026, по просьбе Арсена: часть гостей (KZ, RU, иностранцы) пишет только в WhatsApp.
+  // Номер тот же, что в контактах. Текст-черновик с меткой источника подставляет tg-attribution.js
+  // (он же обрабатывает wa.me). Стиль повторяет .ul-tg-fab из site-fixes.js, кнопка выше на 62px.
+  var WA_NUMBER = '998936900044';
+  function addWhatsApp() {
+    if (document.querySelector('.ul-wa-fab')) return true;
+    var a = document.createElement('a');
+    a.className = 'ul-wa-fab';
+    a.href = 'https://wa.me/' + WA_NUMBER;
+    a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-label', 'Написать в WhatsApp');
+    a.setAttribute('data-tooltip', 'Спросить в WhatsApp');
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.29.17-1.42-.07-.12-.27-.2-.57-.35M12.05 21.79h-.01a9.82 9.82 0 0 1-5-1.37l-.36-.21-3.72.98.99-3.63-.23-.37a9.8 9.8 0 0 1-1.5-5.23c0-5.42 4.41-9.83 9.84-9.83 2.63 0 5.1 1.02 6.95 2.88a9.77 9.77 0 0 1 2.88 6.95c0 5.42-4.42 9.83-9.84 9.83m8.37-18.2A11.8 11.8 0 0 0 12.04 0C5.5 0 .18 5.32.17 11.86c0 2.09.55 4.13 1.58 5.93L0 24l6.34-1.66a11.85 11.85 0 0 0 5.7 1.45h.01c6.54 0 11.86-5.32 11.87-11.86 0-3.17-1.23-6.15-3.47-8.39"/></svg>';
+    document.body.appendChild(a);
+    var st = document.createElement('style');
+    st.textContent =
+      '.ul-wa-fab{position:fixed;right:26px;bottom:158px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#31D66C 0%,#1FA855 100%);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 24px rgba(37,211,102,.32),0 2px 8px rgba(0,0,0,.3);z-index:9998;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s}' +
+      '.ul-wa-fab:hover{transform:scale(1.08);box-shadow:0 12px 32px rgba(37,211,102,.45),0 4px 12px rgba(0,0,0,.35)}.ul-wa-fab:active{transform:scale(.96)}' +
+      '.ul-wa-fab::before{content:attr(data-tooltip);position:absolute;right:68px;top:50%;transform:translateY(-50%) translateX(8px);background:rgba(20,20,20,.95);color:#e8e2d6;font-size:12px;letter-spacing:.04em;padding:8px 14px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;font-family:var(--fb,sans-serif);border:1px solid rgba(201,169,97,.2)}' +
+      '.ul-wa-fab:hover::before{opacity:1;transform:translateY(-50%) translateX(0)}' +
+      '@media (max-width:900px){.ul-wa-fab{bottom:206px !important;right:16px !important}}' +
+      '@media (max-width:640px){.ul-wa-fab{width:48px;height:48px;bottom:198px !important;right:18px !important}.ul-wa-fab::before{display:none}}' +
+      '@media (max-width:640px){body:has(.booking-modal[style*="display: block"]) .ul-wa-fab,body:has(#modalOverlay.active) .ul-wa-fab{display:none}}';
+    document.head.appendChild(st);
+    // Клики считает analytics.js (wa.me → Contact / TG_CLICK / whatsapp_click), здесь ничего не дублируем.
+    // Футер: рядом с «Telegram @Arsen_bnb»
+    var tgLink = [].filter.call(document.querySelectorAll('footer a[href*="t.me/Arsen_bnb"], a[href*="t.me/Arsen_bnb"]'), function (l) { return /Telegram/i.test(l.textContent); })[0];
+    if (tgLink && !document.querySelector('a.ul-wa-footer')) {
+      var w = document.createElement('a');
+      w.className = 'ul-wa-footer';
+      w.href = 'https://wa.me/' + WA_NUMBER; w.target = '_blank'; w.rel = 'noopener noreferrer';
+      w.textContent = 'WhatsApp +998 93 690 00 44';
+      tgLink.parentElement.insertBefore(w, tgLink.nextSibling);
+    }
+    return true;
+  }
+  (function () {
+    var n = 0, iv = setInterval(function () { if (document.body && (addWhatsApp() || ++n > 30)) clearInterval(iv); }, 400);
+  })();
+
   // ---------- 12. Промо-лента «Сентябрь −15%» ----------
   // Скидка задана в базе (seasonal_prices low, сентябрь) — цены сайт считает сам.
   // Здесь только сообщаем о ней. Лента исчезнет сама после 30.09.
