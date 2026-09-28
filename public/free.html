@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Что свободно — Urban Luxe</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#090807;--bg2:#0f0e0c;--bg3:#171512;--ink:#ede8df;--ink-m:#a09888;--ink-d:#635c52;--gold:#c9a961;--gold-l:#ddc07a;--gold-d:#a88d45;--line:rgba(201,169,97,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Jost,-apple-system,Segoe UI,Roboto,sans-serif;font-weight:300;padding:18px;max-width:720px;margin:0 auto}
+h1{font-family:Georgia,serif;font-weight:400;font-size:22px;color:var(--gold);letter-spacing:.06em;margin:6px 0 4px}
+.sub{font-size:12px;color:var(--ink-d);margin-bottom:16px}
+.row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+label{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-d);margin-bottom:5px}
+input{width:100%;background:var(--bg3);border:1px solid var(--line);color:var(--ink);padding:11px 12px;border-radius:8px;font-size:15px;color-scheme:dark}
+button{background:var(--gold);color:var(--bg);border:0;padding:12px 18px;border-radius:8px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;font-weight:500}
+button.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold-d)}
+.quick{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+.quick button{padding:8px 12px;font-size:11px;background:var(--bg3);color:var(--ink-m);border:1px solid var(--line);text-transform:none;letter-spacing:0}
+.quick button:hover{color:var(--gold);border-color:var(--gold-d)}
+textarea{width:100%;min-height:360px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);padding:14px;border-radius:10px;font-size:14px;line-height:1.55;font-family:inherit;resize:vertical;white-space:pre}
+.acts{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.acts a{display:inline-block;background:#2AABEE;color:#fff;padding:12px 18px;border-radius:8px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;font-weight:500}
+.st{font-size:12px;color:var(--ink-d);margin-top:8px;min-height:16px}
+.st.ok{color:#2ecc71}
+@media(max-width:560px){.row{grid-template-columns:1fr 1fr}.row button{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<h1>URBAN LUXE · что свободно</h1>
+<div class="sub">Список по номерам каталога <a href="https://t.me/UrbanLuxehotel/242" target="_blank" style="color:var(--gold)">t.me/UrbanLuxehotel/242</a>. Занятость — живая, из RealtyCalendar и броней сайта.</div>
+<div class="row">
+  <div><label>Заезд</label><input type="date" id="ci"></div>
+  <div><label>Выезд</label><input type="date" id="co"></div>
+  <button id="go">Показать</button>
+</div>
+<div class="quick">
+  <button data-q="0,1">Сегодня</button><button data-q="1,1">Завтра</button><button data-q="0,2">Сегодня, 2 ночи</button><button data-q="0,3">3 ночи</button><button data-q="0,7">Неделя</button>
+</div>
+<textarea id="out" placeholder="Здесь появится готовое сообщение клиенту"></textarea>
+<div class="acts">
+  <button id="copy">Скопировать</button>
+  <a id="tg" href="#" target="_blank">Отправить в Telegram</a>
+  <button class="ghost" id="short">Только номера</button>
+</div>
+<div class="st" id="st"></div>
+<script>
+(function(){
+  var ci=document.getElementById('ci'),co=document.getElementById('co'),out=document.getElementById('out'),st=document.getElementById('st'),tg=document.getElementById('tg');
+  var last=null;
+  function tash(n){var d=new Date(Date.now()+5*3600*1000);d.setUTCDate(d.getUTCDate()+(n||0));return d.toISOString().slice(0,10)}
+  var q=new URLSearchParams(location.search);
+  ci.value=q.get('from')||tash(0); co.value=q.get('to')||tash(1);
+  ci.addEventListener('change',function(){if(co.value<=ci.value){var d=new Date(ci.value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);co.value=d.toISOString().slice(0,10)}});
+  function setTg(text){tg.href='https://t.me/share/url?url='+encodeURIComponent('https://urbanluxe.cc/?check_in='+ci.value+'&check_out='+co.value)+'&text='+encodeURIComponent(text)}
+  async function load(){
+    st.className='st';st.textContent='Проверяю занятость…';out.value='';
+    try{
+      var r=await fetch('/.netlify/functions/free?from='+ci.value+'&to='+co.value+'&format=json');
+      var d=await r.json(); if(d.error) throw new Error(d.error);
+      last=d; out.value=d.text; setTg(d.text);
+      st.textContent='Свободно '+d.available_count+' из '+d.total_apartments+'. Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+      history.replaceState(null,'','?from='+ci.value+'&to='+co.value);
+    }catch(e){st.textContent='Ошибка: '+e.message}
+  }
+  document.getElementById('go').addEventListener('click',load);
+  document.querySelectorAll('.quick button').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.q.split(',');ci.value=tash(+p[0]);co.value=tash(+p[0]+ +p[1]);load()})});
+  document.getElementById('copy').addEventListener('click',function(){out.select();navigator.clipboard.writeText(out.value).then(function(){st.className='st ok';st.textContent='Скопировано — вставьте в чат клиенту'})});
+  document.getElementById('short').addEventListener('click',function(){
+    if(!last) return; var nums=last.available.map(function(a){return a.num}).join(', ');
+    var t='Свободно '+last.text.split('\n')[0].replace(/^🏠 Свободно на /,'на ')+':\nномера по каталогу '+(nums||'—')+'\n'+'https://t.me/UrbanLuxehotel/242';
+    out.value=t; setTg(t);
+  });
+  load();
+})();
+</script>
+</body>
+</html>
