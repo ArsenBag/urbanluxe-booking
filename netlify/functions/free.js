@@ -8,20 +8,20 @@
 // Занятость берётся из availability.js (iCal RealtyCalendar + брони сайта), цены — из базы.
 // Используется страницей /free.html и Telegram-ботом (tg-free.js).
 
-const CATALOG = [ // [номер в каталоге, id в базе, подпись как в каталоге]
-  [1, 'nest_15', 'Nest One 1/3/15'], [2, 'nest_249', 'Nest One 1/13/249'], [3, 'nest_325', 'Nest One 2/17/325'],
-  [4, 'nest_481', 'Nest One 2/25/481'], [5, 'nest_233', 'Nest One 2/12/233'], [6, 'nest_353', 'Nest One 1/18/353'],
-  [7, 'nest_163', 'Nest One 2/9/163'], [8, 'nest_193', 'Nest One 2/10/193'], [9, 'nest_477', 'Nest One 2/25/477'],
-  [10, 'nest_609', 'Nest One 2/33/609'], [11, 'nest_166', 'Nest One 3/9/166'], [12, 'nest_179', 'Nest One 3/10/179'],
-  [13, 'nest_168', 'Nest One 3/09/168'], [14, 'utower_65', 'U-Tower 1/6/65'], [15, 'utower_73', 'U-Tower 1/6/73'],
-  [16, 'utower_171', 'U-Tower 1/11/171'], [17, 'utower_194', 'U-Tower 1/12/194'], [18, 'utower_208', 'U-Tower 1/13/208'],
-  [19, 'utower_298', 'U-Tower 1/17/298'], [20, 'utower_310', 'U-Tower 1/18/310'], [21, 'utower_326', 'U-Tower 1/19/326'],
-  [22, 'utower_400', 'U-Tower 3/23/400'], [23, 'utower2_5', 'U-Tower 2/3/5'], [24, 'utower2_9', 'U-Tower 2/4/9'],
-  [25, 'utower2_207', 'U-Tower 2/13/207'], [26, 'utower2_228', 'U-Tower 2/13/228'], [27, 'utower_276', 'U-Tower 2/16/276'],
-  [28, 'utower2_296', 'U-Tower 2/17/296'], [29, 'utower2_92', 'U-Tower 2/7/92'], [30, 'utower2_79', 'U-Tower 2/7/79'],
-  [31, 'mirabad_111', 'Mirabad Aven 2/8/111'], [32, 'kislorod_6', 'Kislorod 3/02/06'], [33, 'kislorod_31', 'Kislorod 2/07/31'],
-  [34, 'kislorod_49', 'Kislorod 2/10/49'], [35, 'kislorod_58', 'Kislorod 2/11/58'], [36, 'kislorod_128', 'Kislorod 2/13/128'],
-  [37, 'gardens_65', 'Gardens Resid 2/3/65'], [38, 'modera_294', 'Modera T 1/11/294'], [39, 'modera_359', 'Modera T 1/16/359']
+const CATALOG = [ // [номер в каталоге, id в базе, подпись как в каталоге, пост с фото в t.me/UrbanLuxehotel]
+  [1, 'nest_15', 'Nest One 1/3/15', 402], [2, 'nest_249', 'Nest One 1/13/249', 161], [3, 'nest_325', 'Nest One 2/17/325', 770],
+  [4, 'nest_481', 'Nest One 2/25/481', 68], [5, 'nest_233', 'Nest One 2/12/233', 492], [6, 'nest_353', 'Nest One 1/18/353', 512],
+  [7, 'nest_163', 'Nest One 2/9/163', 639], [8, 'nest_193', 'Nest One 2/10/193', 667], [9, 'nest_477', 'Nest One 2/25/477', 684],
+  [10, 'nest_609', 'Nest One 2/33/609', 851], [11, 'nest_166', 'Nest One 3/9/166', 607], [12, 'nest_179', 'Nest One 3/10/179', 876],
+  [13, 'nest_168', 'Nest One 3/09/168', 860], [14, 'utower_65', 'U-Tower 1/6/65', 568], [15, 'utower_73', 'U-Tower 1/6/73', 586],
+  [16, 'utower_171', 'U-Tower 1/11/171', 413], [17, 'utower_194', 'U-Tower 1/12/194', 819], [18, 'utower_208', 'U-Tower 1/13/208', 89],
+  [19, 'utower_298', 'U-Tower 1/17/298', 828], [20, 'utower_310', 'U-Tower 1/18/310', 259], [21, 'utower_326', 'U-Tower 1/19/326', 838],
+  [22, 'utower_400', 'U-Tower 3/23/400', 803], [23, 'utower2_5', 'U-Tower 2/3/5', 177], [24, 'utower2_9', 'U-Tower 2/4/9', 328],
+  [25, 'utower2_207', 'U-Tower 2/13/207', 210], [26, 'utower2_228', 'U-Tower 2/13/228', 229], [27, 'utower_276', 'U-Tower 2/16/276', 744],
+  [28, 'utower2_296', 'U-Tower 2/17/296', 55], [29, 'utower2_92', 'U-Tower 2/7/92', 471], [30, 'utower2_79', 'U-Tower 2/7/79', 735],
+  [31, 'mirabad_111', 'Mirabad Aven 2/8/111', 143], [32, 'kislorod_6', 'Kislorod 3/02/06', 707], [33, 'kislorod_31', 'Kislorod 2/07/31', 759],
+  [34, 'kislorod_49', 'Kislorod 2/10/49', 522], [35, 'kislorod_58', 'Kislorod 2/11/58', 359], [36, 'kislorod_128', 'Kislorod 2/13/128', 381],
+  [37, 'gardens_65', 'Gardens Resid 2/3/65', 778], [38, 'modera_294', 'Modera T 1/11/294', 785], [39, 'modera_359', 'Modera T 1/16/359', 794]
 ];
 const CATALOG_URL = 'https://t.me/UrbanLuxehotel/242';
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -83,17 +83,18 @@ async function buildFree(fromRaw, toRaw, opts) {
   } catch (e) { /* sync-ical недоступен — остаёмся на availability */ }
   const lines = [], available = [];
   let lastComplex = '';
-  for (const [num, id, label] of CATALOG) {
+  for (const [num, id, label, post] of CATALOG) {
     const a = byId[id];
     if (!a) continue;
-    available.push({ num, id, label, weekday: a.weekday, weekend: a.weekend, total: a.total, nights: a.nights, complex: a.complex });
+    const photo = 'https://t.me/UrbanLuxehotel/' + post;
+    available.push({ num, id, label, photo, weekday: a.weekday, weekend: a.weekend, total: a.total, nights: a.nights, complex: a.complex });
     const complex = label.split(' ')[0];
     if (complex !== lastComplex) { if (lines.length) lines.push(''); lastComplex = complex; }
-    lines.push(num + '. ' + label + ' — ' + a.weekday + '$/' + a.weekend + '$' + (a.nights > 1 ? ' · за ' + a.nights + ' ноч. ' + a.total + '$' : ''));
+    lines.push(num + '. ' + label + ' — ' + a.weekday + '$/' + a.weekend + '$' + (a.nights > 1 ? ' · за ' + a.nights + ' ноч. ' + a.total + '$' : '') + '\n   📷 ' + photo);
   }
   const total = d.total_apartments || 0;
   const head = '🏠 Свободно на ' + fmtRange(ci, co) + ': ' + available.length + ' из ' + total;
-  const text = [head, '', ...(lines.length ? lines : ['Свободных нет 😔']), '', 'Цены: Пн–Чт / Пт–Вс. Фото и описание — по номеру в каталоге: ' + CATALOG_URL,
+  const text = [head, '', ...(lines.length ? lines : ['Свободных нет 😔']), '', 'Цены: Пн–Чт / Пт–Вс. Полный каталог: ' + CATALOG_URL,
     'Бронь на сайте: https://urbanluxe.cc/?check_in=' + ci + '&check_out=' + co].join('\n');
   return { check_in: ci, check_out: co, total_apartments: total, available_count: available.length, available, text };
 }
