@@ -100,7 +100,7 @@ function rowCard(r) {
   t += 'Площадка: <b>' + (SOURCES[r.source] || (r.source ? T.esc(r.source) : '—')) + '</b>' + (r.guest_name ? ' · ' + T.esc(r.guest_name) : '') + '\n';
   t += 'Заезд: ' + (r.checkin_time ? T.esc(r.checkin_time) : '—') + ' · Выезд: ' + (r.checkout_time ? T.esc(r.checkout_time) : '—') + ' · Гостей: ' + (r.guests || '—') + '\n';
   t += 'Регистрация: ' + REG[r.registration] + (r.reg_sent ? ' · отправлена гостю ☑' : '') + '\n';
-  t += 'Оплата: ' + payStr(r) + '\n';
+  t += 'Оплата: ' + payStr(r) + ' · Депозит: ' + (r.deposit_returned ? 'возвращён ☑' : r.deposit_received ? 'получен ☑' : '☐') + '\n';
   if (r.note) t += '📝 ' + T.esc(r.note) + '\n';
   t += '\n<i>Изменить текстом:</i> <code>' + r.short.replace(/\s/g, '') + ' площадка bnb</code> · <code>… заезд 18:00</code> · <code>… выезд 11:00</code> · <code>… гостей 2</code> · <code>… оплата 100 из 230</code> · <code>… гость Имя</code> · <code>… заметка текст</code>';
   const id = r.id;
@@ -110,6 +110,7 @@ function rowCard(r) {
     [b('Рег: ' + REG[r.registration], 'registration'), b(flag(r.reg_sent) + ' Рег отправлена', 'reg_sent')],
     [b(flag(r.confirm_checkin) + ' Уточнён заезд', 'confirm_checkin'), b(flag(r.confirm_checkout) + ' Уточнён выезд', 'confirm_checkout')],
     [b((r.payment_total != null && Number(r.payment_paid || 0) >= Number(r.payment_total) ? '☑' : '☐') + ' Оплачено полностью', 'paid_full'), b(flag(r.review) + ' Отзыв', 'review')],
+    [b(flag(r.deposit_received) + ' Депозит получен', 'deposit_received'), b(flag(r.deposit_returned) + ' Депозит возвращён', 'deposit_returned')],
     [{ text: '📢 Сообщить опер-менеджеру', callback_data: 'tg|' + id + '|notify' }, { text: '↩ Список', callback_data: 'ops|' + r.date }]
   ];
   return { text: t, reply_markup: { inline_keyboard: kb } };

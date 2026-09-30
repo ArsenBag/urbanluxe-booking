@@ -124,7 +124,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Некорректные даты' }) };
     }
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,weekday_price,weekend_price,seasonal_prices,ical_export_url&is_active=eq.true',
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,rooms,weekday_price,weekend_price,seasonal_prices,ical_export_url&is_active=eq.true',
       { headers: sbHeaders() }
     );
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
@@ -144,7 +144,7 @@ exports.handler = async (event) => {
       }
       return {
         id: a.id, name: a.name, complex: a.complex, floor: a.floor,
-        weekday: a.weekday_price, weekend: a.weekend_price, style: a.style,
+        weekday: a.weekday_price, weekend: a.weekend_price, style: a.style, rooms: a.rooms,
         available: true, total, nights, check_in: ci, check_out: co
       };
     }));

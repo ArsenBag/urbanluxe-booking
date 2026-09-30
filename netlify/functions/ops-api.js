@@ -3,10 +3,14 @@
 // GET  ?date=YYYY-MM-DD&initData=…   → { date, staff, rows:[…все квартиры с занятостью и полями daily_ops…], month:{дни с заездами} }
 // POST { initData, date, apartment_id, patch:{…} }  → upsert строки daily_ops
 // POST { initData, date, from, to } (dates) → занятость всех квартир на период (для календаря/шахматки)
+// POST { initData, free:{from,to,filter:{rooms,complex,max}} } → свободные на даты (+ готовый текст клиенту)
+// POST { initData, book:{apartment_id,check_in,check_out,guest_name,guest_phone,guest_telegram,guest_whatsapp,total_price,source,guests_count,notes} }
+//      → бронь в bookings (status=confirmed → закрывает даты на сайте и в iCal для RC) + строка daily_ops + уведомление Арсену/опер-менеджеру
 
 const crypto = require('crypto');
 const T = require('./_tg.js');
 const OPS = require('./ops.js');
+const { buildFree } = require('./free.js');
 
 const H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const out = (code, body) => ({ statusCode: code, headers: H, body: JSON.stringify(body) });
@@ -36,7 +40,7 @@ async function staffOf(user) {
   s.chat_id = id; return s;
 }
 
-const FIELDS = ['source', 'checkin_time', 'checkout_time', 'guests', 'passport', 'access', 'registration', 'reg_sent', 'confirm_checkin', 'confirm_checkout', 'payment_total', 'payment_paid', 'review', 'note', 'guest_name'];
+const FIELDS = ['deposit_received', 'deposit_returned', 'deposit_amount', 'source', 'checkin_time', 'checkout_time', 'guests', 'passport', 'access', 'registration', 'reg_sent', 'confirm_checkin', 'confirm_checkout', 'payment_total', 'payment_paid', 'review', 'note', 'guest_name'];
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: H, body: '' };
@@ -71,6 +75,50 @@ exports.handler = async (event) => {
         for (const id of ids) if (id !== staff.chat_id) await bot.send(id, '🔔 <b>' + T.esc(apt.name) + ' · ' + T.esc(apt.complex || '') + '</b> ' + T.ruDate(date) + ': ' + T.esc(what) + ' <i>(' + T.esc(staff.name) + ')</i>');
       }
       return out(200, { ok: true });
+    }
+
+    // свободные на даты (вкладка «Свободно» в Mini App)
+    if (body.free) {
+      const res = await buildFree(body.free.from, body.free.to, { filter: body.free.filter || {} });
+      return out(200, res);
+    }
+
+    // создать бронь
+    if (body.book) {
+      const b = body.book;
+      const ci = b.check_in, co = b.check_out;
+      if (!b.apartment_id || !/^\d{4}-\d{2}-\d{2}$/.test(ci || '') || !/^\d{4}-\d{2}-\d{2}$/.test(co || '') || co <= ci) return out(400, { error: 'Неверные даты' });
+      if (!String(b.guest_name || '').trim() || !String(b.guest_phone || '').trim()) return out(400, { error: 'Нужны имя и телефон гостя' });
+      if (!String(b.guest_telegram || '').trim() && !String(b.guest_whatsapp || '').trim()) return out(400, { error: 'Укажи Telegram или WhatsApp гостя' });
+      const busy = all.some(x => x.apartment_id === b.apartment_id && x.check_in < co && x.check_out > ci);
+      const siteBusy = await T.sb('bookings?select=id&status=eq.confirmed&apartment_id=eq.' + encodeURIComponent(b.apartment_id) + '&check_in=lt.' + co + '&check_out=gt.' + ci).then(x => x.json());
+      if (busy || siteBusy.length) return out(409, { error: 'Даты уже заняты (RC или сайт)' });
+      const apt = (await T.sb('apartments?select=id,name,complex,weekday_price,weekend_price&id=eq.' + encodeURIComponent(b.apartment_id)).then(x => x.json()))[0];
+      if (!apt) return out(404, { error: 'Квартира не найдена' });
+      const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+      let total = parseInt(b.total_price, 10);
+      if (!total) { total = 0; for (let d = ci; d < co; d = addDays(d, 1)) { const dow = new Date(d + 'T00:00:00Z').getUTCDay(); total += (dow === 5 || dow === 6) ? (apt.weekend_price || apt.weekday_price) : apt.weekday_price; } }
+      const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let ref = 'UL-'; for (let i = 0; i < 6; i++) ref += A[Math.floor(Math.random() * A.length)];
+      const row = {
+        apartment_id: apt.id, guest_name: String(b.guest_name).trim(), guest_phone: String(b.guest_phone).trim(),
+        guest_telegram: String(b.guest_telegram || '').trim() || null, guest_whatsapp: String(b.guest_whatsapp || '').trim() || null,
+        check_in: ci, check_out: co, nights, guests_count: parseInt(b.guests_count, 10) || 2, status: 'confirmed',
+        source: String(b.source || 'tg').slice(0, 32), total_price: total, booking_ref: ref, notes: String(b.notes || '').trim() || null,
+        booker_name: staff.name, admin_notes: 'Создано из бота бронеров (' + staff.name + ')'
+      };
+      const ins = await T.sb('bookings', { method: 'POST', body: JSON.stringify([row]) });
+      if (!ins.ok) return out(500, { error: 'Не сохранилось: ' + (await ins.text()).slice(0, 200) });
+      // строка листа заездов на день заезда
+      await T.sb('daily_ops', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify([{ date: ci, apartment_id: apt.id, source: row.source, guest_name: row.guest_name, guests: row.guests_count, payment_total: total, auto: false, updated_by: staff.name }]) });
+      // уведомление
+      const bot = T.makeBot('booker', 'tg-free');
+      const ops = await T.sb('staff?select=telegram_chat_id&is_active=eq.true&role=eq.ops&telegram_chat_id=not.is.null').then(x => x.json()).catch(() => []);
+      const ids = new Set(ops.map(o => o.telegram_chat_id)); if (T.ADMIN) ids.add(T.ADMIN);
+      const msg = '🆕 <b>Бронь из бота</b> · ' + T.esc(apt.name) + ' (' + T.esc(apt.complex || '') + ')\n📅 ' + T.ruDate(ci) + ' → ' + T.ruDate(co) + ' · ' + nights + ' ноч. · $' + total +
+        '\n👤 ' + T.esc(row.guest_name) + ' · ' + T.esc(row.guest_phone) + (row.guest_telegram ? ' · TG ' + T.esc(row.guest_telegram) : '') + (row.guest_whatsapp ? ' · WA ' + T.esc(row.guest_whatsapp) : '') +
+        '\n📍 ' + T.esc(OPS.SOURCES[row.source] || row.source) + ' · #' + ref + '\n✍️ ' + T.esc(staff.name);
+      for (const id of ids) await bot.send(id, msg);
+      return out(200, { ok: true, booking_ref: ref, total, nights });
     }
 
     // занятость на период (шахматка)

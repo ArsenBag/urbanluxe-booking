@@ -57,6 +57,24 @@ async function showCard(chatId, row, msgId) {
   return bot.send(chatId, c.text, { reply_markup: c.reply_markup });
 }
 
+// «что свободно» + кнопки-фильтры под ответом (callback fr|from|to|filter)
+const FILTERS = { '': 'Все', studio: 'Студии', multi: '2+ комн', nest: 'Nest One', utower: 'U-Tower', kislorod: 'Kislorod', modera: 'Modera', max100: '≤100$', max120: '≤120$' };
+function filterOf(key) {
+  if (key === 'studio' || key === 'multi') return { rooms: key };
+  if (/^max\d+$/.test(key)) return { max: +key.slice(3) };
+  if (key) return { complex: key };
+  return {};
+}
+async function sendFree(chatId, from, to, key, msgId) {
+  const res = await buildFree(from, to, { filter: filterOf(key) });
+  const kb = []; let row = [];
+  Object.keys(FILTERS).forEach(k => { row.push({ text: (k === key ? '• ' : '') + FILTERS[k], callback_data: 'fr|' + res.check_in + '|' + res.check_out + '|' + k }); if (row.length === 3) { kb.push(row); row = []; } });
+  if (row.length) kb.push(row);
+  const extra = { parse_mode: undefined, reply_markup: { inline_keyboard: kb } };
+  if (msgId) return bot.edit(chatId, msgId, res.text, extra);
+  return bot.send(chatId, res.text, extra);
+}
+
 exports.handler = async (event) => {
   const ok = { statusCode: 200, body: 'ok' };
   if (!bot.token) return { statusCode: 500, body: 'TELEGRAM_BOOKER_BOT_TOKEN is not set' };
@@ -74,7 +92,8 @@ exports.handler = async (event) => {
     if (!st) { await bot.answerCb(cq.id, 'Нет доступа'); return ok; }
     const p = String(cq.data || '').split('|');
     try {
-      if (p[0] === 'ops') { await bot.answerCb(cq.id); await showList(chatId, p[1], mid); }
+      if (p[0] === 'fr') { await bot.answerCb(cq.id); await sendFree(chatId, p[1], p[2], p[3] || '', mid); }
+      else if (p[0] === 'ops') { await bot.answerCb(cq.id); await showList(chatId, p[1], mid); }
       else if (p[0] === 'op') { const r = await OPS.getRow(p[1]); await bot.answerCb(cq.id); if (r) await showCard(chatId, r); }
       else if (p[0] === 'tg') {
         if (p[2] === 'notify') {
@@ -88,7 +107,7 @@ exports.handler = async (event) => {
           await bot.answerCb(cq.id, 'Сохранено');
           await showCard(chatId, res.row, mid);
           if (st.role !== 'ops') {
-            const labels = { passport: 'Паспорт', access: 'Доступ', registration: 'Регистрация', reg_sent: 'Рег. отправлена', confirm_checkin: 'Заезд уточнён', confirm_checkout: 'Выезд уточнён', paid_full: 'Оплата', review: 'Отзыв' };
+            const labels = { deposit_received: 'Депозит получен', deposit_returned: 'Депозит возвращён', passport: 'Паспорт', access: 'Доступ', registration: 'Регистрация', reg_sent: 'Рег. отправлена', confirm_checkin: 'Заезд уточнён', confirm_checkout: 'Выезд уточнён', paid_full: 'Оплата', review: 'Отзыв' };
             const v = res.changed === 'registration' ? res.row.registration : (res.changed === 'paid_full' ? (Number(res.row.payment_paid) >= Number(res.row.payment_total) ? '☑' : '☐') : (res.row[res.changed] ? '☑' : '☐'));
             await notifyOps({ chat_id: chatId }, '🔔 <b>' + T.esc(res.row.short) + '</b> ' + T.ruDate(res.row.date) + ': ' + labels[res.changed] + ' → ' + T.esc(v) + ' <i>(' + T.esc(st.name) + ')</i>');
           }
@@ -134,8 +153,7 @@ exports.handler = async (event) => {
     // что свободно
     const q = parseRequest(text);
     if (!q) { await bot.send(chatId, 'Не понял. ' + HELP); return ok; }
-    const res = await buildFree(q.from, q.to);
-    await bot.send(chatId, res.text, { parse_mode: undefined });
+    await sendFree(chatId, q.from, q.to, '');
   } catch (e) {
     await bot.send(chatId, 'Ошибка: ' + T.esc(e.message || e));
   }

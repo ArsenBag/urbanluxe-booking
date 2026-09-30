@@ -83,9 +83,16 @@ async function buildFree(fromRaw, toRaw, opts) {
   } catch (e) { /* sync-ical недоступен — остаёмся на availability */ }
   const lines = [], available = [];
   let lastComplex = '';
+  // фильтры (кнопки в боте / Mini App): rooms = 'studio' | 'multi'; complex = 'nest' | 'utower' | …; max = потолок цены Пн–Чт
+  const f = opts.filter || {};
   for (const [num, id, label, post] of CATALOG) {
     const a = byId[id];
     if (!a) continue;
+    const isStudio = /студ/i.test(a.rooms || '') || (!a.rooms && !/комнат|\d\+|3х/i.test(a.style || ''));
+    if (f.rooms === 'studio' && !isStudio) continue;
+    if (f.rooms === 'multi' && isStudio) continue;
+    if (f.complex && id.indexOf(f.complex) !== 0) continue;
+    if (f.max && a.weekday > f.max) continue;
     const photo = 'https://t.me/UrbanLuxehotel/' + post;
     available.push({ num, id, label, photo, weekday: a.weekday, weekend: a.weekend, total: a.total, nights: a.nights, complex: a.complex });
     const complex = label.split(' ')[0];
@@ -93,7 +100,10 @@ async function buildFree(fromRaw, toRaw, opts) {
     lines.push(num + '. ' + label + ' — ' + a.weekday + '$/' + a.weekend + '$' + (a.nights > 1 ? ' · за ' + a.nights + ' ноч. ' + a.total + '$' : '') + '\n   📷 ' + photo);
   }
   const total = d.total_apartments || 0;
-  const head = '🏠 Свободно на ' + fmtRange(ci, co) + ': ' + available.length + ' из ' + total;
+  const fl = f.rooms === 'studio' ? ' · студии' : f.rooms === 'multi' ? ' · 2+ комнат' : '';
+  const fc = f.complex ? ' · ' + ({ nest: 'Nest One', utower: 'U-Tower', kislorod: 'Kislorod', mirabad: 'Mirabad', gardens: 'Gardens', modera: 'Modera' }[f.complex] || f.complex) : '';
+  const fm = f.max ? ' · до ' + f.max + '$' : '';
+  const head = '🏠 Свободно на ' + fmtRange(ci, co) + fl + fc + fm + ': ' + available.length + (fl || fc || fm ? '' : ' из ' + total);
   const text = [head, '', ...(lines.length ? lines : ['Свободных нет 😔']), '', 'Цены: Пн–Чт / Пт–Вс. Полный каталог: ' + CATALOG_URL,
     'Бронь на сайте: https://urbanluxe.cc/?check_in=' + ci + '&check_out=' + co].join('\n');
   return { check_in: ci, check_out: co, total_apartments: total, available_count: available.length, available, text };
