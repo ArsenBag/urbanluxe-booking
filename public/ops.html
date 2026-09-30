@@ -88,7 +88,7 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
 </div>
 
 <div class="tabs">
-  <button data-t="arr" class="on">Заезды</button><button data-t="out">Выезды</button><button data-t="all">Все</button><button data-t="chess">Шахматка</button><button data-t="free">Свободно</button><button data-t="rep">Отчёт</button>
+  <button data-t="arr" class="on">Заезды</button><button data-t="out">Выезды</button><button data-t="all">Все</button><button data-t="free">Свободно</button><button data-t="rep">Отчёт</button>
 </div>
 <div class="sum" id="sum"></div>
 <div id="view"></div>
@@ -151,7 +151,6 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
     var d=state.data; SRC=d.sources; var rows=d.rows.slice();
     var cnt={in:0,busy:0,out:0,free:0}; rows.forEach(function(r){cnt[r.status]++;});
     $('#sum').innerHTML='<span><i class="dot" style="background:var(--in)"></i>заезд <b>'+cnt.in+'</b></span><span><i class="dot" style="background:var(--busy)"></i>живут <b>'+cnt.busy+'</b></span><span><i class="dot" style="background:var(--out)"></i>выезд <b>'+cnt.out+'</b></span><span><i class="dot" style="background:var(--free)"></i>свободно <b>'+cnt.free+'</b></span><span>· '+ru(d.date)+'</span>';
-    if(state.tab==='chess'){ return renderChess(); }
     if(state.tab==='free'){ return renderFree(); }
     if(state.tab==='out'){ return renderOut(); }
     if(state.tab==='rep'){ return renderReport(); }
