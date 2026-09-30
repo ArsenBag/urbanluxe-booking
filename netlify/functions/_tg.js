@@ -7,7 +7,8 @@
 //
 // Пока новый токен не задан, бот 1 и 2 работают на старом TELEGRAM_BOT_TOKEN (fallback) — ничего не ломается.
 // Админ везде — TELEGRAM_CHAT_ID (Арсен). Доступ сотрудников — таблица staff (telegram_chat_id + role).
-// Роли: 'cleaning' (горничные/хаускиперы) → бот 1; 'booker' (бронеры) → бот 2.
+// Роли: 'cleaning' (горничные/хаускиперы) → бот 1; 'booker' (бронеры) и 'ops' (опер-менеджер) → бот 2.
+// «/allow 123 Имя опер» — выдать роль ops; без слова — роль бота по умолчанию.
 //
 // Подключить вебхук (один раз после деплоя, токен наружу не выходит):
 //   https://urbanluxe.cc/.netlify/functions/tg-staff?setup=1
@@ -47,7 +48,13 @@ function makeBot(kind, fnName) {
     const r = await api(token, 'setWebhook', { url: base + '/.netlify/functions/' + fnName, allowed_updates: allowed });
     const info = await api(token, 'getWebhookInfo');
     const me = await api(token, 'getMe');
-    return { bot: me.result && ('@' + me.result.username), setWebhook: r, webhook: info.result };
+    // Старый бот (брони с сайта) раньше был подключён к tg-free — снимаем с него вебхук, он только шлёт уведомления
+    let oldBot = null;
+    if (TOKENS.bookings && TOKENS.bookings !== token) {
+      const oi = await api(TOKENS.bookings, 'getWebhookInfo');
+      if (oi.result && oi.result.url) oldBot = await api(TOKENS.bookings, 'deleteWebhook', { drop_pending_updates: true });
+    }
+    return { bot: me.result && ('@' + me.result.username), setWebhook: r, webhook: info.result, old_bot_webhook_removed: oldBot };
   }
 
   // сотрудник по chat_id (только нужная роль); админ проходит всегда
@@ -65,7 +72,10 @@ function makeBot(kind, fnName) {
     if (chatId !== ADMIN) return false;
     let m;
     if ((m = text.match(/^\/allow\s+(-?\d+)\s*(.*)$/))) {
-      const id = m[1], name = (m[2] || '').trim();
+      const id = m[1]; let name = (m[2] || '').trim();
+      // роль в конце: «/allow 123 Имя опер» → ops, «… бронер» → booker, «… горничная» → cleaning
+      const rm = name.match(/\s*(опер\w*|ops|бронер\w*|booker|горничн\w*|cleaning)$/i);
+      if (rm) { name = name.slice(0, rm.index).trim(); role = /опер|ops/i.test(rm[1]) ? 'ops' : /брон|booker/i.test(rm[1]) ? 'booker' : 'cleaning'; }
       let ex = await sb('staff?select=id,name,role&telegram_chat_id=eq.' + id).then(r => r.json());
       if (!ex.length && name) ex = await sb('staff?select=id,name,role&name=ilike.' + encodeURIComponent(name)).then(r => r.json());
       if (ex.length) await sb('staff?id=eq.' + ex[0].id, { method: 'PATCH', body: JSON.stringify({ is_active: true, telegram_chat_id: id, role: ex[0].role || role }) });
