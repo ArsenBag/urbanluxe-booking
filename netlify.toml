@@ -5,9 +5,10 @@
 [functions]
   node_bundler = "esbuild"
 
-# Ежедневный снапшот занятости (04:00 UTC = 09:00 Ташкент): история для календаря и аналитики
+# Снапшот занятости каждые 2 часа (было раз в день в 09:00 — к вечеру картина устаревала:
+# 18.09 утром 26/35, днём 31/35). История не портится: прошлые даты функция не трогает.
 [functions."occupancy-snapshot"]
-  schedule = "0 4 * * *"
+  schedule = "0 */2 * * *"
 
 # Утреннее сообщение горничным в Telegram (02:30 UTC = 07:30 Ташкент)
 [functions."morning-cleaning"]
@@ -23,6 +24,28 @@
 [[redirects]]
   from = "/uz"
   to = "/.netlify/functions/lang/uz"
+  status = 200
+
+# Корпоративная страница (24.09.2026): /corporate → corporate.html, /corporate/en — английская версия
+[[redirects]]
+  from = "/corporate/en"
+  to = "/corporate.html?lang=en"
+  status = 200
+
+[[redirects]]
+  from = "/corporate"
+  to = "/corporate.html"
+  status = 200
+
+[[redirects]]
+  from = "/ops"
+  to = "/ops.html"
+  status = 200
+
+# Страница бронера «что свободно» (28.09.2026)
+[[redirects]]
+  from = "/free"
+  to = "/free.html"
   status = 200
 
 # SEO-страницы апартаментов: /apartments и /apartments/<id> собираются функцией
