@@ -9,6 +9,8 @@
   var FB_PIXEL_ID = '1669497160892970'; // Meta Pixel «Сайт» — бизнес-портфолио urbanluxe.uz (рекламный аккаунт 1532421674464990).
   // Прежний 1057396590583083 (портфолио Tor) недоступен рекламному аккаунту — кампании не могли оптимизироваться на Lead.
   var YM_ID = 111964874;               // Яндекс.Метрика: счётчик Urban Luxe
+  var AW_ID = 'AW-18470064283';        // Google Ads 531-515-3107 (30.09.2026): конверсии для оптимизации ставок
+  var AW_LABELS = { telegram_click: 'xtRaCPPMuosdEJuhm-dE', whatsapp_click: 'xtRaCPPMuosdEJuhm-dE', generate_lead: '664PCPbMuosdEJuhm-dE' };
   // ============================
 
   var GA_ON = /^G-[A-Z0-9]+$/.test(GA4_ID);
@@ -24,6 +26,7 @@
     window.gtag = function () { window.dataLayer.push(arguments); };
     gtag('js', new Date());
     gtag('config', GA4_ID);
+    gtag('config', AW_ID);
   } else if (!window.gtag) { window.gtag = function () {}; }
 
   // --- Яндекс.Метрика ---
@@ -59,6 +62,7 @@
   var YM_GOALS = { view_item: 'VIEW_ITEM', search: 'SEARCH', begin_checkout: 'BEGIN_CHECKOUT', generate_lead: 'LEAD', telegram_click: 'TG_CLICK', whatsapp_click: 'TG_CLICK', share: 'SHARE' };
   function track(ga, gaParams, fb, fbParams) {
     try { if (GA_ON) gtag('event', ga, gaParams || {}); } catch (e) {}
+    try { if (GA_ON && AW_LABELS[ga]) gtag('event', 'conversion', { send_to: AW_ID + '/' + AW_LABELS[ga], value: (gaParams && gaParams.value) || 1, currency: 'USD' }); } catch (e) {}
     try { if (FB_ON && fb) fbq(fb.std ? 'track' : 'trackCustom', fb.name, fbParams || {}); } catch (e) {}
     try { if (YM_ON && YM_GOALS[ga]) ym(YM_ID, 'reachGoal', YM_GOALS[ga]); } catch (e) {}
   }
@@ -102,8 +106,10 @@
       var isBook = /\/functions\/book(\?|$|\/)/.test(url) && (!init || ((init.method || 'GET').toUpperCase() === 'POST'));
       var p = of.apply(this, arguments);
       if (isBook) {
+        var total = 1;
+        try { var bb = init && init.body && JSON.parse(init.body); total = Math.max(1, parseInt(bb && bb.total_price, 10) || 1); } catch (e) {}
         p.then(function (res) {
-          if (res && res.ok) track('generate_lead', { item_id: curApt(), value: 1 }, { std: true, name: 'Lead' });
+          if (res && res.ok) track('generate_lead', { item_id: curApt(), value: total, currency: 'USD' }, { std: true, name: 'Lead' }, { value: total, currency: 'USD' });
         }).catch(function () {});
       }
       return p;
