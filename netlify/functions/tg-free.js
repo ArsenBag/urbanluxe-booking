@@ -33,7 +33,7 @@ function parseListDate(s) {
 }
 
 const HELP = '<b>Что свободно:</b> напишите даты — <code>5.10</code>, <code>5.10-7.10</code>, <code>сегодня</code>, <code>завтра</code>.\n' +
-  '<b>Лист заездов:</b> <code>лист</code>, <code>лист завтра</code>, <code>лист 3.10</code> — галочки по каждой квартире.\n' +
+  '<b>Лист заездов:</b> кнопка «📋 Лист» внизу — таблица с календарём; или текстом <code>лист</code>, <code>лист завтра</code>.\n' +
   'Поля текстом: <code>ю100 площадка bnb</code> · <code>100 заезд 18:00</code> · <code>100 оплата 100 из 230</code> · <code>100 гостей 2</code>';
 
 async function notifyOps(fromStaff, text) {
@@ -43,9 +43,11 @@ async function notifyOps(fromStaff, text) {
   for (const id of ids) { if (fromStaff && String(fromStaff.chat_id) === String(id)) continue; await bot.send(id, text); }
 }
 
+const APP_BTN = () => [{ text: '📋 Открыть таблицу', web_app: { url: (process.env.URL || 'https://urbanluxe.cc') + '/ops.html' } }];
 async function showList(chatId, date, msgId) {
   await OPS.ensureDay(date);
   const s = OPS.summary(date, await OPS.getRows(date));
+  s.reply_markup.inline_keyboard.unshift(APP_BTN());
   if (msgId) return bot.edit(chatId, msgId, s.text, { reply_markup: s.reply_markup });
   return bot.send(chatId, s.text, { reply_markup: s.reply_markup });
 }
@@ -59,7 +61,7 @@ exports.handler = async (event) => {
   const ok = { statusCode: 200, body: 'ok' };
   if (!bot.token) return { statusCode: 500, body: 'TELEGRAM_BOOKER_BOT_TOKEN is not set' };
   if (event.httpMethod === 'GET') {
-    if ((event.queryStringParameters || {}).setup) return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await bot.setup(true)) };
+    if ((event.queryStringParameters || {}).setup) return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await bot.setup(true, { text: '📋 Лист', path: '/ops.html' })) };
     return { statusCode: 200, body: 'tg-free: POST from Telegram only' };
   }
   if (event.httpMethod !== 'POST') return ok;
@@ -103,7 +105,7 @@ exports.handler = async (event) => {
 
   if (/^\/start/.test(text)) {
     const st = await bot.whoIs(chatId, ROLES);
-    await bot.send(chatId, (st ? 'Здравствуйте, ' + T.esc(st.name) + '! ' : '') + 'Urban Luxe · бот бронеров.\nВаш chat_id: <code>' + chatId + '</code>\n\n' + HELP);
+    await bot.send(chatId, (st ? 'Здравствуйте, ' + T.esc(st.name) + '! ' : '') + 'Urban Luxe · бот бронеров.\nВаш chat_id: <code>' + chatId + '</code>\n\n' + HELP, st ? { reply_markup: { inline_keyboard: [APP_BTN()] } } : {});
     return ok;
   }
   if (await bot.adminCommand(chatId, text, 'booker')) return ok;

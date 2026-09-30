@@ -42,10 +42,12 @@ function makeBot(kind, fnName) {
   const edit = (chatId, msgId, text, extra) => api(token, 'editMessageText', Object.assign({ chat_id: chatId, message_id: msgId, text, parse_mode: 'HTML', disable_web_page_preview: true }, extra || {}));
   const answerCb = (id, text) => api(token, 'answerCallbackQuery', { callback_query_id: id, text: text || '' });
 
-  async function setup(withCallbacks) {
+  async function setup(withCallbacks, webApp) {
     const base = process.env.URL || 'https://urbanluxe.cc';
     const allowed = withCallbacks ? ['message', 'callback_query'] : ['message'];
     const r = await api(token, 'setWebhook', { url: base + '/.netlify/functions/' + fnName, allowed_updates: allowed });
+    // кнопка «меню» слева от поля ввода → Mini App
+    if (webApp) await api(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: webApp.text, web_app: { url: base + webApp.path } } });
     const info = await api(token, 'getWebhookInfo');
     const me = await api(token, 'getMe');
     // Старый бот (брони с сайта) раньше был подключён к tg-free — снимаем с него вебхук, он только шлёт уведомления
