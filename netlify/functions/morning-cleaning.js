@@ -1,9 +1,10 @@
 // Urban Luxe — morning-cleaning.js (Netlify scheduled, 07:30 Ташкент).
 // Утреннее сообщение в Telegram: уборки и заезды на сегодня.
 // Шлёт в TELEGRAM_CLEANING_CHAT_ID (группа горничных), если задан,
-// иначе — в TELEGRAM_CHAT_ID (менеджер). Env уже есть в Netlify.
+// иначе — в TELEGRAM_CHAT_ID (менеджер).
+// 30.09.2026: шлёт БОТ 1 (горничные) — TELEGRAM_STAFF_BOT_TOKEN, fallback на старый TELEGRAM_BOT_TOKEN.
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TOKEN = process.env.TELEGRAM_STAFF_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const CHAT = process.env.TELEGRAM_CLEANING_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
 
 function tashToday() {
@@ -47,7 +48,7 @@ exports.handler = async () => {
     }
     msg += `🔑 <b>Заезды сегодня: ${ci.length}</b>\n`;
     ci.forEach(b => { msg += `• ${nm(b.apartment_id)} — ${b.nights} ноч.\n`; });
-    msg += `\nОтмечать уборки: ${base}/staff.html (личная ссылка у каждого)`;
+    msg += `\nОтметить «Убрано»: напишите боту <b>сегодня</b> — или ${base}/staff.html`;
 
     const tg = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
