@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Лист заездов — Urban Luxe</title>
+<meta name="robots" content="noindex,nofollow">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0d0c0a;--bg2:#15130f;--bg3:#1e1b16;--ink:#ede8df;--ink-m:#a39a88;--ink-d:#6a6357;--gold:#c9a961;--gold-d:#9a8140;--line:rgba(201,169,97,.16);
+--in:#2ecc71;--busy:#e0b94a;--out:#5dade2;--free:#3a3630;--ok:#2ecc71;--part:#f39c12;--no:#e74c3c}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px}
+body{padding:10px 10px 90px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:17px;color:var(--gold);letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
+h1 small{font-family:inherit;font-size:11px;color:var(--ink-d);letter-spacing:0}
+/* календарь */
+.cal{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:8px;margin:10px 0}
+.cal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:14px}
+.cal-h button{background:none;border:0;color:var(--gold);font-size:20px;padding:0 12px;cursor:pointer}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-g .w{font-size:10px;color:var(--ink-d);text-align:center;text-transform:uppercase;padding:2px 0}
+.cal-g .d{position:relative;text-align:center;padding:7px 0;border-radius:8px;cursor:pointer;font-size:13px;color:var(--ink-m)}
+.cal-g .d.m{color:var(--ink)}
+.cal-g .d.t{outline:1px solid var(--gold-d)}
+.cal-g .d.sel{background:var(--gold);color:#111;font-weight:600}
+.cal-g .d .n{position:absolute;right:4px;top:2px;font-size:9px;color:var(--in)}
+.cal-g .d.sel .n{color:#111}
+/* вкладки, сводка */
+.tabs{display:flex;gap:6px;margin:8px 0}
+.tabs button{flex:1;background:var(--bg3);border:1px solid var(--line);color:var(--ink-m);padding:9px 4px;border-radius:9px;font-size:12px;cursor:pointer}
+.tabs button.on{background:var(--gold);color:#111;border-color:var(--gold);font-weight:600}
+.sum{display:flex;gap:6px;font-size:11px;color:var(--ink-m);margin:4px 0 8px;flex-wrap:wrap}
+.sum b{color:var(--ink)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+/* таблица */
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+table{border-collapse:collapse;min-width:100%;white-space:nowrap}
+th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-d);padding:8px 6px;text-align:left;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2);z-index:2}
+td{padding:6px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+tr.in td:first-child{box-shadow:inset 3px 0 var(--in)} tr.busy td:first-child{box-shadow:inset 3px 0 var(--busy)} tr.out td:first-child{box-shadow:inset 3px 0 var(--out)} tr.free td:first-child{box-shadow:inset 3px 0 var(--free)}
+td.apt{position:sticky;left:0;background:var(--bg2);z-index:1;font-weight:600;min-width:96px}
+td.apt small{display:block;font-weight:400;color:var(--ink-d);font-size:10px}
+.st{font-size:10px;padding:2px 6px;border-radius:6px;color:#111;font-weight:600}
+.st.in{background:var(--in)}.st.busy{background:var(--busy)}.st.out{background:var(--out)}.st.free{background:var(--free);color:var(--ink-m)}
+.cb{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--bg3);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:transparent}
+.cb.on{background:var(--ok);border-color:var(--ok);color:#111}
+.cb.na{background:transparent;color:var(--ink-d);border-style:dashed}
+select,input{background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 6px;font-size:13px;color-scheme:dark}
+select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58px} input.note{width:150px}
+.pay{display:flex;align-items:center;gap:3px}
+.pay .r{font-size:10px;color:var(--part)} .pay .r.ok{color:var(--ok)} .pay .r.no{color:var(--no)}
+.saving{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--line);padding:6px 14px;border-radius:20px;font-size:12px;color:var(--ink-m);opacity:0;transition:.2s}
+.saving.on{opacity:1}
+.err{background:#3a1a1a;border:1px solid #6b2b2b;padding:12px;border-radius:10px;margin:10px 0;font-size:13px}
+/* шахматка */
+.chess{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.chess table{font-size:10px}
+.chess td,.chess th{padding:3px 2px;text-align:center;min-width:22px}
+.chess td.apt{text-align:left;min-width:90px;font-size:11px}
+.chess .c{width:20px;height:20px;border-radius:4px;margin:0 auto}
+.chess .c.busy{background:var(--busy)} .chess .c.in{background:var(--in)} .chess .c.free{background:var(--free)}
+.chess th.we{color:var(--gold)}
+</style>
+</head>
+<body>
+<h1>Лист заездов <small id="who"></small></h1>
+
+<div class="cal">
+  <div class="cal-h"><button id="pm">‹</button><span id="mt"></span><button id="nm">›</button></div>
+  <div class="cal-g" id="cg"></div>
+</div>
+
+<div class="tabs">
+  <button data-t="arr" class="on">Заезды</button><button data-t="all">Все квартиры</button><button data-t="chess">Шахматка</button>
+</div>
+<div class="sum" id="sum"></div>
+<div id="view"></div>
+<div class="saving" id="sv">Сохраняю…</div>
+
+<script>
+(function(){
+  var tg = window.Telegram && Telegram.WebApp; if (tg) { tg.ready(); tg.expand(); }
+  var initData = (tg && tg.initData) || new URLSearchParams(location.search).get('initData') || '';
+  var API = '/.netlify/functions/ops-api';
+  var state = { date: tashToday(), month: null, tab: 'arr', data: null, chess: null };
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var $ = function(s){ return document.querySelector(s); };
+  function tashToday(){ return new Date(Date.now()+5*3600*1000).toISOString().slice(0,10); }
+  function addDays(iso,n){ var d=new Date(iso+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+  function ru(iso){ return iso.split('-').reverse().join('.'); }
+  function esc(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); }
+  function shortName(r){ return (r.complex||'').split(' ')[0] + ' ' + (r.name||'').replace(/\D/g,''); }
+
+  // ---------- календарь ----------
+  function drawCal(){
+    var ym = state.month || state.date.slice(0,7); state.month = ym;
+    var y=+ym.slice(0,4), m=+ym.slice(5,7);
+    $('#mt').textContent = MONTHS[m-1]+' '+y;
+    var first = new Date(Date.UTC(y,m-1,1)); var dow=(first.getUTCDay()+6)%7; var dim=new Date(Date.UTC(y,m,0)).getUTCDate();
+    var h=''; ['пн','вт','ср','чт','пт','сб','вс'].forEach(function(w){h+='<div class="w">'+w+'</div>';});
+    for(var i=0;i<dow;i++) h+='<div></div>';
+    var cnt = (state.data && state.data.date.slice(0,7)===ym) ? state.data.month : {};
+    for(var d=1;d<=dim;d++){ var iso=ym+'-'+(d<10?'0':'')+d; var c='d m'+(iso===state.date?' sel':'')+(iso===tashToday()?' t':'');
+      h+='<div class="'+c+'" data-d="'+iso+'">'+d+(cnt[iso]?'<span class="n">'+cnt[iso]+'</span>':'')+'</div>'; }
+    $('#cg').innerHTML=h;
+  }
+  $('#cg').addEventListener('click',function(e){ var d=e.target.closest('.d'); if(!d) return; state.date=d.dataset.d; load(); });
+  $('#pm').onclick=function(){ var y=+state.month.slice(0,4),m=+state.month.slice(5,7)-1; if(m<1){m=12;y--;} state.month=y+'-'+(m<10?'0':'')+m; state.date=state.month+'-01'; load(); };
+  $('#nm').onclick=function(){ var y=+state.month.slice(0,4),m=+state.month.slice(5,7)+1; if(m>12){m=1;y++;} state.month=y+'-'+(m<10?'0':'')+m; state.date=state.month+'-01'; load(); };
+
+  // ---------- данные ----------
+  async function api(body){ var r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({initData:initData},body))}); return r.json(); }
+  async function load(){
+    state.month = state.date.slice(0,7); drawCal();
+    $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Загружаю…</div>';
+    try{ var d=await api({date:state.date}); if(d.error){ $('#view').innerHTML='<div class="err">'+(d.error==='no access'?'Нет доступа. Ваш id: '+esc(d.user_id)+' — напишите боту /start и попросите Арсена выдать доступ.':esc(d.error))+'</div>'; return; }
+      state.data=d; $('#who').textContent=d.staff.name+(d.synced_at?' · RC '+new Date(d.synced_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):''); drawCal(); render(); }
+    catch(e){ $('#view').innerHTML='<div class="err">Ошибка: '+esc(e.message)+'</div>'; }
+  }
+
+  // ---------- таблица ----------
+  var SRC;
+  function cb(r,k,val,cls){ return '<span class="cb'+(val?' on':'')+(cls||'')+'" data-a="'+r.apartment_id+'" data-k="'+k+'">✓</span>'; }
+  function regCell(r){ var v=r.registration||'needed'; var lbl={needed:'нужна',done:'сделана',not_needed:'не надо'}[v]; var cls=v==='done'?' on':v==='not_needed'?' na':'';
+    return '<span class="cb'+cls+'" data-a="'+r.apartment_id+'" data-k="registration" title="'+lbl+'">'+(v==='done'?'✓':v==='not_needed'?'—':'')+'</span> <small style="color:var(--ink-d);font-size:10px">'+lbl+'</small>'; }
+  function payCell(r){ var tot=r.payment_total!=null?+r.payment_total:null, paid=+(r.payment_paid||0); var rest=tot!=null?tot-paid:null;
+    var txt=tot==null?'':(rest<=0?'✓ всё':'ост. '+rest+'$'); var cls=tot==null?'':(rest<=0?'ok':(paid>0?'':'no'));
+    return '<div class="pay"><input class="p" type="number" inputmode="decimal" placeholder="опл." value="'+(r.payment_paid||'')+'" data-a="'+r.apartment_id+'" data-k="payment_paid"> / <input class="p" type="number" inputmode="decimal" placeholder="итого" value="'+(tot!=null?tot:'')+'" data-a="'+r.apartment_id+'" data-k="payment_total"><span class="r '+cls+'">'+txt+'</span></div>'; }
+  function srcCell(r){ var h='<select data-a="'+r.apartment_id+'" data-k="source"><option value="">—</option>'; Object.keys(SRC).forEach(function(k){ h+='<option value="'+k+'"'+(r.source===k?' selected':'')+'>'+SRC[k]+'</option>'; });
+    if(r.source && !SRC[r.source]) h+='<option value="'+esc(r.source)+'" selected>'+esc(r.source)+'</option>'; return h+'<option value="__other">другое…</option></select>'; }
+  function render(){
+    var d=state.data; SRC=d.sources; var rows=d.rows.slice();
+    var cnt={in:0,busy:0,out:0,free:0}; rows.forEach(function(r){cnt[r.status]++;});
+    $('#sum').innerHTML='<span><i class="dot" style="background:var(--in)"></i>заезд <b>'+cnt.in+'</b></span><span><i class="dot" style="background:var(--busy)"></i>живут <b>'+cnt.busy+'</b></span><span><i class="dot" style="background:var(--out)"></i>выезд <b>'+cnt.out+'</b></span><span><i class="dot" style="background:var(--free)"></i>свободно <b>'+cnt.free+'</b></span><span>· '+ru(d.date)+'</span>';
+    if(state.tab==='chess'){ return renderChess(); }
+    if(state.tab==='arr') rows=rows.filter(function(r){ return r.status==='in' || r.id; });
+    if(!rows.length){ $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Заездов на '+ru(d.date)+' нет.</div>'; return; }
+    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Статус</th><th>Площадка</th><th>Гость</th><th>Заезд</th><th>Выезд</th><th>Чел</th><th>Паспорт</th><th>Доступ</th><th>Регистр.</th><th>Рег.отпр</th><th>Ут.заезд</th><th>Ут.выезд</th><th>Оплата $</th><th>Отзыв</th><th>Заметка</th></tr>';
+    rows.forEach(function(r){ var stl={in:'заезд',busy:'живут',out:'выезд',free:'свободно'}[r.status];
+      var stay=r.stay?ru(r.stay.check_in).slice(0,5)+'→'+ru(r.stay.check_out).slice(0,5):(r.free_until?'до '+ru(r.free_until).slice(0,5):'');
+      h+='<tr class="'+r.status+'"><td class="apt">'+esc(shortName(r))+'<small>'+esc(r.complex||'')+(r.floor?' · эт. '+r.floor:'')+(r.rooms?' · '+esc(r.rooms):'')+'</small></td>'+
+        '<td><span class="st '+r.status+'">'+stl+'</span><small style="display:block;color:var(--ink-d);font-size:10px">'+stay+'</small></td>'+
+        '<td>'+srcCell(r)+'</td><td><input class="note" style="width:110px" placeholder="имя" value="'+esc(r.guest_name)+'" data-a="'+r.apartment_id+'" data-k="guest_name"></td>'+
+        '<td><input class="t" placeholder="18:00" value="'+esc(r.checkin_time)+'" data-a="'+r.apartment_id+'" data-k="checkin_time"></td>'+
+        '<td><input class="t" placeholder="12:00" value="'+esc(r.checkout_time)+'" data-a="'+r.apartment_id+'" data-k="checkout_time"></td>'+
+        '<td><input class="n" type="number" inputmode="numeric" value="'+(r.guests||'')+'" data-a="'+r.apartment_id+'" data-k="guests"></td>'+
+        '<td>'+cb(r,'passport',r.passport)+'</td><td>'+cb(r,'access',r.access)+'</td><td>'+regCell(r)+'</td><td>'+cb(r,'reg_sent',r.reg_sent)+'</td>'+
+        '<td>'+cb(r,'confirm_checkin',r.confirm_checkin)+'</td><td>'+cb(r,'confirm_checkout',r.confirm_checkout)+'</td>'+
+        '<td>'+payCell(r)+'</td><td>'+cb(r,'review',r.review)+'</td>'+
+        '<td><input class="note" placeholder="…" value="'+esc(r.note)+'" data-a="'+r.apartment_id+'" data-k="note"></td></tr>'; });
+    $('#view').innerHTML=h+'</table></div>';
+  }
+  async function renderChess(){
+    var from=state.date, to=addDays(state.date,20);
+    $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Строю шахматку…</div>';
+    var d=await api({date:state.date,from:from,to:to}); if(d.error){ $('#view').innerHTML='<div class="err">'+esc(d.error)+'</div>'; return; }
+    var h='<div class="chess"><table><tr><th class="apt">Квартира</th>'; d.days.forEach(function(x){ var dt=new Date(x+'T00:00:00Z'); var we=dt.getUTCDay()===0||dt.getUTCDay()===6; h+='<th class="'+(we?'we':'')+'">'+dt.getUTCDate()+'</th>'; }); h+='</tr>';
+    d.grid.forEach(function(a){ h+='<tr><td class="apt">'+esc(shortName(a))+'</td>'; a.days.forEach(function(s){ h+='<td><div class="c '+(s||'free')+'"></div></td>'; }); h+='</tr>'; });
+    $('#view').innerHTML=h+'</table></div><div class="sum" style="margin-top:6px"><span><i class="dot" style="background:var(--in)"></i>заезд</span><span><i class="dot" style="background:var(--busy)"></i>занято</span><span><i class="dot" style="background:var(--free)"></i>свободно</span><span>· 3 недели от выбранной даты</span></div>';
+  }
+
+  // ---------- сохранение ----------
+  var timers={};
+  async function save(aptId, patch){ $('#sv').classList.add('on'); try{ var r=await api({date:state.date,apartment_id:aptId,patch:patch}); if(r.error) alert(r.error); var row=state.data.rows.find(function(x){return x.apartment_id===aptId;}); if(row) Object.assign(row,patch,{id:row.id||1}); } finally{ setTimeout(function(){$('#sv').classList.remove('on');},300); } }
+  document.addEventListener('click',function(e){ var el=e.target.closest('.cb'); if(!el) return; var a=el.dataset.a,k=el.dataset.k; var row=state.data.rows.find(function(x){return x.apartment_id===a;});
+    var patch={}; if(k==='registration'){ var v=row.registration||'needed'; patch.registration = v==='needed'?'done':v==='done'?'not_needed':'needed'; } else patch[k]=!row[k];
+    save(a,patch).then(function(){ if(state.tab!=='chess') render(); }); if(tg&&tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); });
+  document.addEventListener('change',function(e){ var el=e.target; if(!el.dataset||!el.dataset.k) return; var a=el.dataset.a,k=el.dataset.k,v=el.value;
+    if(k==='source'&&v==='__other'){ v=prompt('Площадка:')||''; el.value=''; }
+    if(k==='guests'||k==='payment_paid'||k==='payment_total') v=v===''?null:+v;
+    var patch={}; patch[k]=v; save(a,patch).then(function(){ if(k==='payment_paid'||k==='payment_total') render(); }); });
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('.tabs button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); state.tab=b.dataset.t; render(); }; });
+  load();
+})();
+</script>
+</body>
+</html>

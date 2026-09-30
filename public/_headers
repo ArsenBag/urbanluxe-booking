@@ -13,3 +13,8 @@
 
 /sitemap.xml
   Cache-Control: public, max-age=86400
+
+# Mini App «Лист заездов» (01.10.2026): открывается внутри Telegram (в web-версии — iframe web.telegram.org)
+/ops.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors https://web.telegram.org https://*.telegram.org 'self'
+  X-Frame-Options: ALLOWALL
