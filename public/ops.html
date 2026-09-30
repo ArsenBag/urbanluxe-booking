@@ -28,7 +28,7 @@ h1 small{font-family:inherit;font-size:11px;color:var(--ink-d);letter-spacing:0}
 .cal-g .d.sel .n{color:#111}
 /* вкладки, сводка */
 .tabs{display:flex;gap:6px;margin:8px 0}
-.tabs button{flex:1;background:var(--bg3);border:1px solid var(--line);color:var(--ink-m);padding:9px 4px;border-radius:9px;font-size:12px;cursor:pointer}
+.tabs{flex-wrap:wrap}.tabs button{flex:1 1 30%;background:var(--bg3);border:1px solid var(--line);color:var(--ink-m);padding:9px 4px;border-radius:9px;font-size:12px;cursor:pointer}
 .tabs button.on{background:var(--gold);color:#111;border-color:var(--gold);font-weight:600}
 .sum{display:flex;gap:6px;font-size:11px;color:var(--ink-m);margin:4px 0 8px;flex-wrap:wrap}
 .sum b{color:var(--ink)}
@@ -88,7 +88,7 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
 </div>
 
 <div class="tabs">
-  <button data-t="arr" class="on">Заезды</button><button data-t="all">Все</button><button data-t="chess">Шахматка</button><button data-t="free">Свободно</button>
+  <button data-t="arr" class="on">Заезды</button><button data-t="out">Выезды</button><button data-t="all">Все</button><button data-t="chess">Шахматка</button><button data-t="free">Свободно</button><button data-t="rep">Отчёт</button>
 </div>
 <div class="sum" id="sum"></div>
 <div id="view"></div>
@@ -153,9 +153,11 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
     $('#sum').innerHTML='<span><i class="dot" style="background:var(--in)"></i>заезд <b>'+cnt.in+'</b></span><span><i class="dot" style="background:var(--busy)"></i>живут <b>'+cnt.busy+'</b></span><span><i class="dot" style="background:var(--out)"></i>выезд <b>'+cnt.out+'</b></span><span><i class="dot" style="background:var(--free)"></i>свободно <b>'+cnt.free+'</b></span><span>· '+ru(d.date)+'</span>';
     if(state.tab==='chess'){ return renderChess(); }
     if(state.tab==='free'){ return renderFree(); }
+    if(state.tab==='out'){ return renderOut(); }
+    if(state.tab==='rep'){ return renderReport(); }
     if(state.tab==='arr') rows=rows.filter(function(r){ return r.status==='in' || r.id; });
     if(!rows.length){ $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Заездов на '+ru(d.date)+' нет.</div>'; return; }
-    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Статус</th><th>Площадка</th><th>Гость</th><th>Заезд</th><th>Выезд</th><th>Чел</th><th>Паспорт</th><th>Доступ</th><th>Регистр.</th><th>Рег.отпр</th><th>Ут.заезд</th><th>Ут.выезд</th><th>Оплата $</th><th>Депозит</th><th>Отзыв</th><th>Заметка</th></tr>';
+    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Статус</th><th>Площадка</th><th>Гость</th><th>Заезд</th><th>Выезд</th><th>Чел</th><th>Паспорт</th><th>Доступ</th><th>Заехал</th><th>Регистр.</th><th>Рег.отпр</th><th>Ут.заезд</th><th>Ут.выезд</th><th>Оплата $</th><th>Депозит</th><th>Отзыв</th><th>Заметка</th></tr>';
     rows.forEach(function(r){ var stl={in:'заезд',busy:'живут',out:'выезд',free:'свободно'}[r.status];
       var stay=r.stay?ru(r.stay.check_in).slice(0,5)+'→'+ru(r.stay.check_out).slice(0,5):(r.free_until?'до '+ru(r.free_until).slice(0,5):'');
       h+='<tr class="'+r.status+'"><td class="apt">'+esc(shortName(r))+'<small>'+esc(r.complex||'')+(r.floor?' · эт. '+r.floor:'')+(r.rooms?' · '+esc(r.rooms):'')+'</small></td>'+
@@ -164,7 +166,7 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
         '<td><input class="t" placeholder="18:00" value="'+esc(r.checkin_time)+'" data-a="'+r.apartment_id+'" data-k="checkin_time"></td>'+
         '<td><input class="t" placeholder="12:00" value="'+esc(r.checkout_time)+'" data-a="'+r.apartment_id+'" data-k="checkout_time"></td>'+
         '<td><input class="n" type="number" inputmode="numeric" value="'+(r.guests||'')+'" data-a="'+r.apartment_id+'" data-k="guests"></td>'+
-        '<td>'+cb(r,'passport',r.passport)+'</td><td>'+cb(r,'access',r.access)+'</td><td>'+regCell(r)+'</td><td>'+cb(r,'reg_sent',r.reg_sent)+'</td>'+
+        '<td>'+cb(r,'passport',r.passport)+'</td><td>'+cb(r,'access',r.access)+'</td><td>'+cb(r,'checked_in',r.checked_in)+'</td><td>'+regCell(r)+'</td><td>'+cb(r,'reg_sent',r.reg_sent)+'</td>'+
         '<td>'+cb(r,'confirm_checkin',r.confirm_checkin)+'</td><td>'+cb(r,'confirm_checkout',r.confirm_checkout)+'</td>'+
         '<td>'+payCell(r)+'</td><td>'+depCell(r)+'</td><td>'+cb(r,'review',r.review)+'</td>'+
         '<td><input class="note" placeholder="…" value="'+esc(r.note)+'" data-a="'+r.apartment_id+'" data-k="note"></td></tr>'; });
@@ -177,6 +179,40 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
     var h='<div class="chess"><table><tr><th class="apt">Квартира</th>'; d.days.forEach(function(x){ var dt=new Date(x+'T00:00:00Z'); var we=dt.getUTCDay()===0||dt.getUTCDay()===6; h+='<th class="'+(we?'we':'')+'">'+dt.getUTCDate()+'</th>'; }); h+='</tr>';
     d.grid.forEach(function(a){ h+='<tr><td class="apt">'+esc(shortName(a))+'</td>'; a.days.forEach(function(s){ h+='<td><div class="c '+(s||'free')+'"></div></td>'; }); h+='</tr>'; });
     $('#view').innerHTML=h+'</table></div><div class="sum" style="margin-top:6px"><span><i class="dot" style="background:var(--in)"></i>заезд</span><span><i class="dot" style="background:var(--busy)"></i>занято</span><span><i class="dot" style="background:var(--free)"></i>свободно</span><span>· 3 недели от выбранной даты</span></div>';
+  }
+
+  // ---------- выезды дня (редактируется строка заезда той же брони) ----------
+  function cbd(r,k,d){ return '<span class="cb'+(r[k]?' on':'')+'" data-a="'+r.apartment_id+'" data-k="'+k+'" data-d="'+d+'">✓</span>'; }
+  function renderOut(){
+    var d=state.data; var rows=d.rows.filter(function(r){return r.checkout;});
+    if(!rows.length){ $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Выездов на '+ru(d.date)+' нет.</div>'; return; }
+    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Жили</th><th>Площадка</th><th>Гость</th><th>Выезд</th><th>Выехал</th><th>Оплата $</th><th>Депозит возвращён</th><th>Отзыв</th><th>Заметка</th></tr>';
+    rows.forEach(function(r){ var c=r.checkout, ad=c.check_in; var tot=c.payment_total!=null?+c.payment_total:null, paid=+(c.payment_paid||0); var rest=tot!=null?tot-paid:null;
+      var pay=tot==null?'<span style="color:var(--ink-d)">не задана</span>':(rest<=0?'<span style="color:var(--ok)">✓ '+tot+'$</span>':'<span style="color:var(--no)">долг '+rest+'$ из '+tot+'</span>');
+      h+='<tr class="out"><td class="apt">'+esc(shortName(r))+'<small>'+esc(r.complex||'')+'</small></td>'+
+        '<td><small style="color:var(--ink-m)">'+ru(ad).slice(0,5)+'→'+ru(d.date).slice(0,5)+' · '+c.nights+' ноч.</small></td>'+
+        '<td>'+(SRC[c.source]||esc(c.source)||'—')+'</td><td>'+esc(c.guest_name||'—')+'</td>'+
+        '<td><input class="t" placeholder="12:00" value="'+esc(c.checkout_time)+'" data-a="'+r.apartment_id+'" data-k="checkout_time" data-d="'+ad+'"></td>'+
+        '<td>'+cbd(c,'checked_out',ad)+'</td><td>'+pay+'</td><td>'+cbd(c,'deposit_returned',ad)+(c.deposit_received?'':' <small style="color:var(--ink-d)">депозит не отмечен</small>')+'</td><td>'+cbd(c,'review',ad)+'</td>'+
+        '<td><input class="note" placeholder="…" value="'+esc(c.note)+'" data-a="'+r.apartment_id+'" data-k="note" data-d="'+ad+'"></td></tr>'; });
+    $('#view').innerHTML=h+'</table></div><div class="sum" style="margin-top:6px"><span>Галочки здесь меняют строку заезда этой же брони — всё в одном месте.</span></div>';
+  }
+
+  // ---------- отчёт за период ----------
+  var RP={from:null,to:null};
+  async function renderReport(){
+    if(!RP.from){ RP.to=state.date; RP.from=addDays(state.date,-6); }
+    var bar='<div class="fbar"><input type="date" id="rf" value="'+RP.from+'"> → <input type="date" id="rt" value="'+RP.to+'"><span class="chip" data-p="1">Вчера</span><span class="chip" data-p="7">7 дней</span><span class="chip" data-p="30">30 дней</span><span class="chip" data-p="m">Месяц</span></div>';
+    $('#view').innerHTML=bar+'<div style="padding:16px;color:var(--ink-d)">Считаю…</div>';
+    var d=await api({report:{from:RP.from,to:RP.to}}); if(d.error){ $('#view').innerHTML=bar+'<div class="err">'+esc(d.error)+'</div>'; return; }
+    var S=d.sum; var h=bar+'<div class="sum" style="font-size:12px;gap:12px"><span>Выездов <b>'+S.stays+'</b></span><span>Ночей <b>'+S.nights+'</b></span><span>Итого <b>'+S.total+'$</b></span><span>Оплачено <b style="color:var(--ok)">'+S.paid+'$</b></span><span>Долг <b style="color:var(--no)">'+S.debt+'$</b></span><span>Без суммы <b>'+S.no_total+'</b></span><span>Депозит не возвращён <b>'+S.deposit_open+'</b></span><span>Отзывов <b>'+S.reviews+'</b></span></div>';
+    h+='<div class="sum">'+Object.keys(d.bySrc).map(function(k){return '<span>'+(SRC[k]||k)+': <b>'+d.bySrc[k].n+'</b> · '+d.bySrc[k].total+'$</span>';}).join('')+'</div>';
+    h+='<div class="tbl"><table><tr><th>Выезд</th><th>Квартира</th><th>Гость</th><th>Площадка</th><th>Ночей</th><th>Итого</th><th>Оплачено</th><th>Долг</th><th>Депозит</th><th>Отзыв</th></tr>';
+    d.list.forEach(function(x){ var tot=x.payment_total!=null?+x.payment_total:null; var rest=tot!=null?Math.max(0,tot-x.payment_paid):null;
+      h+='<tr class="'+(rest>0?'in':'free')+'"><td>'+ru(x.check_out).slice(0,5)+'</td><td class="apt">'+esc(shortName(x))+'</td><td>'+esc(x.guest_name||'—')+'</td><td>'+(SRC[x.source]||esc(x.source)||'—')+'</td><td>'+x.nights+'</td><td>'+(tot!=null?tot+'$':'—')+'</td><td>'+x.payment_paid+'$</td><td style="color:'+(rest>0?'var(--no)':'var(--ink-d)')+'">'+(rest!=null?rest+'$':'—')+'</td><td>'+(x.deposit_returned?'возвращён':x.deposit_received?'<span style="color:var(--part)">у нас</span>':'—')+'</td><td>'+(x.review?'✓':'')+'</td></tr>'; });
+    $('#view').innerHTML=h+'</table></div>';
+    $('#rf').onchange=function(){ RP.from=this.value; renderReport(); }; $('#rt').onchange=function(){ RP.to=this.value; renderReport(); };
+    document.querySelectorAll('.chip[data-p]').forEach(function(c){ c.onclick=function(){ var t=tashToday(); if(c.dataset.p==='1'){ RP.from=RP.to=addDays(t,-1); } else if(c.dataset.p==='m'){ RP.from=t.slice(0,8)+'01'; RP.to=t; } else { RP.to=t; RP.from=addDays(t,-(+c.dataset.p-1)); } renderReport(); }; });
   }
 
   // ---------- свободно + бронь ----------
@@ -221,14 +257,14 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
 
   // ---------- сохранение ----------
   var timers={};
-  async function save(aptId, patch){ $('#sv').classList.add('on'); try{ var r=await api({date:state.date,apartment_id:aptId,patch:patch}); if(r.error) alert(r.error); var row=state.data.rows.find(function(x){return x.apartment_id===aptId;}); if(row) Object.assign(row,patch,{id:row.id||1}); } finally{ setTimeout(function(){$('#sv').classList.remove('on');},300); } }
-  document.addEventListener('click',function(e){ var el=e.target.closest('.cb'); if(!el) return; var a=el.dataset.a,k=el.dataset.k; var row=state.data.rows.find(function(x){return x.apartment_id===a;});
+  async function save(aptId, patch, date){ $('#sv').classList.add('on'); try{ var r=await api({date:date||state.date,apartment_id:aptId,patch:patch}); if(r.error) alert(r.error); var row=state.data.rows.find(function(x){return x.apartment_id===aptId;}); if(row) Object.assign(row,patch,{id:row.id||1}); } finally{ setTimeout(function(){$('#sv').classList.remove('on');},300); } }
+  document.addEventListener('click',function(e){ var el=e.target.closest('.cb'); if(!el) return; var a=el.dataset.a,k=el.dataset.k,d=el.dataset.d; var base=state.data.rows.find(function(x){return x.apartment_id===a;}); var row=d?base.checkout:base;
     var patch={}; if(k==='registration'){ var v=row.registration||'needed'; patch.registration = v==='needed'?'done':v==='done'?'not_needed':'needed'; } else patch[k]=!row[k];
-    save(a,patch).then(function(){ if(state.tab!=='chess') render(); }); if(tg&&tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); });
-  document.addEventListener('change',function(e){ var el=e.target; if(!el.dataset||!el.dataset.k) return; var a=el.dataset.a,k=el.dataset.k,v=el.value;
+    Object.assign(row,patch); save(a,patch,d).then(function(){ if(state.tab!=='chess') render(); }); if(tg&&tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); });
+  document.addEventListener('change',function(e){ var el=e.target; if(!el.dataset||!el.dataset.k) return; var a=el.dataset.a,k=el.dataset.k,v=el.value,d=el.dataset.d;
     if(k==='source'&&v==='__other'){ v=prompt('Площадка:')||''; el.value=''; }
     if(k==='guests'||k==='payment_paid'||k==='payment_total') v=v===''?null:+v;
-    var patch={}; patch[k]=v; save(a,patch).then(function(){ if(k==='payment_paid'||k==='payment_total') render(); }); });
+    var patch={}; patch[k]=v; var base=state.data.rows.find(function(x){return x.apartment_id===a;}); Object.assign(d?base.checkout:base,patch); save(a,patch,d).then(function(){ if(k==='payment_paid'||k==='payment_total') render(); }); });
   document.querySelectorAll('.tabs button').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('.tabs button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); state.tab=b.dataset.t; render(); }; });
   load();
 })();
