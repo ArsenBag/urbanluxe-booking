@@ -111,6 +111,7 @@ function rowCard(r) {
     [b(flag(r.confirm_checkin) + ' Уточнён заезд', 'confirm_checkin'), b(flag(r.confirm_checkout) + ' Уточнён выезд', 'confirm_checkout')],
     [b((r.payment_total != null && Number(r.payment_paid || 0) >= Number(r.payment_total) ? '☑' : '☐') + ' Оплачено полностью', 'paid_full'), b(flag(r.review) + ' Отзыв', 'review')],
     [b(flag(r.deposit_received) + ' Депозит получен', 'deposit_received'), b(flag(r.deposit_returned) + ' Депозит возвращён', 'deposit_returned')],
+    [b(flag(r.checked_in) + ' Гость заехал', 'checked_in'), b(flag(r.checked_out) + ' Гость выехал', 'checked_out')],
     [{ text: '📢 Сообщить опер-менеджеру', callback_data: 'tg|' + id + '|notify' }, { text: '↩ Список', callback_data: 'ops|' + r.date }]
   ];
   return { text: t, reply_markup: { inline_keyboard: kb } };

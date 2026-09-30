@@ -107,7 +107,7 @@ exports.handler = async (event) => {
           await bot.answerCb(cq.id, 'Сохранено');
           await showCard(chatId, res.row, mid);
           if (st.role !== 'ops') {
-            const labels = { deposit_received: 'Депозит получен', deposit_returned: 'Депозит возвращён', passport: 'Паспорт', access: 'Доступ', registration: 'Регистрация', reg_sent: 'Рег. отправлена', confirm_checkin: 'Заезд уточнён', confirm_checkout: 'Выезд уточнён', paid_full: 'Оплата', review: 'Отзыв' };
+            const labels = { checked_in: 'Заехал', checked_out: 'Выехал', deposit_received: 'Депозит получен', deposit_returned: 'Депозит возвращён', passport: 'Паспорт', access: 'Доступ', registration: 'Регистрация', reg_sent: 'Рег. отправлена', confirm_checkin: 'Заезд уточнён', confirm_checkout: 'Выезд уточнён', paid_full: 'Оплата', review: 'Отзыв' };
             const v = res.changed === 'registration' ? res.row.registration : (res.changed === 'paid_full' ? (Number(res.row.payment_paid) >= Number(res.row.payment_total) ? '☑' : '☐') : (res.row[res.changed] ? '☑' : '☐'));
             await notifyOps({ chat_id: chatId }, '🔔 <b>' + T.esc(res.row.short) + '</b> ' + T.ruDate(res.row.date) + ': ' + labels[res.changed] + ' → ' + T.esc(v) + ' <i>(' + T.esc(st.name) + ')</i>');
           }

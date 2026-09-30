@@ -40,7 +40,7 @@ async function staffOf(user) {
   s.chat_id = id; return s;
 }
 
-const FIELDS = ['deposit_received', 'deposit_returned', 'deposit_amount', 'source', 'checkin_time', 'checkout_time', 'guests', 'passport', 'access', 'registration', 'reg_sent', 'confirm_checkin', 'confirm_checkout', 'payment_total', 'payment_paid', 'review', 'note', 'guest_name'];
+const FIELDS = ['checked_in', 'checked_out', 'deposit_received', 'deposit_returned', 'deposit_amount', 'source', 'checkin_time', 'checkout_time', 'guests', 'passport', 'access', 'registration', 'reg_sent', 'confirm_checkin', 'confirm_checkout', 'payment_total', 'payment_paid', 'review', 'note', 'guest_name'];
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: H, body: '' };
@@ -121,6 +121,24 @@ exports.handler = async (event) => {
       return out(200, { ok: true, booking_ref: ref, total, nights });
     }
 
+    // отчёт за период: выезды с оплатой/депозитом/отзывом (по строкам заезда)
+    if (body.report) {
+      const from = body.report.from, to = body.report.to;
+      const stays = all.filter(b => b.check_out >= from && b.check_out <= to);
+      const ids = new Set(stays.map(b => b.apartment_id));
+      const opsRows = await T.sb('daily_ops?select=*&date=gte.' + addDays(from, -60) + '&date=lte.' + to).then(x => x.json()).catch(() => []);
+      const byKey = {}; opsRows.forEach(r => { byKey[r.date + '|' + r.apartment_id] = r; });
+      const apts = await T.sb('apartments?select=id,name,complex').then(x => x.json()); const an = {}; apts.forEach(a => { an[a.id] = a; });
+      const list = stays.map(b => { const r = byKey[b.check_in + '|' + b.apartment_id] || {}; const a = an[b.apartment_id] || { name: b.apartment_id, complex: '' };
+        return { apartment_id: b.apartment_id, name: a.name, complex: a.complex, check_in: b.check_in, check_out: b.check_out, nights: b.nights, source: r.source || null, guest_name: r.guest_name || null,
+          payment_total: r.payment_total, payment_paid: r.payment_paid || 0, deposit_received: !!r.deposit_received, deposit_returned: !!r.deposit_returned, review: !!r.review, checked_in: !!r.checked_in, checked_out: !!r.checked_out, filled: !!r.id }; })
+        .sort((x, y) => x.check_out < y.check_out ? -1 : x.check_out > y.check_out ? 1 : 0);
+      const sum = { stays: list.length, nights: 0, total: 0, paid: 0, debt: 0, no_total: 0, deposit_open: 0, reviews: 0 };
+      list.forEach(x => { sum.nights += x.nights || 0; if (x.payment_total != null) { sum.total += +x.payment_total; sum.paid += Math.min(+x.payment_paid, +x.payment_total); sum.debt += Math.max(0, +x.payment_total - +x.payment_paid); } else sum.no_total++; if (x.deposit_received && !x.deposit_returned) sum.deposit_open++; if (x.review) sum.reviews++; });
+      const bySrc = {}; list.forEach(x => { const k = x.source || '—'; bySrc[k] = bySrc[k] || { n: 0, total: 0 }; bySrc[k].n++; bySrc[k].total += +(x.payment_total || 0); });
+      return out(200, { from, to, list, sum, bySrc });
+    }
+
     // занятость на период (шахматка)
     if (body.from && body.to) {
       const apts = await T.sb('apartments?select=id,name,complex,floor,rooms&is_active=eq.true&order=complex,name').then(x => x.json());
@@ -137,6 +155,12 @@ exports.handler = async (event) => {
       T.sb('daily_ops?select=*&date=eq.' + date).then(x => x.json())
     ]);
     const ops = {}; rowsRaw.forEach(r => { ops[r.apartment_id] = r; });
+    // выезды этого дня: строка листа берётся с даты заезда той же брони
+    const outs = all.filter(b => b.check_out === date);
+    const outRows = {};
+    if (outs.length) {
+      (await T.sb('daily_ops?select=*&or=(' + outs.map(b => 'and(date.eq.' + b.check_in + ',apartment_id.eq.' + b.apartment_id + ')').join(',') + ')').then(x => x.json()).catch(() => [])).forEach(r => { outRows[r.apartment_id] = r; });
+    }
     const rows = apts.map(a => {
       const cur = all.find(b => b.apartment_id === a.id && b.check_in <= date && b.check_out > date);
       const inB = all.find(b => b.apartment_id === a.id && b.check_in === date);
@@ -146,7 +170,8 @@ exports.handler = async (event) => {
         apartment_id: a.id, name: a.name, complex: a.complex, floor: a.floor, rooms: a.rooms,
         status: inB ? 'in' : cur ? 'busy' : outB ? 'out' : 'free',
         stay: cur ? { check_in: cur.check_in, check_out: cur.check_out, nights: cur.nights } : null,
-        free_until: (!cur && next) ? next.check_in : null
+        free_until: (!cur && next) ? next.check_in : null,
+        checkout: outB ? Object.assign({ check_in: outB.check_in, nights: outB.nights }, outRows[a.id] ? pick(outRows[a.id]) : {}) : null
       }, ops[a.id] ? pick(ops[a.id]) : {});
     });
     // дни месяца с заездами (для календаря)
