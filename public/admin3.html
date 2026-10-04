@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Urban Luxe · Админка 3</title>
+<link rel="icon" href="/favicon.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{--bg:#0e0f12;--panel:#16181d;--panel2:#1d2027;--line:#262a33;--text:#e8e6e1;--muted:#8b909c;--gold:#c9a45c;--green:#39b36c;--red:#e5533d;--blue:#4c8dff;--amber:#e0a63a}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,Segoe UI,Roboto,Inter,sans-serif}
+a{color:var(--gold);text-decoration:none}button{font:inherit;cursor:pointer}input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+.login{min-height:100%;display:flex;align-items:center;justify-content:center}.login .box{width:340px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}.login h1{margin:0 0 4px;font-size:20px;letter-spacing:.12em;color:var(--gold)}.login p{margin:0 0 18px;color:var(--muted)}.login input{width:100%;margin:6px 0 12px}
+.btn{background:var(--gold);color:#111;border:0;border-radius:8px;padding:9px 14px;font-weight:600}.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}.btn.sm{padding:5px 10px;font-size:12px}.btn.red{background:var(--red);color:#fff}
+.app{display:none;min-height:100%}.app.on{display:grid;grid-template-columns:220px 1fr}
+.nav{background:var(--panel);border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}.nav .logo{color:var(--gold);letter-spacing:.14em;font-weight:700;padding:4px 10px 16px;font-size:15px}.nav a{display:block;padding:9px 12px;border-radius:8px;color:var(--text);margin:2px 0}.nav a.on,.nav a:hover{background:var(--panel2);color:var(--gold)}.nav .me{margin-top:18px;padding:10px 12px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+.main{padding:22px 26px;min-width:0}.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}.top h2{margin:0;font-size:20px;font-weight:600;flex:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}.card .l{color:var(--muted);font-size:12px}.card .v{font-size:22px;font-weight:600;margin-top:4px}.card .d{font-size:12px;margin-top:2px;color:var(--muted)}.up{color:var(--green)}.down{color:var(--red)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}.panel h3{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}@media(max-width:1100px){.grid2,.grid3{grid-template-columns:1fr}.app.on{grid-template-columns:1fr}.nav{position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px}.nav .logo{width:100%}}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--panel)}td:first-child,th:first-child{text-align:left}tr:hover td{background:rgba(255,255,255,.02)}.tbl{overflow:auto;max-height:70vh}
+.tag{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;background:var(--panel2);color:var(--muted)}.tag.partner{color:#f0c27b;background:rgba(201,164,92,.15)}.tag.management{color:#7fb4ff;background:rgba(76,141,255,.15)}.tag.sublease{color:#9fd8b4;background:rgba(57,179,108,.12)}.tag.live{color:var(--blue)}.tag.manual{color:var(--amber)}
+.bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--gold)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}.muted{color:var(--muted)}.right{text-align:right}.pos{color:var(--green)}.neg{color:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}.modal.on{display:flex}.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(560px,94vw);max-height:90vh;overflow:auto}.modal h3{margin:0 0 12px}.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}.form .w{grid-column:1/-1}.form input,.form select,.form textarea{width:100%}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--panel2);border:1px solid var(--line);padding:10px 14px;border-radius:10px;display:none;z-index:60}.toast.on{display:block}
+.mini{height:220px}.heat td{padding:3px;text-align:center}.heat i{display:block;width:16px;height:16px;border-radius:3px;background:var(--panel2)}.heat i.b{background:var(--gold)}
+.kpi-note{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="login" id="login"><div class="box"><h1>URBAN LUXE</h1><p>Админка 3 · финансы и операции</p><div id="loginErr" class="neg" style="display:none;margin-bottom:8px"></div><label class="muted">Email</label><input id="email" type="email" autocomplete="username"><label class="muted">Пароль</label><input id="pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button class="btn" style="width:100%" onclick="login()">Войти</button></div></div>
+
+<div class="app" id="app">
+  <nav class="nav">
+    <div class="logo">URBAN LUXE · 3</div>
+    <a href="#dash" data-v="dash">Дашборд</a>
+    <a href="#pl" data-v="pl">P&amp;L</a>
+    <a href="#apts" data-v="apts">Квартиры</a>
+    <a href="#exp" data-v="exp">Расходы</a>
+    <a href="#partners" data-v="partners">Партнёры</a>
+    <a href="#mkt" data-v="mkt">Маркетинг</a>
+    <a href="#ops" data-v="ops">Операционка</a>
+    <a href="#settings" data-v="settings">Настройки</a>
+    <div class="me"><div id="meName"></div><a href="#" onclick="logout();return false">Выйти</a> · <a href="/admin.html">старая админка</a></div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const API='/.netlify/functions/admin3-api';
+let ME=null, APTS=[], CATS=[], PARTNERS=[], charts={};
+const $=s=>document.querySelector(s), main=$('#main');
+const fmt=v=>v==null||isNaN(v)?'—':'$'+Math.round(v).toLocaleString('ru-RU');
+const fmt1=v=>v==null||isNaN(v)?'—':(Math.round(v*10)/10).toLocaleString('ru-RU');
+const pct=v=>v==null||isNaN(v)?'—':Math.round(v)+'%';
+const cls=v=>v>0?'pos':v<0?'neg':'';
+const MONTHS=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const mlabel=ym=>{const [y,m]=ym.split('-');return MONTHS[+m-1]+' '+y.slice(2)};
+const thisMonth=()=>{const d=new Date(Date.now()+5*36e5);return d.toISOString().slice(0,7)};
+const addM=(ym,k)=>{const [y,m]=ym.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+k,1));return d.toISOString().slice(0,7)};
+let MONTH=thisMonth();
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+function toast(t,bad){const e=$('#toast');e.textContent=t;e.style.borderColor=bad?'var(--red)':'var(--line)';e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600)}
+
+async function token(){const {data:{session}}=await sb.auth.getSession();return session?session.access_token:null}
+async function api(params,body){const t=await token();if(!t){showLogin();throw new Error('no session')}
+  const r=await fetch(API+(body?'':'?'+new URLSearchParams(params)),{method:body?'POST':'GET',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({error:'bad json'}));if(!r.ok||j.error){if(r.status===401)showLogin();throw new Error(j.error||r.status)}return j}
+
+async function login(){const er=$('#loginErr');er.style.display='none';const {error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#pass').value});if(error){er.textContent=error.message;er.style.display='block';return}boot()}
+async function logout(){await sb.auth.signOut();showLogin()}
+function showLogin(){$('#login').style.display='flex';$('#app').classList.remove('on')}
+async function boot(){try{ME=await api({a:'me'})}catch(e){showLogin();return}
+  $('#login').style.display='none';$('#app').classList.add('on');$('#meName').textContent=ME.name+' · '+ME.role;
+  [APTS,CATS,PARTNERS]=await Promise.all([api({a:'apts'}),api({a:'categories'}),api({a:'partners'})]);
+  route()}
+window.addEventListener('hashchange',route);
+function route(){const v=(location.hash||'#dash').slice(1).split('?')[0];document.querySelectorAll('.nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v===v));(VIEWS[v]||VIEWS.dash)()}
+function monthPicker(){return `<input type="month" value="${MONTH}" onchange="MONTH=this.value;route()">`}
+function killCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={}}
+function chart(id,cfg){charts[id]=new Chart(document.getElementById(id),cfg)}
+Chart.defaults.color='#8b909c';Chart.defaults.borderColor='#262a33';Chart.defaults.font.size=11;
+
+const VIEWS={};
+
+// ---------------- ДАШБОРД ----------------
+VIEWS.dash=async()=>{killCharts();main.innerHTML='<div class="top"><h2>Дашборд</h2><span class="muted">загрузка…</span></div>';
+  const d=await api({a:'dashboard'});const c=d.current||{},p=d.previous||{};
+  const delta=(a,b)=>b?`<span class="${cls(a-b)}">${a-b>=0?'+':''}${Math.round(100*(a-b)/Math.abs(b))}%</span> к ${mlabel(p.month)}`:'';
+  main.innerHTML=`<div class="top"><h2>Дашборд · ${mlabel(d.month)}</h2><span class="muted">сегодня ${d.today}</span></div>
+  <div class="cards">
+    <div class="card"><div class="l">Выручка за месяц</div><div class="v">${fmt(c.revenue)}</div><div class="d">${delta(c.revenue,p.revenue)}</div></div>
+    <div class="card"><div class="l">Валовая прибыль (−аренда, −комиссии)</div><div class="v">${fmt(c.gross)}</div><div class="d">${c.revenue?pct(100*c.gross/c.revenue)+' маржа':''}</div></div>
+    <div class="card"><div class="l">Расходы (opex)</div><div class="v">${fmt(c.expenses_opex)}</div><div class="d">capex ${fmt(c.expenses_capex)}</div></div>
+    <div class="card"><div class="l">Результат UL (после доли партнёров)</div><div class="v ${cls(c.net)}">${fmt(c.net)}</div><div class="d">партнёрам ${fmt(c.partner_share)}</div></div>
+    <div class="card"><div class="l">Загрузка · квартир</div><div class="v">${pct(d.apartments.occupancy)} · ${d.apartments.active}</div><div class="d">${c.partner_apartments||0} партнёрских</div></div>
+    <div class="card"><div class="l">Долги гостей</div><div class="v ${d.ops.debt>0?'neg':''}">${fmt(d.ops.debt)}</div><div class="d">заездов сегодня ${d.ops.checkins_today} · выездов ${d.ops.checkouts_today}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><h3>Выручка, аренда и результат по месяцам</h3><canvas id="chSeries" height="110"></canvas></div>
+    <div class="panel"><h3>Загрузка на 14 дней</h3><canvas id="chOcc" class="mini"></canvas><div class="kpi-note">по данным RealtyCalendar/сайта на сейчас</div></div>
+  </div>
+  <div class="grid3">
+    <div class="panel"><h3>Топ квартир месяца</h3><table>${d.top.map(r=>`<tr><td>${esc(r.short)}</td><td>${fmt(r.revenue)}</td><td class="${cls(r.net)}">${fmt(r.net)}</td><td>${pct(r.occupancy)}</td></tr>`).join('')}</table></div>
+    <div class="panel"><h3>Слабые квартиры</h3><table>${d.bottom.map(r=>`<tr><td>${esc(r.short)}</td><td>${fmt(r.revenue)}</td><td class="${cls(r.net)}">${fmt(r.net)}</td><td>${pct(r.occupancy)}</td></tr>`).join('')}</table></div>
+    <div class="panel"><h3>Должники</h3><table>${d.ops.debtors.length?d.ops.debtors.map(x=>`<tr><td>${esc(x.apt)} · ${esc(x.guest||'')}</td><td>${x.date}</td><td class="neg">${fmt(x.due)}</td></tr>`).join(''):'<tr><td class="muted">нет</td></tr>'}</table>
+    <h3 style="margin-top:14px">Маркетинг за месяц</h3><div>${fmt(d.marketing.amount)} · TG-кликов ${d.marketing.tg} · заявок ${d.marketing.leads}</div></div>
+  </div>`;
+  const s=d.series;
+  chart('chSeries',{type:'bar',data:{labels:s.map(x=>mlabel(x.month)),datasets:[{label:'Выручка',data:s.map(x=>x.revenue),backgroundColor:'rgba(201,164,92,.75)'},{label:'Аренда',data:s.map(x=>x.rent),backgroundColor:'rgba(139,144,156,.5)'},{label:'Результат UL',data:s.map(x=>x.net),type:'line',borderColor:'#39b36c',tension:.3,yAxisID:'y'}]},options:{plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true}}}});
+  chart('chOcc',{type:'bar',data:{labels:d.occupancy14.map(x=>x.date.slice(8)+'.'+x.date.slice(5,7)),datasets:[{data:d.occupancy14.map(x=>x.pct),backgroundColor:d.occupancy14.map(x=>x.pct>=75?'#39b36c':x.pct>=50?'#c9a45c':'#e5533d')}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}});
+};
+
+// ---------------- P&L ----------------
+VIEWS.pl=async()=>{killCharts();const from=addM(MONTH,-11);main.innerHTML=`<div class="top"><h2>P&amp;L</h2>${monthPicker()}<span class="muted">12 месяцев до выбранного</span></div><div class="muted">загрузка…</div>`;
+  const d=await api({a:'pl',from,to:MONTH});const M=d.months;
+  const cats=d.categories.filter(c=>M.some(m=>(m.by_category[c.code]||0)!==0));
+  const row=(label,f,cl)=>`<tr><td>${label}</td>${M.map(m=>`<td class="${cl?cl(f(m)):''}">${fmt(f(m))}</td>`).join('')}</tr>`;
+  main.innerHTML=`<div class="top"><h2>P&amp;L</h2>${monthPicker()}<button class="btn ghost sm" onclick="openFinance()">+ выручка вручную</button><button class="btn ghost sm" onclick="importSheets()">⟳ обновить из Google-таблиц</button><button class="btn ghost sm" onclick="exportCSV()">CSV</button></div>
+  <div class="panel"><canvas id="chPL" height="90"></canvas></div>
+  <div class="panel tbl"><table id="plTable"><thead><tr><th>Статья</th>${M.map(m=>`<th>${mlabel(m.month)}</th>`).join('')}</tr></thead><tbody>
+  <tr><td>Квартир / ночей</td>${M.map(m=>`<td class="muted">${m.apartments} / ${m.nights||'—'}</td>`).join('')}</tr>
+  ${row('<b>Выручка</b>',m=>m.revenue)}
+  ${row('Аренда собственникам',m=>-m.rent)}
+  ${row('Комиссии площадок',m=>-m.commission)}
+  ${row('<b>Валовая прибыль</b>',m=>m.gross,cls)}
+  ${cats.filter(c=>!['dividend','credit','rent'].includes(c.kind)).map(c=>row('&nbsp;&nbsp;'+esc(c.name_ru),m=>-(m.by_category[c.code]||0))).join('')}
+  ${row('<b>EBITDA</b>',m=>m.ebitda,cls)}
+  ${row('Доля партнёров (50/50)',m=>-m.partner_share)}
+  ${row('<b>Результат Urban Luxe</b>',m=>m.net,cls)}
+  <tr><td class="muted">Маржа UL</td>${M.map(m=>`<td class="muted">${m.revenue?pct(100*m.net/m.revenue):'—'}</td>`).join('')}</tr>
+  ${row('Дивиденды',m=>-m.dividends)}${row('Кредит',m=>-m.credit)}
+  <tr><td class="muted">Источник выручки</td>${M.map(m=>`<td class="muted" style="font-size:11px">${Object.entries(m.sources).map(([k,v])=>k+':'+v).join(' ')||'—'}</td>`).join('')}</tr>
+  </tbody></table></div>
+  <div class="kpi-note">Выручка: ручная запись → импорт из Google-таблиц → живые данные листа заездов (payment_total по дате заезда). Аренда — из записи месяца или из условий квартиры. Расходы — журнал «Расходы». Доля партнёров — % от прибыли их квартир после аренды, комиссий и общих расходов.</div>`;
+  chart('chPL',{type:'bar',data:{labels:M.map(x=>mlabel(x.month)),datasets:[{label:'Валовая',data:M.map(x=>x.gross),backgroundColor:'rgba(201,164,92,.7)'},{label:'Opex',data:M.map(x=>-x.expenses_opex),backgroundColor:'rgba(229,83,61,.6)'},{label:'Результат UL',data:M.map(x=>x.net),type:'line',borderColor:'#39b36c',tension:.3}]},options:{plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true}}}});
+  window.__pl=d;
+};
+async function importSheets(){toast('импорт…');try{const r=await api(null,{a:'import_sheets'});toast('Импортировано '+r.imported+' строк'+(r.unmapped.length?' · не сопоставлены: '+r.unmapped.join(', '):''));route()}catch(e){toast('Ошибка импорта: '+e.message,1)}}
+function exportCSV(){const t=document.getElementById('plTable');if(!t)return;const rows=[...t.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>'"'+td.innerText.replace(/"/g,'""')+'"').join(';'));const b=new Blob(['﻿'+rows.join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pl.csv';a.click()}
+
+// ---------------- КВАРТИРЫ ----------------
+VIEWS.apts=async()=>{killCharts();main.innerHTML=`<div class="top"><h2>Квартиры</h2>${monthPicker()}</div><div class="muted">загрузка…</div>`;
+  const d=await api({a:'apartments',month:MONTH});const t=d.totals;
+  const tag=m=>`<span class="tag ${m}">${{sublease:'субаренда',partner:'партнёр',management:'управление',own:'своя'}[m]||m}</span>`;
+  main.innerHTML=`<div class="top"><h2>Квартиры · ${mlabel(d.month)}</h2>${monthPicker()}<button class="btn ghost sm" onclick="openTerm()">+ условия</button></div>
+  <div class="cards"><div class="card"><div class="l">Выручка</div><div class="v">${fmt(t.revenue)}</div></div><div class="card"><div class="l">Аренда</div><div class="v">${fmt(t.rent)}</div><div class="d">${t.revenue?pct(100*t.rent/t.revenue)+' от выручки':''}</div></div><div class="card"><div class="l">Валовая</div><div class="v">${fmt(t.gross)}</div></div><div class="card"><div class="l">Доля UL</div><div class="v">${fmt(t.ul)}</div></div><div class="card"><div class="l">Загрузка</div><div class="v">${pct(t.occupancy)}</div><div class="d">${t.active} активных</div></div></div>
+  <div class="panel tbl"><table><thead><tr><th>Квартира</th><th>Модель</th><th>Аренда</th><th>Выручка</th><th>Комис.</th><th>Расходы</th><th>Чистыми</th><th>Доля UL</th><th>Загрузка</th><th>RevPAR</th><th>ADR</th><th>3 мес</th><th>Источник</th><th></th></tr></thead><tbody>
+  ${d.rows.map(r=>`<tr><td><a href="#apt?${r.id||''}" onclick="${r.id?`openApt('${r.id}');return false`:'return false'}">${esc(r.short)}</a> <span class="muted">${esc(r.rooms||'')}</span>${r.is_active===false?' <span class="tag">не на сайте</span>':''}</td>
+   <td>${tag(r.model)}${r.partner?`<div class="muted" style="font-size:11px">${esc(r.partner)} ${r.partner_share||50}%</div>`:''}</td>
+   <td>${fmt(r.rent)}</td><td><b>${fmt(r.revenue)}</b></td><td>${fmt(r.commission)}</td><td>${fmt(r.expenses)}</td><td class="${cls(r.net)}">${fmt(r.net)}</td><td class="${cls(r.ul_share)}">${fmt(r.ul_share)}</td>
+   <td>${r.occupancy==null?'—':`<div style="min-width:70px">${pct(r.occupancy)}<div class="bar"><i style="width:${r.occupancy}%"></i></div></div>`}</td><td>${fmt(r.revpar)}</td><td>${fmt(r.adr)}</td>
+   <td class="muted" style="font-size:11px">${r.rev3.map(v=>Math.round(v)).reverse().join(' · ')}</td><td><span class="tag ${r.source||''}">${r.source||'—'}</span></td>
+   <td>${r.id?`<button class="btn ghost sm" onclick="openTerm('${r.id}')">условия</button>`:''}</td></tr>`).join('')}
+  </tbody></table></div>`;
+};
+async function openApt(id){const d=await api({a:'apartment',id});const a=d.apartment||{};
+  openModal(`<h3>${esc(a.complex)} ${esc(a.name)} <span class="muted">${esc(a.rooms||'')}, ${a.floor||''} эт.</span></h3>
+  <div class="row" style="margin-bottom:10px"><button class="btn ghost sm" onclick="closeModal();openTerm('${id}')">условия</button><button class="btn ghost sm" onclick="closeModal();openExpense('${id}')">+ расход</button><button class="btn ghost sm" onclick="closeModal();openFinance('${id}')">+ выручка за месяц</button></div>
+  <h4 class="muted">Условия</h4><table>${d.terms.map(t=>`<tr><td>${t.valid_from}${t.valid_to?' – '+t.valid_to:''}</td><td>${t.model}</td><td>${fmt(t.rent)}</td><td>${t.partners?esc(t.partners.name)+' '+(t.partner_share||50)+'%':''}</td><td>${t.lease_end?'до '+t.lease_end:''}</td><td><button class="btn ghost sm" onclick="closeModal();openTerm('${id}','${t.id}')">✎</button></td></tr>`).join('')||'<tr><td class="muted">нет</td></tr>'}</table>
+  <h4 class="muted">По месяцам</h4><div style="max-height:220px;overflow:auto"><table>${d.finance.slice().reverse().map(f=>`<tr><td>${mlabel(f.month.slice(0,7))}</td><td><span class="tag ${f.source}">${f.source}</span></td><td>${fmt(f.revenue)}</td><td class="muted">аренда ${fmt(f.rent)}</td><td>${f.nights} н.</td><td class="${cls(f.profit)}">${fmt(f.profit)}</td></tr>`).join('')}</table></div>
+  <h4 class="muted">Последние заезды</h4><div style="max-height:180px;overflow:auto"><table>${d.stays.map(s=>`<tr><td>${s.date}${s.check_out_date?' → '+s.check_out_date:''}</td><td>${esc(s.guest_name||'')}</td><td class="muted">${esc(s.source||'')}</td><td>${fmt(s.payment_total)}</td><td class="${s.payment_paid<s.payment_total?'neg':''}">${fmt(s.payment_paid)}</td></tr>`).join('')||'<tr><td class="muted">нет</td></tr>'}</table></div>
+  <h4 class="muted">Расходы</h4><div style="max-height:160px;overflow:auto"><table>${d.expenses.map(e=>`<tr><td>${e.expense_date}</td><td>${esc(catName(e.category))}</td><td>${esc(e.description||'')}</td><td>${fmt(e.amount)}</td></tr>`).join('')||'<tr><td class="muted">нет</td></tr>'}</table></div>`)}
+const catName=c=>(CATS.find(x=>x.code===c)||{}).name_ru||c;
+const aptOptions=(sel)=>'<option value="">— общий —</option>'+APTS.map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${esc(a.short)}${a.is_active===false?' (не на сайте)':''}</option>`).join('');
+
+async function openTerm(aptId,termId){let t={apartment_id:aptId||'',model:'sublease',rent:'',partner_share:50,valid_from:MONTH+'-01'};
+  if(termId){const all=await api({a:'terms'});t=all.find(x=>x.id===termId)||t}
+  openModal(`<h3>${termId?'Условия по квартире':'Новые условия'}</h3><div class="form">
+  <div class="w"><label>Квартира</label><select id="f_apt">${aptOptions(t.apartment_id)}</select></div>
+  <div><label>Модель</label><select id="f_model"><option value="sublease" ${t.model==='sublease'?'selected':''}>Субаренда (аренда у собственника)</option><option value="partner" ${t.model==='partner'?'selected':''}>Партнёр 50/50</option><option value="management" ${t.model==='management'?'selected':''}>Управление (% выручки)</option><option value="own" ${t.model==='own'?'selected':''}>Своя квартира</option></select></div>
+  <div><label>Аренда собственнику, $/мес</label><input id="f_rent" type="number" step="1" value="${t.rent??''}"></div>
+  <div><label>Партнёр</label><select id="f_partner"><option value="">—</option>${PARTNERS.map(p=>`<option value="${p.id}" ${p.id===t.partner_id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+  <div><label>Доля партнёра, %</label><input id="f_share" type="number" value="${t.partner_share??50}"></div>
+  <div><label>Комиссия управления, % выручки</label><input id="f_fee" type="number" value="${t.mgmt_fee_pct??''}"></div>
+  <div><label>Депозит, $</label><input id="f_dep" type="number" value="${t.deposit??''}"></div>
+  <div><label>Запуск (мебель/техника), $</label><input id="f_launch" type="number" value="${t.launch_cost??''}"></div>
+  <div><label>Действует с</label><input id="f_from" type="date" value="${t.valid_from||''}"></div>
+  <div><label>Действует по</label><input id="f_to" type="date" value="${t.valid_to||''}"></div>
+  <div><label>Договор аренды до</label><input id="f_lease" type="date" value="${t.lease_end||''}"></div>
+  <div><label>Собственник</label><input id="f_owner" value="${esc(t.owner_name||'')}"></div>
+  <div><label>Телефон собственника</label><input id="f_ophone" value="${esc(t.owner_phone||'')}"></div>
+  <div class="w"><label>Заметка</label><input id="f_notes" value="${esc(t.notes||'')}"></div></div>
+  <div class="row" style="margin-top:14px;justify-content:space-between"><div>${termId?`<button class="btn red sm" onclick="delTerm('${termId}')">удалить</button>`:''}</div><div><button class="btn ghost" onclick="closeModal()">Отмена</button> <button class="btn" onclick="saveTerm('${termId||''}')">Сохранить</button></div></div>`)}
+async function saveTerm(id){const b={a:'term',id:id||undefined,apartment_id:$('#f_apt').value,model:$('#f_model').value,rent:$('#f_rent').value,partner_id:$('#f_partner').value||null,partner_share:$('#f_share').value,mgmt_fee_pct:$('#f_fee').value||null,deposit:$('#f_dep').value,launch_cost:$('#f_launch').value,valid_from:$('#f_from').value,valid_to:$('#f_to').value||null,lease_end:$('#f_lease').value||null,owner_name:$('#f_owner').value,owner_phone:$('#f_ophone').value,notes:$('#f_notes').value};
+  if(!b.apartment_id){toast('выберите квартиру',1);return}await api(null,b);closeModal();toast('сохранено');route()}
+async function delTerm(id){if(!confirm('Удалить условия?'))return;await api(null,{a:'term_delete',id});closeModal();route()}
+
+// ---------------- РАСХОДЫ ----------------
+VIEWS.exp=async()=>{killCharts();main.innerHTML=`<div class="top"><h2>Расходы</h2>${monthPicker()}</div><div class="muted">загрузка…</div>`;
+  const list=await api({a:'expenses',month:MONTH});const tot=list.reduce((s,e)=>s+(+e.amount||0),0);
+  const byCat={};list.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+(+e.amount||0)});
+  main.innerHTML=`<div class="top"><h2>Расходы · ${mlabel(MONTH)}</h2>${monthPicker()}<button class="btn" onclick="openExpense()">+ расход</button></div>
+  <div class="grid2"><div class="panel tbl"><table><thead><tr><th>Дата</th><th>Квартира</th><th>Категория</th><th>Описание</th><th>Сумма</th><th>50/50</th><th></th></tr></thead><tbody>
+  ${list.map(e=>`<tr><td>${e.expense_date}</td><td>${esc(aptShort(e.apartment_id))}</td><td>${esc(catName(e.category))}</td><td style="white-space:normal">${esc(e.description||'')}${e.vendor?' <span class="muted">· '+esc(e.vendor)+'</span>':''}</td><td>${fmt(e.amount)}${e.amount_uzs?`<div class="muted" style="font-size:11px">${Math.round(e.amount_uzs).toLocaleString('ru-RU')} UZS</div>`:''}</td><td>${e.partner_shared?'✓':''}</td><td><button class="btn ghost sm" onclick='openExpense(null,${JSON.stringify(e).replace(/'/g,"&#39;")})'>✎</button> <button class="btn ghost sm" onclick="delExpense('${e.id}')">✕</button></td></tr>`).join('')||'<tr><td class="muted" colspan="7">Расходов за месяц нет. Внесите аренду, зарплаты, коммуналку, расходники — тогда P&L станет полным.</td></tr>'}
+  </tbody><tfoot><tr><th colspan="4">Итого</th><th>${fmt(tot)}</th><th></th><th></th></tr></tfoot></table></div>
+  <div class="panel"><h3>По категориям</h3><canvas id="chCat" class="mini"></canvas><table style="margin-top:10px">${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(catName(c))}</td><td>${fmt(v)}</td><td class="muted">${pct(100*v/(tot||1))}</td></tr>`).join('')}</table></div></div>`;
+  const ent=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  if(ent.length)chart('chCat',{type:'doughnut',data:{labels:ent.map(e=>catName(e[0])),datasets:[{data:ent.map(e=>e[1]),backgroundColor:['#c9a45c','#4c8dff','#39b36c','#e5533d','#e0a63a','#8b909c','#7fb4ff','#f0c27b','#9fd8b4','#b06bd6']}]},options:{plugins:{legend:{position:'right'}}}});
+};
+const aptShort=id=>id?((APTS.find(a=>a.id===id)||{}).short||id):'общий';
+function openExpense(aptId,e){e=e||{apartment_id:aptId||'',expense_date:new Date(Date.now()+5*36e5).toISOString().slice(0,10),category:'utilities'};
+  openModal(`<h3>${e.id?'Расход':'Новый расход'}</h3><div class="form">
+  <div><label>Дата</label><input id="e_date" type="date" value="${e.expense_date}"></div>
+  <div><label>Категория</label><select id="e_cat">${CATS.map(c=>`<option value="${c.code}" ${c.code===e.category?'selected':''}>${esc(c.name_ru)}</option>`).join('')}</select></div>
+  <div class="w"><label>Квартира (пусто = общий расход)</label><select id="e_apt">${aptOptions(e.apartment_id)}</select></div>
+  <div><label>Сумма, $</label><input id="e_amt" type="number" step="0.01" value="${e.amount??''}"></div>
+  <div><label>Сумма в сумах (справочно)</label><input id="e_uzs" type="number" value="${e.amount_uzs??''}" oninput="if(!$('#e_amt').value&&this.value)$('#e_amt').value=(this.value/12800).toFixed(2)"></div>
+  <div class="w"><label>Описание</label><input id="e_desc" value="${esc(e.description||'')}"></div>
+  <div><label>Поставщик / кому</label><input id="e_vendor" value="${esc(e.vendor||'')}"></div>
+  <div><label>Кто оплатил</label><input id="e_paid" value="${esc(e.paid_by||'')}"></div>
+  <div class="w"><label><input type="checkbox" id="e_shared" ${e.partner_shared?'checked':''}> делится с партнёром 50/50 (вычитается из прибыли партнёрской квартиры)</label></div></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost" onclick="closeModal()">Отмена</button> <button class="btn" onclick="saveExpense('${e.id||''}')">Сохранить</button></div>`)}
+async function saveExpense(id){const b={a:'expense',id:id||undefined,expense_date:$('#e_date').value,category:$('#e_cat').value,apartment_id:$('#e_apt').value||null,amount:$('#e_amt').value,amount_uzs:$('#e_uzs').value||null,description:$('#e_desc').value,vendor:$('#e_vendor').value,paid_by:$('#e_paid').value,partner_shared:$('#e_shared').checked};
+  if(!(+b.amount)){toast('введите сумму',1);return}await api(null,b);closeModal();toast('сохранено');route()}
+async function delExpense(id){if(!confirm('Удалить расход?'))return;await api(null,{a:'expense_delete',id});route()}
+
+// ручная выручка за месяц
+function openFinance(aptId){openModal(`<h3>Выручка за месяц (вручную)</h3><p class="muted" style="margin-top:0">Перекрывает импорт из таблиц и живые данные за этот месяц.</p><div class="form">
+  <div class="w"><label>Квартира</label><select id="m_apt">${aptOptions(aptId)}</select></div>
+  <div><label>Месяц</label><input id="m_month" type="month" value="${MONTH}"></div><div><label>Выручка, $</label><input id="m_rev" type="number"></div>
+  <div><label>Аренда, $</label><input id="m_rent" type="number"></div><div><label>Комиссия площадок, $</label><input id="m_com" type="number" value="0"></div>
+  <div><label>Ночей</label><input id="m_n" type="number"></div><div><label><input type="checkbox" id="m_p"> партнёрская</label></div>
+  <div class="w"><label>Заметка</label><input id="m_notes"></div></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost" onclick="closeModal()">Отмена</button> <button class="btn" onclick="saveFinance()">Сохранить</button></div>`)}
+async function saveFinance(){const b={a:'finance',apartment_id:$('#m_apt').value||null,month:$('#m_month').value,revenue:$('#m_rev').value,rent:$('#m_rent').value,commission:$('#m_com').value,nights:$('#m_n').value,is_partner:$('#m_p').checked,notes:$('#m_notes').value};if(!b.apartment_id){toast('выберите квартиру',1);return}await api(null,b);closeModal();toast('сохранено');route()}
+
+// ---------------- ПАРТНЁРЫ ----------------
+VIEWS.partners=async()=>{killCharts();PARTNERS=await api({a:'partners'});
+  main.innerHTML=`<div class="top"><h2>Партнёры · ${mlabel(MONTH)}</h2>${monthPicker()}<button class="btn" onclick="openPartner()">+ партнёр</button></div><div id="pbody" class="muted">загрузка…</div>`;
+  const reports=await Promise.all(PARTNERS.filter(p=>p.is_active!==false).map(p=>api({a:'partner_report',partner_id:p.id,month:MONTH}).catch(()=>null)));
+  $('#pbody').className='';$('#pbody').innerHTML=reports.map((r,i)=>{const p=PARTNERS[i];if(!r)return '';const t=r.totals||{};
+    return `<div class="panel"><div class="row" style="justify-content:space-between"><div><b>${esc(p.name)}</b> <span class="muted">${esc(p.phone||'')} ${esc(p.telegram||'')}</span> · ${r.rows.length} кв.</div><div><button class="btn ghost sm" onclick='openPartner(${JSON.stringify(p).replace(/'/g,"&#39;")})'>✎</button> <button class="btn ghost sm" onclick="printPartner('${p.id}')">отчёт для партнёра</button></div></div>
+    <div class="cards" style="margin:10px 0"><div class="card"><div class="l">Выручка</div><div class="v">${fmt(t.revenue)}</div></div><div class="card"><div class="l">Аренда + комиссии + общие расходы</div><div class="v">${fmt((t.rent||0)+(t.commission||0)+(t.shared_expenses||0))}</div></div><div class="card"><div class="l">Прибыль к разделу</div><div class="v">${fmt(t.profit)}</div></div><div class="card"><div class="l">Партнёру</div><div class="v" style="color:var(--gold)">${fmt(t.partner_amount)}</div></div><div class="card"><div class="l">Urban Luxe</div><div class="v pos">${fmt(t.ul_amount)}</div></div></div>
+    <table><thead><tr><th>Квартира</th><th>Выручка</th><th>Ночей</th><th>Аренда</th><th>Комиссия</th><th>Общие расходы</th><th>Прибыль</th><th>%</th><th>Партнёру</th><th>UL</th><th>Источник</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${esc(x.short)}</td><td>${fmt(x.revenue)}</td><td>${x.nights}</td><td>${fmt(x.rent)}</td><td>${fmt(x.commission)}</td><td>${fmt(x.shared_expenses)}</td><td class="${cls(x.profit)}">${fmt(x.profit)}</td><td>${x.partner_share_pct}%</td><td>${fmt(x.partner_amount)}</td><td>${fmt(x.ul_amount)}</td><td><span class="tag ${x.source||''}">${x.source||'—'}</span></td></tr>`).join('')||'<tr><td class="muted" colspan="11">нет квартир с моделью «партнёр» — назначьте в условиях квартиры</td></tr>'}</tbody></table></div>`}).join('')||'<div class="panel muted">Партнёров нет</div>';
+  window.__reports=reports;
+};
+function openPartner(p){p=p||{default_share:50};openModal(`<h3>${p.id?'Партнёр':'Новый партнёр'}</h3><div class="form"><div class="w"><label>Имя</label><input id="p_name" value="${esc(p.name||'')}"></div><div><label>Телефон</label><input id="p_phone" value="${esc(p.phone||'')}"></div><div><label>Telegram</label><input id="p_tg" value="${esc(p.telegram||'')}"></div><div><label>Email (для кабинета)</label><input id="p_email" value="${esc(p.email||'')}"></div><div><label>Доля по умолчанию, %</label><input id="p_share" type="number" value="${p.default_share??50}"></div><div class="w"><label>Заметки</label><textarea id="p_notes" rows="2">${esc(p.notes||'')}</textarea></div></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost" onclick="closeModal()">Отмена</button> <button class="btn" onclick="savePartner('${p.id||''}')">Сохранить</button></div>`)}
+async function savePartner(id){const b={a:'partner',id:id||undefined,name:$('#p_name').value,phone:$('#p_phone').value,telegram:$('#p_tg').value,email:$('#p_email').value,default_share:$('#p_share').value,notes:$('#p_notes').value};if(!b.name){toast('имя',1);return}await api(null,b);closeModal();route()}
+function printPartner(pid){const i=PARTNERS.findIndex(p=>p.id===pid);const r=window.__reports[i];if(!r)return;const w=window.open('','_blank');
+  w.document.write(`<html><head><meta charset="utf-8"><title>Отчёт ${esc(r.partner.name)} ${mlabel(r.month)}</title><style>body{font:14px Arial;padding:30px;color:#111}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 8px;text-align:right}td:first-child,th:first-child{text-align:left}h1{font-size:20px}.g{color:#777}</style></head><body><h1>Urban Luxe · отчёт партнёра</h1><div>${esc(r.partner.name)} · ${mlabel(r.month)}</div><br><table><tr><th>Квартира</th><th>Выручка</th><th>Ночей</th><th>Аренда</th><th>Комиссия</th><th>Общие расходы</th><th>Прибыль</th><th>Доля</th><th>К выплате партнёру</th></tr>${r.rows.map(x=>`<tr><td>${esc(x.short)}</td><td>${fmt(x.revenue)}</td><td>${x.nights}</td><td>${fmt(x.rent)}</td><td>${fmt(x.commission)}</td><td>${fmt(x.shared_expenses)}</td><td>${fmt(x.profit)}</td><td>${x.partner_share_pct}%</td><td><b>${fmt(x.partner_amount)}</b></td></tr>`).join('')}<tr><th colspan="6">Итого</th><th>${fmt(r.totals.profit)}</th><th></th><th>${fmt(r.totals.partner_amount)}</th></tr></table><br><div class="g">Прибыль = выручка − аренда собственнику − комиссии площадок − согласованные общие расходы. Сформировано ${new Date().toLocaleDateString('ru-RU')}.</div><script>window.print()<\/script></body></html>`);w.document.close()}
+
+// ---------------- МАРКЕТИНГ ----------------
+VIEWS.mkt=async()=>{killCharts();main.innerHTML=`<div class="top"><h2>Маркетинг</h2>${monthPicker()}</div><div class="muted">загрузка…</div>`;
+  const list=await api({a:'marketing',from:addM(MONTH,-2),to:MONTH});
+  const byM={};list.forEach(x=>{const k=x.spend_date.slice(0,7)+'|'+x.channel;byM[k]=byM[k]||{amount:0,clicks:0,tg:0,leads:0,bookings:0};byM[k].amount+=+x.amount_usd;byM[k].clicks+=+x.clicks;byM[k].tg+=+x.tg_clicks;byM[k].leads+=+x.leads;byM[k].bookings+=+x.bookings});
+  const months=[addM(MONTH,-2),addM(MONTH,-1),MONTH],ch=['yandex','meta','google','instagram','telegram','other'],cn={yandex:'Яндекс',meta:'Meta',google:'Google',instagram:'Instagram',telegram:'Telegram',other:'Другое'};
+  main.innerHTML=`<div class="top"><h2>Маркетинг</h2>${monthPicker()}<button class="btn" onclick="openMkt()">+ запись</button></div>
+  <div class="grid2"><div class="panel tbl"><table><thead><tr><th>Канал</th>${months.map(m=>`<th colspan="3">${mlabel(m)}</th>`).join('')}</tr><tr><th></th>${months.map(()=>'<th>$</th><th>TG-клики</th><th>$/TG</th>').join('')}</tr></thead><tbody>
+  ${ch.map(c=>`<tr><td>${cn[c]}</td>${months.map(m=>{const v=byM[m+'|'+c]||{};return `<td>${v.amount?fmt(v.amount):'—'}</td><td>${v.tg||'—'}</td><td>${v.tg?fmt1(v.amount/v.tg):'—'}</td>`}).join('')}</tr>`).join('')}
+  <tr><th>Итого</th>${months.map(m=>{let a=0,t=0;ch.forEach(c=>{const v=byM[m+'|'+c];if(v){a+=v.amount;t+=v.tg}});return `<th>${fmt(a)}</th><th>${t}</th><th>${t?fmt1(a/t):'—'}</th>`}).join('')}</tr></tbody></table>
+  <div class="kpi-note">Вносите расход по каналам раз в неделю (или скрипт из кабинетов). TG-клики — цель TG_CLICK в Метрике/Meta/Google. Сделки закрываются в Telegram, поэтому главный KPI — цена TG-клика и брони по хэштегам #сайт/#meta.</div></div>
+  <div class="panel"><h3>Записи</h3><div style="max-height:60vh;overflow:auto"><table>${list.map(x=>`<tr><td>${x.spend_date}</td><td>${cn[x.channel]}</td><td class="muted">${esc(x.campaign||'')}</td><td>${fmt(x.amount_usd)}</td><td>${x.tg_clicks} tg</td><td><button class="btn ghost sm" onclick="delMkt('${x.id}')">✕</button></td></tr>`).join('')||'<tr><td class="muted">нет записей</td></tr>'}</table></div></div></div>`;
+};
+function openMkt(){openModal(`<h3>Расход на рекламу</h3><div class="form"><div><label>Дата</label><input id="k_date" type="date" value="${new Date(Date.now()+5*36e5).toISOString().slice(0,10)}"></div><div><label>Канал</label><select id="k_ch"><option value="yandex">Яндекс Директ</option><option value="meta">Meta</option><option value="google">Google Ads</option><option value="instagram">Instagram</option><option value="telegram">Telegram</option><option value="other">Другое</option></select></div><div class="w"><label>Кампания</label><input id="k_camp"></div><div><label>Расход, $</label><input id="k_amt" type="number" step="0.01"></div><div><label>Показы</label><input id="k_imp" type="number"></div><div><label>Клики</label><input id="k_clk" type="number"></div><div><label>TG-клики</label><input id="k_tg" type="number"></div><div><label>Заявки</label><input id="k_leads" type="number"></div><div><label>Брони</label><input id="k_book" type="number"></div></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost" onclick="closeModal()">Отмена</button> <button class="btn" onclick="saveMkt()">Сохранить</button></div>`)}
+async function saveMkt(){await api(null,{a:'marketing',spend_date:$('#k_date').value,channel:$('#k_ch').value,campaign:$('#k_camp').value,amount_usd:$('#k_amt').value,impressions:$('#k_imp').value,clicks:$('#k_clk').value,tg_clicks:$('#k_tg').value,leads:$('#k_leads').value,bookings:$('#k_book').value});closeModal();route()}
+async function delMkt(id){if(!confirm('Удалить?'))return;await api(null,{a:'marketing_delete',id});route()}
+
+// ---------------- ОПЕРАЦИОНКА ----------------
+VIEWS.ops=async()=>{killCharts();main.innerHTML='<div class="top"><h2>Операционка</h2></div><div class="muted">загрузка…</div>';
+  const d=await api({a:'ops'});
+  const stay=o=>`<tr><td>${esc(o.short||o.apartment_id)}</td><td>${esc(o.guest_name||'')}</td><td class="muted">${esc(o.source||'')}</td><td>${esc(o.checkin_time||o.checkout_time||'')}</td><td>${fmt(o.payment_total)}</td><td class="${(+o.payment_paid||0)<(+o.payment_total||0)?'neg':'pos'}">${fmt(o.payment_paid)}</td><td>${o.passport?'🪪':''}${o.access?'🔑':''}${o.registration==='done'?'📋':''}${o.checked_in?'✅':''}${o.checked_out?'🚪':''}</td></tr>`;
+  main.innerHTML=`<div class="top"><h2>Операционка · ${d.today}</h2><a class="btn ghost sm" href="/ops.html" target="_blank">лист заездов (Mini App)</a></div>
+  <div class="grid3"><div class="panel"><h3>Заезды сегодня (${d.checkins.length})</h3><table>${d.checkins.map(stay).join('')||'<tr><td class="muted">нет</td></tr>'}</table></div>
+  <div class="panel"><h3>Выезды сегодня (${d.checkouts.length})</h3><table>${d.checkouts.map(stay).join('')||'<tr><td class="muted">нет</td></tr>'}</table></div>
+  <div class="panel"><h3>Завтра (${d.tomorrow.length})</h3><table>${d.tomorrow.map(stay).join('')||'<tr><td class="muted">нет</td></tr>'}</table></div></div>
+  <div class="panel"><h3>Уборки сегодня (${d.cleaning.length})</h3><table>${d.cleaning.map(c=>`<tr><td>${esc(c.short||c.apartment_id)}</td><td>${c.done?'✓ убрано':'—'}</td><td class="muted">${esc(c.hk_status||'')} ${esc(c.hk_maid||'')}</td></tr>`).join('')||'<tr><td class="muted">нет задач (housekeeping-бот ещё не подключён)</td></tr>'}</table></div>
+  <div class="panel tbl"><h3>Занятость на 14 дней</h3><table class="heat"><thead><tr><th>Квартира</th>${d.days.map(x=>`<th>${x.slice(8)}</th>`).join('')}<th>%</th></tr></thead><tbody>${d.grid.map(g=>`<tr><td style="text-align:left">${esc(g.short)}</td>${g.days.map(v=>`<td><i class="${v?'b':''}"></i></td>`).join('')}<td>${pct(100*g.days.reduce((a,b)=>a+b,0)/14)}</td></tr>`).join('')}</tbody></table></div>`;
+};
+
+// ---------------- НАСТРОЙКИ ----------------
+VIEWS.settings=async()=>{killCharts();const [users,terms]=await Promise.all([api({a:'users'}),api({a:'terms'})]);
+  main.innerHTML=`<div class="top"><h2>Настройки</h2></div>
+  <div class="grid2"><div class="panel"><h3>Доступ</h3><table>${users.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(u.name||'')}</td><td><span class="tag">${u.role}</span></td></tr>`).join('')}</table>
+  ${ME.role==='admin'?`<div class="row" style="margin-top:10px"><input id="u_email" placeholder="email"><input id="u_name" placeholder="имя" style="width:120px"><select id="u_role"><option value="admin">admin</option><option value="manager" selected>manager</option><option value="viewer">viewer</option><option value="partner">partner</option></select><select id="u_partner"><option value="">партнёр —</option>${PARTNERS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button class="btn sm" onclick="addUser()">добавить</button></div><div class="kpi-note">Пользователь должен существовать в Supabase Auth (регистрация на сайте или через панель Supabase). Роль partner видит только отчёт своего партнёра.</div>`:''}</div>
+  <div class="panel"><h3>Условия по квартирам (${terms.length})</h3><div style="max-height:60vh;overflow:auto"><table>${terms.map(t=>`<tr><td>${esc(aptShort(t.apartment_id))}</td><td><span class="tag ${t.model}">${t.model}</span></td><td>${fmt(t.rent)}</td><td>${t.partners?esc(t.partners.name):''}</td><td class="muted">${t.valid_from}</td><td><button class="btn ghost sm" onclick="openTerm('${t.apartment_id}','${t.id}')">✎</button></td></tr>`).join('')}</table></div></div></div>
+  <div class="panel"><h3>Как это работает</h3><div class="muted" style="line-height:1.7">Выручка берётся автоматически из листа заездов бронеров (сумма «итого» по заездам месяца), история до октября 2026 — импорт из Google-таблиц «Юнит экономика» и «Партнёрские». Аренда и модель (субаренда / партнёр 50/50 / управление) — в «условиях» каждой квартиры. Расходы вносятся в журнале; отметка «50/50» вычитает расход из прибыли партнёрской квартиры. Отчёт партнёру формируется кнопкой «отчёт для партнёра» и печатается/сохраняется в PDF.</div></div>`;
+};
+async function addUser(){await api(null,{a:'user',email:$('#u_email').value,name:$('#u_name').value,role:$('#u_role').value,partner_id:$('#u_partner').value||null});toast('добавлен');route()}
+
+function openModal(html){$('#modalBox').innerHTML=html;$('#modal').classList.add('on')}function closeModal(){$('#modal').classList.remove('on')}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+sb.auth.getSession().then(({data:{session}})=>session?boot():showLogin());
+</script>
+</body>
+</html>
