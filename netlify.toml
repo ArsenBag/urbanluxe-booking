@@ -11,8 +11,9 @@
   schedule = "0 */2 * * *"
 
 # Утреннее сообщение горничным в Telegram (02:30 UTC = 07:30 Ташкент)
-[functions."morning-cleaning"]
-  schedule = "30 2 * * *"
+# morning-cleaning отключён 01.10.2026 — уборки ведёт housekeeping-бот (VPS). Мост броней к нему — hk-sync.
+[functions."hk-sync"]
+  schedule = "*/15 * * * *"
 
 # Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html).
 # Язык передаём через путь, а не query: Netlify теряет query-строку в rewrite-цели.
@@ -40,6 +41,12 @@
 [[redirects]]
   from = "/ops"
   to = "/ops.html"
+  status = 200
+
+# Админка 3 — финансы и операции (04.10.2026)
+[[redirects]]
+  from = "/admin3"
+  to = "/admin3.html"
   status = 200
 
 # Страница бронера «что свободно» (28.09.2026)
