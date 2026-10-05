@@ -52,6 +52,19 @@ function buildText(b) {
       (b.message ? '\n\n«' + esc(String(b.message).slice(0, 500)) + '»' : '') +
       '\n\nОтветить: админка → Чат';
   }
+  if (t === 'corporate') {
+    // 24.09.2026: запрос с корпоративной страницы /corporate (компании, TMC, экипажи)
+    return '🏢 <b>Корпоративный запрос</b>' +
+      '\n👤 ' + who + (b.company ? ' · <b>' + esc(b.company) + '</b>' : '') +
+      (b.contact ? '\n📞 ' + esc(b.contact) : '') +
+      (b.email ? '\n✉️ ' + esc(b.email) : '') +
+      dates +
+      (b.rooms ? '\n🏠 Квартир: ' + esc(b.rooms) : '') +
+      (b.guests ? ' · гостей: ' + esc(b.guests) : '') +
+      (b.message ? '\n\n«' + esc(String(b.message).slice(0, 600)) + '»' : '') +
+      (b.lang ? '\n🌐 ' + esc(b.lang) : '') +
+      '\n\nОтветить в течение часа — корпоративные сравнивают 3–4 предложения.';
+  }
   // Неизвестный тип — всё равно показать, чтобы ничего не терялось
   return '🔔 <b>Уведомление</b> (' + esc(t || 'без типа') + ')' + apt + dates +
     '\n👤 ' + who + (b.message ? '\n' + esc(String(b.message).slice(0, 300)) : '');

@@ -1,4 +1,5 @@
 // Urban Luxe — tg-staff.js (30.09.2026). БОТ 1: горничные и хаускиперы.
+// !!! 01.10.2026: ЗАМЕНЁН housekeeping-ботом (папка housekeeping/, свой VPS). Оставлен только для ?off=1 и как запасной вариант.
 // Токен: TELEGRAM_STAFF_BOT_TOKEN (fallback — TELEGRAM_BOT_TOKEN). Доступ: staff.role = 'cleaning'.
 //
 // Горничная пишет:  сегодня / завтра  → список уборок с кнопками «✅ Убрано»
@@ -57,6 +58,8 @@ exports.handler = async (event) => {
   const ok = { statusCode: 200, body: 'ok' };
   if (!bot.token) return { statusCode: 500, body: 'TELEGRAM_STAFF_BOT_TOKEN is not set' };
   if (event.httpMethod === 'GET') {
+    // 01.10.2026: бот «Уборки» передан housekeeping-боту (polling). Перед его запуском снять вебхук: ?off=1
+    if ((event.queryStringParameters || {}).off) return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await T.api(bot.token, 'deleteWebhook', { drop_pending_updates: true })) };
     if ((event.queryStringParameters || {}).setup) return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await bot.setup(true)) };
     return { statusCode: 200, body: 'tg-staff: POST from Telegram only' };
   }

@@ -150,10 +150,12 @@ exports.handler = async (event) => {
     // день
     const date = /^\d{4}-\d{2}-\d{2}$/.test(q.date || body.date || '') ? (q.date || body.date) : T.tashToday(0);
     await OPS.ensureDay(date);
-    const [apts, rowsRaw] = await Promise.all([
+    const [apts, rowsRaw, clean] = await Promise.all([
       T.sb('apartments?select=id,name,complex,floor,rooms,weekday_price,weekend_price&is_active=eq.true&order=complex,name').then(x => x.json()),
-      T.sb('daily_ops?select=*&date=eq.' + date).then(x => x.json())
+      T.sb('daily_ops?select=*&date=eq.' + date).then(x => x.json()),
+      T.sb('cleaning_tasks?select=apartment_id,done,done_at,hk_status,hk_maid&date=eq.' + date).then(x => x.json()).catch(() => [])
     ]);
+    const cleaning = {}; clean.forEach(c => { cleaning[c.apartment_id] = c; });
     const ops = {}; rowsRaw.forEach(r => { ops[r.apartment_id] = r; });
     // выезды этого дня: строка листа берётся с даты заезда той же брони
     const outs = all.filter(b => b.check_out === date);
@@ -171,7 +173,8 @@ exports.handler = async (event) => {
         status: inB ? 'in' : cur ? 'busy' : outB ? 'out' : 'free',
         stay: cur ? { check_in: cur.check_in, check_out: cur.check_out, nights: cur.nights } : null,
         free_until: (!cur && next) ? next.check_in : null,
-        checkout: outB ? Object.assign({ check_in: outB.check_in, nights: outB.nights }, outRows[a.id] ? pick(outRows[a.id]) : {}) : null
+        checkout: outB ? Object.assign({ check_in: outB.check_in, nights: outB.nights }, outRows[a.id] ? pick(outRows[a.id]) : {}) : null,
+        cleaning: cleaning[a.id] || null
       }, ops[a.id] ? pick(ops[a.id]) : {});
     });
     // дни месяца с заездами (для календаря)
