@@ -159,6 +159,7 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
     var h='<div class="tbl"><table><tr><th>Квартира</th><th>Статус</th><th>Площадка</th><th>Гость</th><th>Заезд</th><th>Выезд</th><th>Чел</th><th>Паспорт</th><th>Доступ</th><th>Заехал</th><th>Регистр.</th><th>Рег.отпр</th><th>Ут.заезд</th><th>Ут.выезд</th><th>Оплата $</th><th>Депозит</th><th>Отзыв</th><th>Заметка</th></tr>';
     rows.forEach(function(r){ var stl={in:'заезд',busy:'живут',out:'выезд',free:'свободно'}[r.status];
       var stay=r.stay?ru(r.stay.check_in).slice(0,5)+'→'+ru(r.stay.check_out).slice(0,5):(r.free_until?'до '+ru(r.free_until).slice(0,5):'');
+      if(r.cleaning&&(r.status==='out'||r.status==='in')) stay+=(stay?' · ':'')+'🧹 '+(r.cleaning.done?'убрано':(HKS[r.cleaning.hk_status]||'—'));
       h+='<tr class="'+r.status+'"><td class="apt">'+esc(shortName(r))+'<small>'+esc(r.complex||'')+(r.floor?' · эт. '+r.floor:'')+(r.rooms?' · '+esc(r.rooms):'')+'</small></td>'+
         '<td><span class="st '+r.status+'">'+stl+'</span><small style="display:block;color:var(--ink-d);font-size:10px">'+stay+'</small></td>'+
         '<td>'+srcCell(r)+'</td><td><input class="note" style="width:110px" placeholder="имя" value="'+esc(r.guest_name)+'" data-a="'+r.apartment_id+'" data-k="guest_name"></td>'+
@@ -181,18 +182,21 @@ select{max-width:110px} input.t{width:62px} input.n{width:44px} input.p{width:58
   }
 
   // ---------- выезды дня (редактируется строка заезда той же брони) ----------
+  var HKS={plan:'план',guest_checked_out:'выехал',assigned:'назначена',in_progress:'идёт',completed:'готово',waiting_check:'проверка',verified:'проверено',rework:'переделка',problem:'проблема',overdue:'просрочена',canceled:'отменена'};
+  function cleanCell(c){ if(!c) return '<span style="color:var(--ink-d)">—</span>'; var st=c.hk_status?(HKS[c.hk_status]||c.hk_status):(c.done?'убрано':'—'); var col=c.done?'var(--ok)':(/problem|rework|overdue/.test(c.hk_status||'')?'var(--no)':(c.hk_status?'var(--part)':'var(--ink-d)'));
+    return '<span style="color:'+col+'">'+(c.done?'✓ ':'')+esc(st)+'</span>'+(c.hk_maid?'<small style="display:block;color:var(--ink-d);font-size:10px">'+esc(c.hk_maid)+'</small>':''); }
   function cbd(r,k,d){ return '<span class="cb'+(r[k]?' on':'')+'" data-a="'+r.apartment_id+'" data-k="'+k+'" data-d="'+d+'">✓</span>'; }
   function renderOut(){
     var d=state.data; var rows=d.rows.filter(function(r){return r.checkout;});
     if(!rows.length){ $('#view').innerHTML='<div style="padding:20px;color:var(--ink-d)">Выездов на '+ru(d.date)+' нет.</div>'; return; }
-    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Жили</th><th>Площадка</th><th>Гость</th><th>Выезд</th><th>Выехал</th><th>Оплата $</th><th>Депозит возвращён</th><th>Отзыв</th><th>Заметка</th></tr>';
+    var h='<div class="tbl"><table><tr><th>Квартира</th><th>Жили</th><th>Площадка</th><th>Гость</th><th>Выезд</th><th>Выехал</th><th>Уборка</th><th>Оплата $</th><th>Депозит возвращён</th><th>Отзыв</th><th>Заметка</th></tr>';
     rows.forEach(function(r){ var c=r.checkout, ad=c.check_in; var tot=c.payment_total!=null?+c.payment_total:null, paid=+(c.payment_paid||0); var rest=tot!=null?tot-paid:null;
       var pay=tot==null?'<span style="color:var(--ink-d)">не задана</span>':(rest<=0?'<span style="color:var(--ok)">✓ '+tot+'$</span>':'<span style="color:var(--no)">долг '+rest+'$ из '+tot+'</span>');
       h+='<tr class="out"><td class="apt">'+esc(shortName(r))+'<small>'+esc(r.complex||'')+'</small></td>'+
         '<td><small style="color:var(--ink-m)">'+ru(ad).slice(0,5)+'→'+ru(d.date).slice(0,5)+' · '+c.nights+' ноч.</small></td>'+
         '<td>'+(SRC[c.source]||esc(c.source)||'—')+'</td><td>'+esc(c.guest_name||'—')+'</td>'+
         '<td><input class="t" placeholder="12:00" value="'+esc(c.checkout_time)+'" data-a="'+r.apartment_id+'" data-k="checkout_time" data-d="'+ad+'"></td>'+
-        '<td>'+cbd(c,'checked_out',ad)+'</td><td>'+pay+'</td><td>'+cbd(c,'deposit_returned',ad)+(c.deposit_received?'':' <small style="color:var(--ink-d)">депозит не отмечен</small>')+'</td><td>'+cbd(c,'review',ad)+'</td>'+
+        '<td>'+cbd(c,'checked_out',ad)+'</td><td>'+cleanCell(r.cleaning)+'</td><td>'+pay+'</td><td>'+cbd(c,'deposit_returned',ad)+(c.deposit_received?'':' <small style="color:var(--ink-d)">депозит не отмечен</small>')+'</td><td>'+cbd(c,'review',ad)+'</td>'+
         '<td><input class="note" placeholder="…" value="'+esc(c.note)+'" data-a="'+r.apartment_id+'" data-k="note" data-d="'+ad+'"></td></tr>'; });
     $('#view').innerHTML=h+'</table></div><div class="sum" style="margin-top:6px"><span>Галочки здесь меняют строку заезда этой же брони — всё в одном месте.</span></div>';
   }
