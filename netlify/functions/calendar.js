@@ -33,7 +33,7 @@ exports.handler = async (event) => {
   if (SUPABASE_KEY) {
     try {
       const https = require('https');
-      const url = `${SUPABASE_URL}/rest/v1/bookings?apartment_id=eq.${encodeURIComponent(apt)}&status=neq.cancelled&select=id,booking_ref,guest_name,check_in,check_out,created_at,updated_at`;
+      const url = `${SUPABASE_URL}/rest/v1/bookings?apartment_id=eq.${encodeURIComponent(apt)}&status=neq.cancelled&source=neq.rc&select=id,booking_ref,guest_name,check_in,check_out,created_at,updated_at`; // брони, пришедшие из RC, обратно в RC не отдаём (иначе дубли)
       const data = await new Promise((resolve) => {
         https.get(url, {
           headers: {
