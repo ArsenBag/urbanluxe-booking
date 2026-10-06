@@ -99,6 +99,23 @@ async function buildFree(fromRaw, toRaw, opts) {
     if (complex !== lastComplex) { if (lines.length) lines.push(''); lastComplex = complex; }
     lines.push(num + '. ' + label + ' — ' + a.weekday + '$/' + a.weekend + '$' + (a.nights > 1 ? ' · за ' + a.nights + ' ноч. ' + a.total + '$' : '') + '\n   📷 ' + photo);
   }
+  // Квартиры, которых ещё нет в закреплённом каталоге (например, новые U-Tower 222/415): показываем в конце без номера,
+  // фото — страница на сайте. Когда Арсен добавит их в каталог — вписать в CATALOG с номером и постом.
+  const inCatalog = new Set(CATALOG.map(c => c[1]));
+  const extra = Object.values(byId).filter(a => !inCatalog.has(a.id)).sort((x, y) => String(x.id).localeCompare(String(y.id)));
+  for (const a of extra) {
+    const isStudio = /студ/i.test(a.rooms || '');
+    if (f.rooms === 'studio' && !isStudio) continue;
+    if (f.rooms === 'multi' && isStudio) continue;
+    if (f.complex && a.id.indexOf(f.complex) !== 0) continue;
+    if (f.max && a.weekday > f.max) continue;
+    const num = String(a.id).split('_').pop();
+    const label = (a.complex || '') + ' ' + (a.floor ? a.floor + '/' : '') + num;
+    const photo = 'https://urbanluxe.cc/apartments/' + a.id;
+    available.push({ num: '•', id: a.id, label, photo, weekday: a.weekday, weekend: a.weekend, total: a.total, nights: a.nights, complex: a.complex });
+    if (lastComplex !== '•') { if (lines.length) lines.push(''); lastComplex = '•'; }
+    lines.push('• ' + label + ' (нет в каталоге) — ' + a.weekday + '$/' + a.weekend + '$' + (a.nights > 1 ? ' · за ' + a.nights + ' ноч. ' + a.total + '$' : '') + '\n   📷 ' + photo);
+  }
   const total = d.total_apartments || 0;
   const fl = f.rooms === 'studio' ? ' · студии' : f.rooms === 'multi' ? ' · 2+ комнат' : '';
   const fc = f.complex ? ' · ' + ({ nest: 'Nest One', utower: 'U-Tower', kislorod: 'Kislorod', mirabad: 'Mirabad', gardens: 'Gardens', modera: 'Modera' }[f.complex] || f.complex) : '';
