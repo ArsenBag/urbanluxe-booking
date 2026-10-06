@@ -15,6 +15,10 @@
 [functions."hk-sync"]
   schedule = "*/15 * * * *"
 
+# Брони из RealtyCalendar → своя таблица bookings (07.10.2026). Нужен RC_TOKEN.
+[functions."rc-sync"]
+  schedule = "7,22,37,52 * * * *"
+
 # Мультиязычные URL: /en и /uz отдаются функцией lang.js (один источник — index.html).
 # Язык передаём через путь, а не query: Netlify теряет query-строку в rewrite-цели.
 [[redirects]]
