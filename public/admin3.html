@@ -291,5 +291,6 @@ function openModal(html){$('#modalBox').innerHTML=html;$('#modal').classList.add
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 sb.auth.getSession().then(({data:{session}})=>session?boot():showLogin());
 </script>
+<script src="/admin3-calendar.js?v=1"></script>
 </body>
 </html>
