@@ -56,11 +56,17 @@ async function rows(from, to) {
   const list = r.ok ? await r.json() : [];
   const apts = await T.sb('apartments?select=id,name,complex').then(x => x.json());
   const byId = {}; apts.forEach(a => { byId[a.id] = a; });
+  // уборки (из housekeeping-бота через hk-events, либо «✅ Убрано» из staff.html): квартира + дата → статус
+  const cl = await T.sb('cleaning_tasks?select=apartment_id,date,done,hk_status,hk_maid&date=gte.' + from + '&date=lte.' + to).then(x => x.ok ? x.json() : []).catch(() => []);
+  const clBy = {}; cl.forEach(c => { clBy[c.apartment_id + '|' + c.date] = c; });
+  const HK_RU = { plan: '⏳ запланирована', guest_checked_out: '⏳ ждёт уборки', assigned: '👤 назначена', in_progress: '🧹 идёт уборка', completed: '✓ убрано', waiting_check: '✓ ждёт проверки', verified: '✓ проверена', rework: '⚠ переделка', problem: '⚠ проблема', overdue: '⚠ просрочена', canceled: 'отменена' };
+  const clText = c => !c ? '' : (c.hk_status ? (HK_RU[c.hk_status] || c.hk_status) : (c.done ? '✓ убрано' : '⏳')) + (c.hk_maid ? ' · ' + c.hk_maid : '');
   return list.map(x => {
     const a = byId[x.apartment_id] || { name: x.apartment_id, complex: '' };
     const status = x.checked_out ? 'Выехал' : x.date === today ? (x.checked_in ? 'Живёт' : 'Заезд') : x.date < today ? (x.checked_in ? 'Живёт' : 'Был заезд') : 'Бронь';
     return {
       id: x.id, date: x.date, apt: sheetShort(a), status, source: SRCL[x.source] || x.source || '', guest_name: x.guest_name || '',
+      cleaning: clText(clBy[x.apartment_id + '|' + x.date] || (x.check_out_date ? clBy[x.apartment_id + '|' + x.check_out_date] : null)),
       checkin_time: x.checkin_time || '', checkout_time: x.checkout_time || '', guests: x.guests || '',
       passport: !!x.passport, access: !!x.access, checked_in: !!x.checked_in, registration: x.registration === 'not_needed' ? 'Нет' : (x.registration ? 'Да' : ''), reg_sent: !!x.reg_sent || x.registration === 'done',
       confirm_checkin: !!x.confirm_checkin, confirm_checkout: !!x.confirm_checkout,
