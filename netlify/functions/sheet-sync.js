@@ -141,7 +141,7 @@ exports.handler = async (event) => {
       const p = event.queryStringParameters || {};
       if (p.key !== KEY) return out(401, { error: 'bad key' });
       if (p.view === 'day') return out(200, await sections());
-      if (p.view === 'upcoming') return out(200, { today: T.tashToday(0), rows: await upcoming() });
+      if (p.view === 'upcoming') { const apts = await T.sb('apartments?select=id,name,complex&is_active=eq.true').then(x => x.json()); const order = { U: 1, N: 2, K: 3, MA: 4, G: 5, MO: 6 }; const names = apts.map(sheetShort).sort((a, b) => (order[a.split(' ')[0]] || 9) - (order[b.split(' ')[0]] || 9) || (parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]))); return out(200, { today: T.tashToday(0), apts: names, rows: await upcoming() }); }
       const from = /^\d{4}-\d{2}-\d{2}$/.test(p.from || '') ? p.from : addDays(T.tashToday(0), -1);
       const to = /^\d{4}-\d{2}-\d{2}$/.test(p.to || '') ? p.to : addDays(T.tashToday(0), 7);
       return out(200, { from, to, today: T.tashToday(0), rows: await rows(from, to) });
