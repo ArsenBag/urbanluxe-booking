@@ -1,0 +1,138 @@
+// Urban Luxe — sheet-sync.js (09.10.2026). Двусторонняя синхронизация листа заездов (daily_ops) с Google-таблицей
+// «Лист бронера» (лист «Лист2»). Apps Script в таблице (sheets/UrbanLuxe-Zaezdy.gs) дёргает этот endpoint:
+//   GET  ?key=…&from=&to=                              → строки daily_ops за период
+//   POST {key, op:'update', id, field, value, who}      → правка одной ячейки (последняя запись побеждает)
+//   POST {key, op:'add', date, apt, who}                → новая строка (apt — «U 171», «ю100», «Nest 481», «481»)
+//   POST {key, op:'import', date, who, rows:[{apt, fields…}]} → разовый импорт существующих строк таблицы
+// Ключ: app_settings.SHEET_SYNC_KEY (или env SHEET_SYNC_KEY). Логика полей — как в боте бронеров (ops.js).
+
+const T = require('./_tg.js');
+const OPS = require('./ops.js');
+const H = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
+const out = (c, b) => ({ statusCode: c, headers: H, body: JSON.stringify(b) });
+const addDays = (iso, k) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
+
+const SRC_AL = { airbnb: 'bnb', бнб: 'bnb', bnb: 'bnb', букинг: 'booking', booking: 'booking', тг: 'tg', tg: 'tg', телеграм: 'tg', telegram: 'tg', ватсап: 'wa', whatsapp: 'wa', wa: 'wa', сайт: 'site', site: 'site', инста: 'ig', instagram: 'ig', ig: 'ig', продление: 'ext', ext: 'ext', другое: 'other', other: 'other', ostrovok: 'other', островок: 'other', яндекс: 'other', yandex: 'other' };
+const SRCL = { bnb: 'Airbnb', booking: 'Booking', tg: 'Telegram', wa: 'WhatsApp', site: 'Сайт', ig: 'Instagram', ext: 'Продление', other: 'Другое' };
+function num(v) { if (v === '' || v == null) return null; const n = parseFloat(String(v).replace(/[^\d.,-]/g, '').replace(',', '.')); return isNaN(n) ? null : n; }
+function bool(v) { if (typeof v === 'boolean') return v; const s = String(v || '').trim().toLowerCase(); return ['true', '1', 'да', 'yes', '☑', '✓', 'v', '+'].includes(s); }
+function timeStr(v) { if (v == null || v === '') return null; const s = String(v).trim(); if (/^\?+$/.test(s)) return null; const m = s.match(/(\d{1,2})[:.\/](\d{2})/); if (m) return m[1].padStart(2, '0') + ':' + m[2]; if (/^\d{1,2}$/.test(s)) return s.padStart(2, '0') + ':00'; return s.slice(0, 20); }
+function dateStr(v) { if (!v) return null; const s = String(v).trim(); let m; if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[1] + '-' + m[2] + '-' + m[3]; if ((m = s.match(/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?/))) { const y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : T.tashToday(0).slice(0, 4); return y + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); } return null; }
+
+// поле → колонка daily_ops и нормализация
+const FIELDS = {
+  guest_name: v => String(v || '').trim() || null,
+  guests: v => { const n = parseInt(v); return isNaN(n) ? null : n; },
+  source: v => { const s = String(v || '').trim().toLowerCase(); return s ? (SRC_AL[s] || s) : null; },
+  checkin_time: timeStr, checkout_time: timeStr, check_out_date: dateStr,
+  payment_total: num, payment_paid: num, deposit_amount: num,
+  passport: bool, access: bool, reg_sent: bool, checked_in: bool, checked_out: bool, deposit_received: bool, deposit_returned: bool, review: bool, confirm_checkin: bool, confirm_checkout: bool,
+  registration: v => { if (typeof v === 'boolean') return v ? 'needed' : 'not_needed'; const s = String(v || '').trim().toLowerCase(); if (!s) return null; if (/сдел|done|☑|✓/.test(s)) return 'done'; if (/^(нет|не надо|не нужна|no|not)/.test(s)) return 'not_needed'; return 'needed'; },
+  note: v => String(v || '').trim() || null
+};
+
+async function getKey() {
+  if (process.env.SHEET_SYNC_KEY) return process.env.SHEET_SYNC_KEY;
+  const r = await T.sb('app_settings?select=value&key=eq.SHEET_SYNC_KEY'); const rows = r.ok ? await r.json() : [];
+  return rows.length ? rows[0].value : null;
+}
+
+function sheetShort(a) { // «U 171», «N 481», «K 31», «MA 111», «G 65», «MO 294» — как привыкли бронеры
+  const num = (a.name || '').replace(/\D/g, ''); const c = (a.complex || '').toLowerCase();
+  const p = c.indexOf('u-tower') === 0 ? 'U' : c.indexOf('nest') === 0 ? 'N' : c.indexOf('kislorod') === 0 ? 'K' : c.indexOf('mirabad') === 0 ? 'MA' : c.indexOf('gardens') === 0 ? 'G' : c.indexOf('modera') === 0 ? 'MO' : (a.complex || '').slice(0, 2).toUpperCase();
+  return p + ' ' + num;
+}
+// «U 171», «ю171», «MA111», «Nest 481» → квартира
+async function findApt(q) {
+  const s = String(q || '').trim(); let c = await OPS.findApt(s);
+  if (c.length > 1) { const w = s.replace(/[\d\s]/g, '').toLowerCase(); const map = { u: 'u-tower', ю: 'u-tower', n: 'nest', н: 'nest', k: 'kislorod', к: 'kislorod', ma: 'mirabad', ма: 'mirabad', m: 'mirabad', g: 'gardens', г: 'gardens', mo: 'modera', мо: 'modera' }; const key = Object.keys(map).sort((a, b) => b.length - a.length).find(k => w.indexOf(k) === 0); if (key) c = c.filter(a => (a.complex || '').toLowerCase().indexOf(map[key]) === 0); }
+  return c;
+}
+
+async function rows(from, to) {
+  const today = T.tashToday(0);
+  for (let i = 0; i <= 7; i++) { const d = addDays(today, i); if (d >= from && d <= to) { try { await OPS.ensureDay(d); } catch (e) { /* не блокируем */ } } }
+  const r = await T.sb('daily_ops?select=*&date=gte.' + from + '&date=lte.' + to + '&order=date,apartment_id&limit=5000');
+  const list = r.ok ? await r.json() : [];
+  const apts = await T.sb('apartments?select=id,name,complex').then(x => x.json());
+  const byId = {}; apts.forEach(a => { byId[a.id] = a; });
+  return list.map(x => {
+    const a = byId[x.apartment_id] || { name: x.apartment_id, complex: '' };
+    const status = x.checked_out ? 'Выехал' : x.date === today ? (x.checked_in ? 'Живёт' : 'Заезд') : x.date < today ? (x.checked_in ? 'Живёт' : 'Был заезд') : 'Бронь';
+    return {
+      id: x.id, date: x.date, apt: sheetShort(a), status, source: SRCL[x.source] || x.source || '', guest_name: x.guest_name || '',
+      checkin_time: x.checkin_time || '', checkout_time: x.checkout_time || '', guests: x.guests || '',
+      passport: !!x.passport, access: !!x.access, checked_in: !!x.checked_in, registration: x.registration === 'not_needed' ? 'Нет' : (x.registration ? 'Да' : ''), reg_sent: !!x.reg_sent || x.registration === 'done',
+      confirm_checkin: !!x.confirm_checkin, confirm_checkout: !!x.confirm_checkout,
+      payment_paid: x.payment_paid == null ? '' : Number(x.payment_paid), payment_total: x.payment_total == null ? '' : Number(x.payment_total),
+      deposit_received: !!x.deposit_received, deposit_returned: !!x.deposit_returned, review: !!x.review, note: x.note || '',
+      updated_by: (x.updated_by || '').replace(/^sheet:/, ''), check_out_date: x.check_out_date || '', checked_out: !!x.checked_out
+    };
+  });
+}
+
+// Блоки дня: заезды сегодня, выезды сегодня (по броням с check_out = сегодня, строка листа — от даты их заезда), заезды завтра
+async function sections() {
+  const today = T.tashToday(0), tomorrow = addDays(today, 1);
+  const outs = await T.sb('bookings?select=id,apartment_id,check_in,check_out,guest_name,status&status=in.(confirmed,checked_in,request)&check_out=eq.' + today).then(x => x.ok ? x.json() : []);
+  const dates = [...new Set([today, tomorrow].concat(outs.map(b => b.check_in)))];
+  for (const d of dates) { try { await OPS.ensureDay(d); } catch (e) { /* не блокируем */ } }
+  const all = await rows(dates.reduce((a, b) => a < b ? a : b), tomorrow);
+  const byKey = {}; all.forEach(r => { byKey[r.date + '|' + r.apt] = r; });
+  const apts = await T.sb('apartments?select=id,name,complex').then(x => x.json()); const byId = {}; apts.forEach(a => { byId[a.id] = a; });
+  const outRows = outs.map(b => { const a = byId[b.apartment_id] || { name: b.apartment_id, complex: '' }; const r = byKey[b.check_in + '|' + sheetShort(a)]; if (!r) return null; return Object.assign({}, r, { status: r.checked_out ? 'Выехал' : 'Выезд', kind: 'out', booking_check_in: b.check_in }); }).filter(Boolean).sort((p, q) => p.apt.localeCompare(q.apt));
+  const ruD = d => d.slice(8, 10) + '.' + d.slice(5, 7);
+  return { today, sections: [
+    { title: 'ЗАЕЗДЫ · сегодня ' + ruD(today), date: today, kind: 'in', rows: all.filter(r => r.date === today) },
+    { title: 'ВЫЕЗДЫ · сегодня ' + ruD(today), date: today, kind: 'out', rows: outRows },
+    { title: 'ЗАЕЗДЫ · завтра ' + ruD(tomorrow), date: tomorrow, kind: 'in', rows: all.filter(r => r.date === tomorrow) }
+  ] };
+}
+
+async function applyFields(id, fields, who) {
+  const patch = {}; for (const f in fields) if (FIELDS[f]) patch[f] = FIELDS[f](fields[f]);
+  if (!Object.keys(patch).length) return;
+  patch.updated_by = who; patch.updated_at = new Date().toISOString(); patch.auto = false;
+  const r = await T.sb('daily_ops?id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+  return patch;
+}
+async function rowFor(date, aptQ, who) { // найти/создать строку дня для квартиры
+  const c = await findApt(aptQ); if (!c.length) throw new Error('Не нашёл квартиру «' + aptQ + '»'); if (c.length > 1) throw new Error('Уточни ЖК: ' + c.map(a => sheetShort(a)).join(', '));
+  let rows = await T.sb('daily_ops?select=id&date=eq.' + date + '&apartment_id=eq.' + c[0].id).then(x => x.json());
+  if (!rows.length) { await T.sb('daily_ops', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify([{ date, apartment_id: c[0].id, auto: false, updated_by: who }]) }); rows = await T.sb('daily_ops?select=id&date=eq.' + date + '&apartment_id=eq.' + c[0].id).then(x => x.json()); }
+  return { id: rows[0].id, apt: sheetShort(c[0]) };
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
+  try {
+    const KEY = await getKey(); if (!KEY) return out(500, { error: 'SHEET_SYNC_KEY не задан' });
+    if (event.httpMethod === 'GET') {
+      const p = event.queryStringParameters || {};
+      if (p.key !== KEY) return out(401, { error: 'bad key' });
+      if (p.view === 'day') return out(200, await sections());
+      const from = /^\d{4}-\d{2}-\d{2}$/.test(p.from || '') ? p.from : addDays(T.tashToday(0), -1);
+      const to = /^\d{4}-\d{2}-\d{2}$/.test(p.to || '') ? p.to : addDays(T.tashToday(0), 7);
+      return out(200, { from, to, today: T.tashToday(0), rows: await rows(from, to) });
+    }
+    const b = JSON.parse(event.body || '{}');
+    if (b.key !== KEY) return out(401, { error: 'bad key' });
+    const who = 'sheet:' + (b.who || 'google');
+    if (b.op === 'update') {
+      if (!b.id || !FIELDS[b.field]) return out(400, { error: 'id/field' });
+      const patch = await applyFields(b.id, { [b.field]: b.value }, who);
+      return out(200, { ok: true, id: b.id, field: b.field, value: patch[b.field] });
+    }
+    if (b.op === 'add') {
+      const date = dateStr(b.date) || T.tashToday(0); if (!b.apt) return out(400, { error: 'apt' });
+      const r = await rowFor(date, b.apt, who); return out(200, { ok: true, id: r.id, date, apt: r.apt });
+    }
+    if (b.op === 'import') { // разовый перенос строк таблицы в базу
+      const date = dateStr(b.date) || T.tashToday(0); const res = [];
+      for (const row of (b.rows || [])) { try { if (!row.apt) continue; const r = await rowFor(date, row.apt, who); await applyFields(r.id, row.fields || {}, who); res.push({ apt: row.apt, id: r.id }); } catch (e) { res.push({ apt: row.apt, error: String(e.message || e) }); } }
+      return out(200, { ok: true, date, result: res });
+    }
+    return out(400, { error: 'unknown op' });
+  } catch (e) { return out(500, { error: String(e.message || e) }); }
+};

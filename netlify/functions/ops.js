@@ -39,23 +39,32 @@ async function findApt(q) {
   return c;
 }
 
-// создать недостающие строки дня из календаря (заезды RC + брони сайта)
+// создать недостающие строки дня из календаря. С 07.10.2026 источник — таблица bookings (мастер: сайт + RC + ручные):
+// гость, сумма, предоплата, время заезда приходят из брони. Старый путь через sync-ical — запасной.
+const CH2SRC = { website: 'site', telegram: 'tg', whatsapp: 'wa', ostrovok: 'other', yandex: 'other', booking: 'booking', airbnb: 'bnb', instagram: 'ig', corporate: 'other' };
 async function ensureDay(date) {
-  const base = process.env.URL || 'https://urbanluxe.cc';
-  const [ical, siteRes, exRes] = await Promise.all([
-    fetch(base + '/.netlify/functions/sync-ical').then(r => r.json()).catch(() => ({})),
-    T.sb('bookings?select=apartment_id,guest_name,total_price,guests_count,check_out&status=eq.confirmed&check_in=eq.' + date),
-    T.sb('daily_ops?select=apartment_id&date=eq.' + date)
+  const [bkRes, exRes] = await Promise.all([
+    T.sb('bookings?select=id,apartment_id,guest_name,total_price,currency,prepaid,guests_count,check_out,arrival_time,check_in_time,channel,source,status,notes&status=in.(confirmed,checked_in,request)&check_in=eq.' + date),
+    T.sb('daily_ops?select=id,apartment_id,guest_name,payment_total,auto&date=eq.' + date)
   ]);
-  const have = new Set((exRes.ok ? await exRes.json() : []).map(r => r.apartment_id));
-  const site = {}; (siteRes.ok ? await siteRes.json() : []).forEach(b => { site[b.apartment_id] = b; });
+  const existing = exRes.ok ? await exRes.json() : [];
+  const have = new Set(existing.map(r => r.apartment_id));
+  let bookings = bkRes.ok ? await bkRes.json() : [];
+  if (!bookings.length) { // запасной путь — iCal RC
+    const base = process.env.URL || 'https://urbanluxe.cc';
+    const ical = await fetch(base + '/.netlify/functions/sync-ical').then(r => r.json()).catch(() => ({}));
+    bookings = (ical.all_bookings || []).filter(b => b.check_in === date).map(b => ({ apartment_id: b.apartment_id, guest_name: b.guest_name || null, check_out: b.check_out }));
+  }
   const rows = [];
-  (ical.all_bookings || []).filter(b => b.check_in === date).forEach(b => {
-    if (have.has(b.apartment_id)) return; have.add(b.apartment_id);
-    const s = site[b.apartment_id];
-    rows.push({ date, apartment_id: b.apartment_id, source: s ? 'site' : null, guest_name: s ? s.guest_name : (b.guest_name || null), guests: s ? s.guests_count : null, payment_total: s ? s.total_price : null, checkout_time: null, auto: true });
-  });
-  Object.keys(site).forEach(id => { if (!have.has(id)) { have.add(id); const s = site[id]; rows.push({ date, apartment_id: id, source: 'site', guest_name: s.guest_name, guests: s.guests_count, payment_total: s.total_price, auto: true }); } });
+  for (const b of bookings) {
+    if (have.has(b.apartment_id)) continue; have.add(b.apartment_id);
+    const usd = !b.currency || b.currency === 'USD';
+    rows.push({ date, apartment_id: b.apartment_id, source: CH2SRC[b.channel] || (b.source === 'website' ? 'site' : null), guest_name: b.guest_name && b.guest_name !== 'Гость' ? b.guest_name : null,
+      guests: b.guests_count || null, payment_total: usd && b.total_price ? b.total_price : null, payment_paid: usd && b.prepaid ? b.prepaid : 0,
+      check_out_date: b.check_out || null, checkin_time: b.arrival_time || b.check_in_time || null, note: b.notes || null, auto: true });
+  }
+  // дозаполнить гостя/сумму в уже созданных автоматических строках, если бронь появилась позже
+  for (const e of existing) { if (!e.auto || (e.guest_name && e.payment_total != null)) continue; const b = bookings.find(x => x.apartment_id === e.apartment_id); if (!b) continue; const p = {}; if (!e.guest_name && b.guest_name && b.guest_name !== 'Гость') p.guest_name = b.guest_name; if (e.payment_total == null && b.total_price && (!b.currency || b.currency === 'USD')) p.payment_total = b.total_price; if (Object.keys(p).length) await T.sb('daily_ops?id=eq.' + e.id, { method: 'PATCH', body: JSON.stringify(p) }); }
   if (rows.length) await T.sb('daily_ops', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify(rows) });
 }
 
