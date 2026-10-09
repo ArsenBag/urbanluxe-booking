@@ -89,6 +89,35 @@ async function sections() {
   ] };
 }
 
+// ---------- брони на будущее (лист «Брони») ----------
+const CH_AL = { telegram: 'telegram', тг: 'telegram', whatsapp: 'whatsapp', ватсап: 'whatsapp', сайт: 'website', site: 'website', instagram: 'instagram', инста: 'instagram', airbnb: 'airbnb', booking: 'booking', букинг: 'booking', ostrovok: 'ostrovok', островок: 'ostrovok', яндекс: 'yandex', yandex: 'yandex', корпоратив: 'corporate', corporate: 'corporate', продление: 'other', другое: 'other' };
+const CHL = { telegram: 'Telegram', whatsapp: 'WhatsApp', website: 'Сайт', instagram: 'Instagram', airbnb: 'Airbnb', booking: 'Booking', ostrovok: 'Ostrovok', yandex: 'Яндекс', corporate: 'Корпоратив', rc: 'RC', other: 'Другое', ota: 'OTA' };
+async function priceFor(aptId, ci, co) {
+  const a = (await T.sb('apartments?select=weekday_price,weekend_price&id=eq.' + aptId).then(x => x.json()))[0]; if (!a) return 0;
+  let s = 0, n = 0; for (let d = ci; d < co; d = addDays(d, 1)) { const w = new Date(d + 'T00:00:00Z').getUTCDay(); s += (w === 5 || w === 6) ? a.weekend_price : a.weekday_price; n++; }
+  return n >= 3 ? Math.round(s * 0.9) : s;
+}
+async function book(b, who) {
+  const c = await findApt(b.apt); if (!c.length) throw new Error('Не нашёл квартиру «' + b.apt + '»'); if (c.length > 1) throw new Error('Уточни ЖК: ' + c.map(a => sheetShort(a)).join(', '));
+  const ci = dateStr(b.check_in), co = dateStr(b.check_out); if (!ci || !co) throw new Error('Даты заезда/выезда'); if (co <= ci) throw new Error('Выезд должен быть позже заезда');
+  const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+  const total = num(b.total) || await priceFor(c[0].id, ci, co);
+  const row = { apartment_id: c[0].id, guest_name: String(b.guest_name || 'Гость').trim() || 'Гость', guest_phone: b.guest_phone ? String(b.guest_phone).trim() : null, guest_telegram: b.guest_telegram ? String(b.guest_telegram).trim() : null,
+    check_in: ci, check_out: co, nights, guests_count: parseInt(b.guests) || 1, status: 'confirmed', source: 'manual', channel: CH_AL[String(b.channel || '').trim().toLowerCase()] || 'telegram',
+    total_price: Math.round(total), currency: 'USD', notes: b.note ? String(b.note).trim() : null, arrival_time: b.arrival_time ? timeStr(b.arrival_time) : null, created_by: who,
+    booking_ref: 'UL-' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase() };
+  const r = await T.sb('bookings', { method: 'POST', body: JSON.stringify(row) });
+  if (!r.ok) { const t = await r.text(); throw new Error(/bookings_no_overlap|exclusion/.test(t) ? 'Даты заняты — у этой квартиры уже есть бронь на эти дни' : t.slice(0, 160)); }
+  const created = (await r.json())[0];
+  const prep = num(b.prepaid); if (prep > 0) await T.sb('payments', { method: 'POST', body: JSON.stringify({ booking_id: created.id, amount: prep, currency: 'USD', method: 'transfer', received_by: who, note: 'предоплата (таблица)' }) });
+  return { id: created.id, ref: created.booking_ref, apt: sheetShort(c[0]), check_in: ci, check_out: co, total: Math.round(total || 0), nights };
+}
+async function upcoming() {
+  const today = T.tashToday(0);
+  const rows = await T.sb('v_bookings?select=id,apartment_id,complex,apartment_name,check_in,check_out,nights,status,channel,guest_name,guest_phone,guests_count,total_price,currency,paid,debt,arrival_time,notes,created_by&status=in.(confirmed,request,checked_in)&check_in=gt.' + today + '&check_in=lte.' + addDays(today, 30) + '&order=check_in,apartment_id&limit=500').then(x => x.ok ? x.json() : []);
+  return rows.map(b => ({ id: b.id, apt: sheetShort({ name: b.apartment_name, complex: b.complex }), check_in: b.check_in, check_out: b.check_out, nights: b.nights, guest_name: b.guest_name || '', guest_phone: b.guest_phone || '', guests: b.guests_count || '', total: b.total_price == null ? '' : Number(b.total_price), currency: b.currency || 'USD', paid: Number(b.paid || 0), debt: Number(b.debt || 0), channel: CHL[b.channel] || b.channel || '', arrival_time: b.arrival_time || '', note: b.notes || '', status: b.status === 'request' ? 'Запрос' : 'Подтверждена', created_by: (b.created_by || '').replace(/^sheet:/, '') }));
+}
+
 async function applyFields(id, fields, who) {
   const patch = {}; for (const f in fields) if (FIELDS[f]) patch[f] = FIELDS[f](fields[f]);
   if (!Object.keys(patch).length) return;
@@ -112,6 +141,7 @@ exports.handler = async (event) => {
       const p = event.queryStringParameters || {};
       if (p.key !== KEY) return out(401, { error: 'bad key' });
       if (p.view === 'day') return out(200, await sections());
+      if (p.view === 'upcoming') return out(200, { today: T.tashToday(0), rows: await upcoming() });
       const from = /^\d{4}-\d{2}-\d{2}$/.test(p.from || '') ? p.from : addDays(T.tashToday(0), -1);
       const to = /^\d{4}-\d{2}-\d{2}$/.test(p.to || '') ? p.to : addDays(T.tashToday(0), 7);
       return out(200, { from, to, today: T.tashToday(0), rows: await rows(from, to) });
@@ -128,6 +158,7 @@ exports.handler = async (event) => {
       const date = dateStr(b.date) || T.tashToday(0); if (!b.apt) return out(400, { error: 'apt' });
       const r = await rowFor(date, b.apt, who); return out(200, { ok: true, id: r.id, date, apt: r.apt });
     }
+    if (b.op === 'book') { try { return out(200, Object.assign({ ok: true }, await book(b, who))); } catch (e) { return out(200, { ok: false, error: String(e.message || e) }); } }
     if (b.op === 'import') { // разовый перенос строк таблицы в базу
       const date = dateStr(b.date) || T.tashToday(0); const res = [];
       for (const row of (b.rows || [])) { try { if (!row.apt) continue; const r = await rowFor(date, row.apt, who); await applyFields(r.id, row.fields || {}, who); res.push({ apt: row.apt, id: r.id }); } catch (e) { res.push({ apt: row.apt, error: String(e.message || e) }); } }
