@@ -121,7 +121,8 @@ case "\${1:-status}" in
 esac
 EOF
 chmod +x /usr/local/bin/hk
-( crontab -l 2>/dev/null | grep -v 'hk backup'; echo "30 23 * * * /usr/local/bin/hk backup >/dev/null 2>&1" ) | crontab -
+command -v crontab >/dev/null || apt-get install -y -qq cron >/dev/null 2>&1 || true
+{ crontab -l 2>/dev/null | grep -v 'hk backup' || true; echo "30 23 * * * /usr/local/bin/hk backup >/dev/null 2>&1"; } | crontab - || true
 ok "Бэкап базы каждый день в 23:30, команда: hk (logs/restart/update/backup/env)"
 
 # ---------- 9. Итог ----------
