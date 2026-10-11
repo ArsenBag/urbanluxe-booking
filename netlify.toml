@@ -15,6 +15,13 @@
 [functions."hk-sync"]
   schedule = "*/15 * * * *"
 
+# Хаб каналов (11.10.2026): очередь цен/занятости → Channex каждую минуту (+ feed броней каждые 10 мин);
+# iCal площадок без API (Яндекс Путешествия, Sutochno) → брони каждые 10 минут. env: CHANNEX_API_KEY, CHANNEX_BASE, CHANNEX_WEBHOOK_SECRET.
+[functions."channel-push"]
+  schedule = "* * * * *"
+[functions."ical-pull"]
+  schedule = "*/2 * * * *"
+
 # Брони из RealtyCalendar → своя таблица bookings (07.10.2026). Нужен RC_TOKEN.
 [functions."rc-sync"]
   schedule = "7,22,37,52 * * * *"
@@ -45,6 +52,12 @@
 [[redirects]]
   from = "/ops"
   to = "/ops.html"
+  status = 200
+
+# PMS — шахматка, брони, гости, цены (11.10.2026)
+[[redirects]]
+  from = "/pms"
+  to = "/pms.html"
   status = 200
 
 # Админка 3 — финансы и операции (04.10.2026)
