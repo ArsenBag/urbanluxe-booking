@@ -28,7 +28,7 @@ const addDays = (iso, k) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDa
 const nightsOf = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 const enc = encodeURIComponent;
 
-async function q(path, opt) { const r = await T.sb(path, opt); if (!r.ok) { const t = await r.text(); const e = new Error(t.slice(0, 300)); e.status = r.status; throw e; } return r.status === 204 ? null : r.json(); }
+async function q(path, opt) { const r = await T.sb(path, opt); const t = await r.text(); if (!r.ok) { const e = new Error(t.slice(0, 300)); e.status = r.status; throw e; } if (!t) return null; try { return JSON.parse(t); } catch (_) { return null; } }
 // Supabase отдаёт максимум 1000 строк за запрос — читаем страницами
 async function qAll(path, page) { page = page || 1000; const all = []; for (let i = 0; i < 50; i++) { const r = await T.sb(path, { headers: { Range: (i * page) + '-' + ((i + 1) * page - 1), Prefer: 'count=none' } }); if (!r.ok && r.status !== 416) { const t = await r.text(); throw new Error(t.slice(0, 300)); } const rows = r.status === 416 ? [] : await r.json(); all.push(...rows); if (rows.length < page) break; } return all; }
 async function rpc(name, args) { return q('rpc/' + name, { method: 'POST', body: JSON.stringify(args || {}) }); }
