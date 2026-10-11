@@ -301,7 +301,7 @@ async function write(body, user) {
     const r = await T.sb('cash_monthly?on_conflict=month', { method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify(rec) }); return r.json();
   }
   if (a === 'user' && user.role === 'admin') {
-    const rec = { email: String(body.email || '').toLowerCase(), role: body.role || 'manager', name: body.name || '', partner_id: body.partner_id || null };
+    const rec = { email: String(body.email || '').toLowerCase(), role: ['admin','booker','ops','partner'].includes(body.role) ? body.role : 'booker', name: body.name || '', partner_id: body.partner_id || null };
     const r = await T.sb('app_users?on_conflict=email', { method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify(rec) }); return r.json();
   }
   return { error: 'unknown action' };
@@ -315,7 +315,7 @@ exports.handler = async (event) => {
     const qs = event.queryStringParameters || {};
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
-      if (user.role === 'viewer' || (user.role === 'partner')) return out(403, { error: 'read only' });
+      if (['viewer', 'ops', 'partner'].includes(user.role)) return out(403, { error: 'read only' });
       return out(200, await write(body, user));
     }
     const a = qs.a || 'me';

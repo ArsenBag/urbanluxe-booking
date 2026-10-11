@@ -41,7 +41,7 @@ async function auth(event) {
   if (!rows.length) return null;
   return { email: u.email.toLowerCase(), role: rows[0].role, name: rows[0].name || u.email };
 }
-const canWrite = u => u && ['admin', 'manager'].includes(u.role);
+const canWrite = u => u && ['admin', 'manager', 'booker'].includes(u.role);
 
 // ---------- чтение ----------
 async function grid(p) {
