@@ -75,12 +75,8 @@ async function buildFree(fromRaw, toRaw, opts) {
   if (!r.ok) throw new Error('availability ' + r.status);
   const d = await r.json();
   const byId = {}; (d.available || []).forEach(a => { byId[a.id] = a; });
-  // Страховка: сверяем с sync-ical (полные iCal RC). 28.09 availability показывал mirabad_111 свободным,
-  // хотя в RC он закрыт до 11.2027 — если фиды расходятся, верим занятости.
-  try {
-    const s = await fetch(base + '/.netlify/functions/sync-ical').then(x => x.json());
-    (s.all_bookings || []).forEach(b => { if (byId[b.apartment_id] && b.check_in < co && b.check_out > ci) delete byId[b.apartment_id]; });
-  } catch (e) { /* sync-ical недоступен — остаёмся на availability */ }
+  // 11.10.2026: страховка через sync-ical убрана — availability теперь считает занятость по нашей базе bookings
+  // (RC зеркалится в неё), а протухший iCal-кэш при падении RC показывал отменённые брони занятыми.
   const lines = [], available = [];
   let lastComplex = '';
   // фильтры (кнопки в боте / Mini App): rooms = 'studio' | 'multi'; complex = 'nest' | 'utower' | …; max = потолок цены Пн–Чт
@@ -121,6 +117,9 @@ async function buildFree(fromRaw, toRaw, opts) {
   const fc = f.complex ? ' · ' + ({ nest: 'Nest One', utower: 'U-Tower', kislorod: 'Kislorod', mirabad: 'Mirabad', gardens: 'Gardens', modera: 'Modera' }[f.complex] || f.complex) : '';
   const fm = f.max ? ' · до ' + f.max + '$' : '';
   const head = '🏠 Свободно на ' + fmtRange(ci, co) + fl + fc + fm + ': ' + available.length + (fl || fc || fm ? '' : ' из ' + total);
+  // квартиры, по которым сейчас нет данных о занятости (RC лежит, а в нашей базе их броней нет) — отдельной строкой, не как свободные
+  const unknownIds = d.unknown || [];
+  if (unknownIds.length) { const names = unknownIds.map(id => { const c = CATALOG.find(x => x[1] === id); return c ? c[2] : id; }); lines.push('', '❓ Нет данных (RC недоступен), уточнить у бронера: ' + names.join(', ')); }
   const text = [head, '', ...(lines.length ? lines : ['Свободных нет 😔']), '', 'Цены: Пн–Чт / Пт–Вс. Полный каталог: ' + CATALOG_URL,
     'Бронь на сайте: https://urbanluxe.cc/?check_in=' + ci + '&check_out=' + co].join('\n');
   return { check_in: ci, check_out: co, total_apartments: total, available_count: available.length, available, text };

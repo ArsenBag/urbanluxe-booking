@@ -64,18 +64,24 @@ async function icalEvents(apt) {
     icalCache[apt.id] = { at: Date.now(), events };
     return events;
   } catch (e) {
-    // Фид недоступен: используем протухший кэш, если есть; иначе пусто
-    return c ? c.events : [];
+    // Фид недоступен: используем протухший кэш, если есть; иначе null = «данных нет» (RC лежит)
+    return c ? c.events : null;
   }
 }
 
+// 11.10.2026: наша база `bookings` — мастер (RC зеркалится в неё каждые 15 минут через rc-sync), поэтому занятость
+// считаем по ней: подтверждена / живёт / заявка / блок. iCal RC используем только как добавку для квартир, по которым
+// из RC к нам ещё ни разу ничего не приходило (партнёрские/новые) — иначе при падении RC протухший iCal-кэш
+// показывал отменённые брони как занятые (случай Nest One 477).
 async function siteBookings(aptId) {
-  const q = SB_URL + '/rest/v1/bookings?select=apartment_id,check_in,check_out' +
-    '&status=eq.confirmed' + (aptId ? '&apartment_id=eq.' + encodeURIComponent(aptId) : '');
+  const today = new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10);
+  const q = SB_URL + '/rest/v1/bookings?select=apartment_id,check_in,check_out,source' +
+    '&status=in.(confirmed,checked_in,request,blocked)&check_out=gte.' + addDays(today, -1) + '&limit=5000' + (aptId ? '&apartment_id=eq.' + encodeURIComponent(aptId) : '');
   const r = await fetch(q, { headers: sbHeaders() });
   if (!r.ok) return [];
   return r.json();
 }
+function rcSyncedSet(rows) { const s = new Set(); rows.forEach(b => { if (b.source === 'rc') s.add(b.apartment_id); }); return s; }
 
 function overlaps(events, ci, co) {
   return events.some(e => e.check_in < co && e.check_out > ci);
@@ -109,7 +115,8 @@ exports.handler = async (event) => {
       if (!apt || !apt.is_active) {
         return { statusCode: 404, headers: HEADERS, body: JSON.stringify({ error: 'Apartment not found' }) };
       }
-      const [rc, site] = await Promise.all([icalEvents(apt), siteBookings(apt.id)]);
+      const site = await siteBookings(apt.id);
+      const rc = (rcSyncedSet(site).has(apt.id) ? [] : await icalEvents(apt)) || [];
       const days = new Set();
       rc.concat(site).forEach(e => {
         for (let d = e.check_in; d < e.check_out; d = addDays(d, 1)) days.add(d);
@@ -130,13 +137,15 @@ exports.handler = async (event) => {
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
     const apts = await ar.json();
     const site = await siteBookings(null);
-    const siteByApt = {};
+    const siteByApt = {}; const synced = rcSyncedSet(site);
     site.forEach(b => { (siteByApt[b.apartment_id] = siteByApt[b.apartment_id] || []).push(b); });
 
     const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
     const results = await Promise.all(apts.map(async (a) => {
-      const rc = await icalEvents(a);
-      const busy = rc.concat(siteByApt[a.id] || []);
+      const rc = synced.has(a.id) ? [] : await icalEvents(a);
+      // по квартире нет данных ни в базе (RC к нам её не отдавал), ни в iCal (RC лежит) — не показываем как свободную
+      const unknown = rc === null;
+      const busy = (rc || []).concat(siteByApt[a.id] || []);
       if (overlaps(busy, ci, co)) return null;
       let total = 0;
       for (let d = ci; d < co; d = addDays(d, 1)) {
@@ -145,17 +154,18 @@ exports.handler = async (event) => {
       return {
         id: a.id, name: a.name, complex: a.complex, floor: a.floor,
         weekday: a.weekday_price, weekend: a.weekend_price, style: a.style, rooms: a.rooms,
-        available: true, total, nights, check_in: ci, check_out: co
+        available: !unknown, unknown, total, nights, check_in: ci, check_out: co
       };
     }));
-    const available = results.filter(Boolean);
+    const available = results.filter(x => x && !x.unknown);
+    const unknown = results.filter(x => x && x.unknown).map(x => x.id);
     return {
       statusCode: 200, headers: HEADERS,
       body: JSON.stringify({
         check_in: ci, check_out: co,
         total_apartments: apts.length,
         available_count: available.length,
-        available
+        available, unknown
       })
     };
   } catch (e) {
