@@ -48,7 +48,7 @@ a{color:var(--blue);text-decoration:none}
 .c{width:var(--cell);flex:0 0 var(--cell);height:100%;border-right:1px solid #f0f1f3;font-size:10px;color:#9aa1ab;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;position:relative;user-select:none}
 .c.we{background:#fdfbf5}.c.today{box-shadow:inset 2px 0 0 var(--gold)}.c.sel{background:#dbe8fb!important}.c.closed{background:repeating-linear-gradient(135deg,#f3f4f6 0 4px,#e5e7eb 4px 8px)}.c.cta{background:repeating-linear-gradient(135deg,transparent 0 6px,#f3e9cf 6px 8px)}
 .c .mn{position:absolute;top:1px;right:2px;font-size:9px;color:#b08a3a}.c .ov{color:#2f6fd6;font-weight:600}
-.c .cl{position:absolute;left:50%;bottom:-3px;width:6px;height:6px;border-radius:50%;transform:translateX(-50%);z-index:3}.c .cl.ok{background:var(--green)}.c .cl.no{background:var(--red)}
+.c .cl{position:absolute;left:50%;bottom:-3px;width:6px;height:6px;border-radius:50%;transform:translateX(-50%);z-index:3}.c .cl.ok{background:var(--green)}.c .cl.no{background:var(--red)}.c .cl.plan{background:#fff;border:1.5px solid #b0b6bf}
 .bar{position:absolute;top:6px;height:30px;border-radius:7px;color:#fff;font-size:11px;padding:2px 6px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:5;box-shadow:0 1px 2px rgba(0,0,0,.15);display:flex;flex-direction:column;justify-content:center;line-height:1.2}
 .bar .t{font-weight:600;overflow:hidden;text-overflow:ellipsis}.bar .s{font-size:10px;opacity:.9;overflow:hidden;text-overflow:ellipsis}
 .bar.request{background:#d9a21b}.bar.confirmed{background:#2f6fd6}.bar.checked_in{background:#2e9e5b}.bar.checked_out{background:#8a919b}.bar.blocked{background:repeating-linear-gradient(135deg,#3a3f48 0 6px,#555b66 6px 12px)}
@@ -57,7 +57,7 @@ a{color:var(--blue);text-decoration:none}
 .bar.debt::after{content:'$';position:absolute;right:4px;top:3px;background:var(--red);color:#fff;border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center}
 .bar.gap{outline:2px solid var(--red)}.bar.flash{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 4px #ffd666}100%{box-shadow:0 1px 2px rgba(0,0,0,.15)}}
 .bar.dragging{opacity:.5}.row.over{background:#eef5ff}
-#pop{position:absolute;z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:10px 12px;min-width:220px;font-size:12px}
+#pop{position:fixed;z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:10px 12px;min-width:220px;font-size:12px}
 #pop .big{font-size:15px;font-weight:700;margin:4px 0}#pop .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 /* панель */
 #drawer{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100vw;background:#fff;border-left:1px solid var(--line);box-shadow:-6px 0 24px rgba(0,0,0,.1);z-index:60;transform:translateX(105%);transition:transform .18s;display:flex;flex-direction:column}
@@ -100,6 +100,6 @@ table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th
 </div>
 <div id="drawer"><div class="dh"><h3 id="d_title">Бронь</h3><button class="sm" onclick="closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
 <div id="toast"></div>
-<script src="/pms.js?v=1"></script>
+<script src="/pms.js?v=2"></script>
 </body>
 </html>

@@ -83,6 +83,8 @@ function shift(k) { FROM = addD(FROM, k); TO = addD(FROM, 90); load(); }
 async function load(silent) {
   if (!silent) $('#chess').innerHTML = '<div style="padding:20px" class="muted">загрузка…</div>';
   try { G = await api({ a: 'grid', from: FROM, to: TO }); } catch (e) { $('#chess').innerHTML = '<div style="padding:20px">Ошибка: ' + esc(e.message) + '</div>'; return; }
+  const cmin = {}; G.apartments.forEach(a => { if (a.catalog_no) cmin[a.complex] = Math.min(cmin[a.complex] || 999, a.catalog_no); });
+  G.apartments.sort((a, b) => ((cmin[a.complex] || 999) - (cmin[b.complex] || 999)) || a.complex.localeCompare(b.complex) || ((a.catalog_no || 999) - (b.catalog_no || 999)) || (a.floor || 0) - (b.floor || 0));
   RATES = {}; G.rates.forEach(r => RATES[r.apartment_id + '|' + r.date] = r);
   CLEAN = {}; G.cleaning.forEach(c => CLEAN[c.apartment_id + '|' + c.date] = c);
   const cx = $('#cx'); if (cx && cx.options.length <= 1) [...new Set(G.apartments.map(a => a.complex))].forEach(c => cx.add(new Option(c, c)));
@@ -115,7 +117,7 @@ function render() {
       const cls = ['c', we ? 'we' : '', d === today ? 'today' : '', r.closed ? 'closed' : '', !r.closed && r.closed_to_arrival ? 'cta' : ''].join(' ');
       const pr = SHOWPRICE && r.price != null && !r.booking_id ? `<span class="${r.source === 'override' ? 'ov' : ''}">${r.price}</span>` : '';
       const mn = r.min_nights > 1 ? `<span class="mn">${r.min_nights}+</span>` : '';
-      const cl = c ? `<span class="cl ${c.done ? 'ok' : 'no'}" title="${c.done ? 'убрано' : 'не убрано'}${c.hk_maid ? ' · ' + esc(c.hk_maid) : ''}"></span>` : '';
+      const cl = c && c.hk_status !== 'canceled' ? `<span class="cl ${c.done ? 'ok' : d < today ? 'no' : 'plan'}" title="${c.done ? 'убрано' : d < today ? 'не убрано' : 'уборка запланирована'}${c.hk_maid ? ' · ' + esc(c.hk_maid) : ''}"></span>` : '';
       return `<div class="${cls}" data-apt="${a.id}" data-d="${d}">${pr}${mn}${cl}</div>`;
     }).join('');
     const bs = (byApt[a.id] || []).slice().sort((x, y) => x.check_in < y.check_in ? -1 : 1);
@@ -170,8 +172,7 @@ function paintSel(s) { const from = s.d0 < s.d1 ? s.d0 : s.d1, to = s.d0 < s.d1 
 function hidePop() { const p = $('#pop'); if (p) p.classList.add('hide'); $$('.c.sel').forEach(c => c.classList.remove('sel')); }
 async function showPop(e, s) {
   const p = $('#pop'); const n = nightsOf(s.from, s.to); const multi = s.apts.length > 1; const a = G.apartments.find(x => x.id === s.apts[0]);
-  const wrap = $('#wrap').getBoundingClientRect();
-  p.style.left = Math.min(e.clientX - wrap.left + $('#wrap').scrollLeft + 8, $('#wrap').scrollWidth - 260) + 'px'; p.style.top = (e.clientY - wrap.top + $('#wrap').scrollTop + 8) + 'px'; p.classList.remove('hide');
+  p.style.left = Math.max(8, Math.min(e.clientX + 8, innerWidth - 300)) + 'px'; p.style.top = Math.max(8, Math.min(e.clientY + 8, innerHeight - 150)) + 'px'; p.classList.remove('hide');
   const allFree = s.apts.every(id => { for (let i = 0; i < n; i++) { const r = RATES[id + '|' + addD(s.from, i)]; if (!r || !r.available) return false; } return true; });
   p.innerHTML = `<div class="b">${multi ? s.apts.length + ' квартир' : esc(a.name)}</div><div class="muted">${ruD(s.from)} – ${ruD(s.to)} · ${n} ноч.</div><div id="pp" class="big">${multi ? '' : '…'}</div><div class="btns"></div>`;
   const btns = p.querySelector('.btns');
@@ -373,7 +374,7 @@ VIEWS.today = async () => {
   $('#main').innerHTML = '<div class="page"><div class="muted">загрузка…</div></div>';
   let d; try { d = await api({ a: 'today' }); if (!G) G = { today: d.date, apartments: await api({ a: 'grid', from: d.date, to: addD(d.date, 1) }).then(g => g.apartments) }; } catch (e) { $('#main').innerHTML = '<div class="page">' + esc(e.message) + '</div>'; return; }
   const btn = (b, st, label) => (ME.can.write || ME.can.status_only) ? `<button class="sm pri" data-st="${st}" data-b="${b.id}">${label}</button>` : '';
-  const cl = d.cleaning.filter(c => c.date === d.date);
+  const cl = d.cleaning.filter(c => c.date === d.date && c.hk_status !== 'canceled');
   const sec = (title, arr, f) => `<div class="card"><h3>${title} <span class="muted">${arr.length}</span></h3>${arr.length ? arr.map(f).join('') : '<div class="muted">—</div>'}</div>`;
   $('#main').innerHTML = `<div class="page"><div class="kpi"><div><b>${d.checkins.length}</b>заездов</div><div><b>${d.checkouts.length}</b>выездов</div><div><b>${d.inhouse.length}</b>живут</div><div><b>${d.debts.length}</b>с долгом</div><div><b>${cl.filter(c => !c.done).length}</b>не убрано</div></div>
     ${sec('Выезды сегодня', d.checkouts, b => bookLine(b, b.status !== 'checked_out' ? btn(b, 'checked_out', 'Выехал') : '<span class="tag">выехал</span>'))}
@@ -436,7 +437,8 @@ VIEWS.rules = async () => {
 // REALTIME
 // =====================================================================
 let rtTimer = null, lastOk = Date.now();
-function realtime() {
+async function realtime() {
+  const t = await token(); if (t) sb.realtime.setAuth(t);
   const bump = (payload) => { lastOk = Date.now(); setConn(true); if (VIEW !== 'cal' || !G) return; clearTimeout(rtTimer); rtTimer = setTimeout(async () => { await load(true); if (payload && payload.new && payload.new.id) { const el = document.querySelector('.bar[data-id="' + payload.new.id + '"]'); if (el) el.classList.add('flash'); } }, 400); };
   const ch = sb.channel('pms')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, bump)
@@ -445,7 +447,6 @@ function realtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'cleaning_tasks' }, bump)
     .subscribe(status => setConn(status === 'SUBSCRIBED'));
   sb.auth.onAuthStateChange((ev, session) => { if (session) sb.realtime.setAuth(session.access_token); });
-  token().then(t => t && sb.realtime.setAuth(t));
   setInterval(() => { const st = ch.state; setConn(st === 'joined'); }, 5000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && VIEW === 'cal' && G) load(true); });
 }
