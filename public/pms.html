@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Urban Luxe · PMS</title>
+<link rel="icon" href="/favicon.ico">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--line:#e3e6ea;--text:#1b1f24;--muted:#6b7280;--gold:#b8923f;--blue:#2f6fd6;--green:#2e9e5b;--yellow:#e3a81c;--red:#d9463e;--grey:#8a919b;--cell:34px;--row:46px;--aptw:190px}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.35 -apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px}
+button.pri{background:var(--gold);border-color:var(--gold);color:#fff;font-weight:600}
+button.sm{padding:3px 8px;font-size:12px}button.danger{color:var(--red);border-color:#f1c2bf}button:disabled{opacity:.5;cursor:default}
+input,select,textarea{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;min-width:0}
+input[type=date]{padding:5px 6px}textarea{width:100%;min-height:60px;resize:vertical}
+.muted{color:var(--muted)}.b{font-weight:600}.right{text-align:right}.nowrap{white-space:nowrap}.hide{display:none!important}
+a{color:var(--blue);text-decoration:none}
+#login{max-width:340px;margin:12vh auto;background:#fff;padding:26px;border-radius:14px;border:1px solid var(--line)}
+#login h1{font-size:18px;margin:0 0 14px}#login input{width:100%;margin:5px 0}#login button{width:100%;margin-top:10px;padding:9px}
+#loginErr{color:var(--red);font-size:12px;margin-top:8px;display:none}
+/* шапка */
+#top{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:6px 10px;flex-wrap:wrap}
+#top .logo{font-weight:700;letter-spacing:.04em;color:var(--gold);margin-right:6px}
+#top nav{display:flex;gap:2px}#top nav button{border:0;background:transparent;padding:6px 10px;border-radius:8px}#top nav button.on{background:#f0e9d8;color:#6d5416;font-weight:600}
+#top .sp{flex:1}#top .me{font-size:12px;color:var(--muted)}
+#conn{font-size:11px;padding:2px 8px;border-radius:12px;background:#e7f6ec;color:#1f6f3f}#conn.off{background:#fdf1d8;color:#8a5a00}
+#tools{display:flex;gap:6px;align-items:center;padding:6px 10px;flex-wrap:wrap;background:#fff;border-bottom:1px solid var(--line)}
+#tools .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}#tools .seg button{border:0;border-radius:0;padding:5px 9px}#tools .seg button.on{background:#f0e9d8}
+#main{padding:0}
+/* шахматка */
+#wrap{position:relative;overflow:auto;height:calc(100vh - 92px);background:#fff}
+#chess{position:relative;display:grid;grid-template-columns:var(--aptw) 1fr;width:max-content;min-width:100%}
+.hd{position:sticky;top:0;z-index:30;background:#fff}
+.hd-apt{position:sticky;left:0;z-index:35;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line);height:44px;display:flex;align-items:flex-end;padding:4px 8px;font-size:12px;color:var(--muted)}
+.hd-days{display:flex;height:44px;border-bottom:1px solid var(--line)}
+.hd-day{width:var(--cell);flex:0 0 var(--cell);text-align:center;font-size:11px;color:var(--muted);border-right:1px solid #f0f1f3;padding-top:4px;position:relative}
+.hd-day b{display:block;font-size:13px;color:var(--text)}.hd-day.we{background:#fbf7ee}.hd-day.we b{color:#9a6c00}.hd-day.today b{background:var(--gold);color:#fff;border-radius:10px;margin:0 6px}
+.hd-day .mo{position:absolute;top:-1px;left:2px;font-size:10px;color:var(--gold);font-weight:700;white-space:nowrap}
+.grp{grid-column:1/3;background:#f7f8fa;border-bottom:1px solid var(--line);padding:3px 0;font-size:12px;font-weight:600;color:#444;cursor:pointer}.grp .gt{position:sticky;left:8px;display:inline-block}
+.grp span{color:var(--muted);font-weight:400;margin-left:6px}
+.apt{position:sticky;left:0;z-index:20;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid #f0f1f3;height:var(--row);padding:4px 8px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.apt .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.apt .s{font-size:11px;color:var(--muted);white-space:nowrap}
+.apt .no{display:inline-block;min-width:20px;text-align:center;background:#f0e9d8;color:#6d5416;border-radius:6px;font-size:11px;margin-right:5px;padding:0 3px}
+.row{position:relative;height:var(--row);border-bottom:1px solid #f0f1f3;display:flex}
+.c{width:var(--cell);flex:0 0 var(--cell);height:100%;border-right:1px solid #f0f1f3;font-size:10px;color:#9aa1ab;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;position:relative;user-select:none}
+.c.we{background:#fdfbf5}.c.today{box-shadow:inset 2px 0 0 var(--gold)}.c.sel{background:#dbe8fb!important}.c.closed{background:repeating-linear-gradient(135deg,#f3f4f6 0 4px,#e5e7eb 4px 8px)}.c.cta{background:repeating-linear-gradient(135deg,transparent 0 6px,#f3e9cf 6px 8px)}
+.c .mn{position:absolute;top:1px;right:2px;font-size:9px;color:#b08a3a}.c .ov{color:#2f6fd6;font-weight:600}
+.c .cl{position:absolute;left:50%;bottom:-3px;width:6px;height:6px;border-radius:50%;transform:translateX(-50%);z-index:3}.c .cl.ok{background:var(--green)}.c .cl.no{background:var(--red)}
+.bar{position:absolute;top:6px;height:30px;border-radius:7px;color:#fff;font-size:11px;padding:2px 6px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:5;box-shadow:0 1px 2px rgba(0,0,0,.15);display:flex;flex-direction:column;justify-content:center;line-height:1.2}
+.bar .t{font-weight:600;overflow:hidden;text-overflow:ellipsis}.bar .s{font-size:10px;opacity:.9;overflow:hidden;text-overflow:ellipsis}
+.bar.request{background:#d9a21b}.bar.confirmed{background:#2f6fd6}.bar.checked_in{background:#2e9e5b}.bar.checked_out{background:#8a919b}.bar.blocked{background:repeating-linear-gradient(135deg,#3a3f48 0 6px,#555b66 6px 12px)}
+.bar.ota{border-left:4px solid #ff7a00}.bar.ch-booking{border-left-color:#003580}.bar.ch-airbnb{border-left-color:#ff5a5f}.bar.ch-ostrovok{border-left-color:#ff7a00}.bar.ch-yandex{border-left-color:#fc3f1d}
+.bar .pay{position:absolute;left:0;right:0;bottom:0;height:4px;background:#cfd3d8}.bar .pay.paid{background:#7ee2a2}.bar.checked_in .pay.paid,.bar.confirmed .pay.paid{background:#9ff0bb}.bar .pay.partial{background:#ffd666}.bar .pay.unpaid{background:#e5e7eb}
+.bar.debt::after{content:'$';position:absolute;right:4px;top:3px;background:var(--red);color:#fff;border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center}
+.bar.gap{outline:2px solid var(--red)}.bar.flash{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 4px #ffd666}100%{box-shadow:0 1px 2px rgba(0,0,0,.15)}}
+.bar.dragging{opacity:.5}.row.over{background:#eef5ff}
+#pop{position:absolute;z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:10px 12px;min-width:220px;font-size:12px}
+#pop .big{font-size:15px;font-weight:700;margin:4px 0}#pop .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+/* панель */
+#drawer{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100vw;background:#fff;border-left:1px solid var(--line);box-shadow:-6px 0 24px rgba(0,0,0,.1);z-index:60;transform:translateX(105%);transition:transform .18s;display:flex;flex-direction:column}
+#drawer.open{transform:none}#drawer .dh{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}#drawer .dh h3{margin:0;font-size:15px;flex:1}
+#drawer .db{flex:1;overflow:auto;padding:12px 14px}#drawer .df{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-bottom:8px}.f label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:2px}.f label.w{grid-column:1/3}.f input,.f select{width:100%}
+.st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff}
+.sec{margin:12px 0 6px;font-size:12px;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:8px}.sec .sp{flex:1}
+table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th{padding:5px 6px;border-bottom:1px solid #f0f1f3;text-align:left;vertical-align:top}table.t th{color:var(--muted);font-weight:500;font-size:11px}
+.ev{font-size:11px;color:#555;padding:3px 0;border-bottom:1px dashed #eee}.ev b{color:#222}.ev .muted{font-size:10px}
+.hint{position:absolute;z-index:70;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:220px;overflow:auto;font-size:12px}.hint div{padding:6px 10px;cursor:pointer}.hint div:hover{background:#f4f5f7}
+.tag{display:inline-block;background:#eef1f5;border-radius:6px;padding:1px 6px;font-size:11px;margin:1px 2px 1px 0}.tag.bad{background:#fde3e1;color:#9c1f17}.tag.vip{background:#f6e7b9;color:#6d5416}
+.warn{background:#fdecec;border:1px solid #f3bdb8;color:#8a1f17;padding:6px 10px;border-radius:8px;margin:6px 0;font-size:12px}
+/* страницы-списки */
+.page{padding:12px;max-width:1100px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}.card h3{margin:0 0 8px;font-size:14px}
+.li{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f0f1f3;cursor:pointer}.li:last-child{border:0}.li .no{min-width:24px;text-align:center;background:#f0e9d8;color:#6d5416;border-radius:6px;font-size:11px;padding:1px 3px}.li .g{flex:1;min-width:0}.li .g .n{font-weight:600}.li .g .s{font-size:11px;color:var(--muted)}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}.kpi div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:110px}.kpi b{display:block;font-size:18px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b1f24;color:#fff;padding:8px 14px;border-radius:10px;font-size:12px;z-index:90;display:none}
+#tabs{display:none}
+@media (max-width:760px){
+  :root{--cell:30px;--row:42px;--aptw:120px}
+  #top nav{display:none}#tools{gap:4px}#tools .desk{display:none}
+  #wrap{height:calc(100vh - 140px)}
+  #drawer{width:100vw}
+  #tabs{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:45}
+  #tabs button{flex:1;border:0;border-radius:0;padding:9px 4px;font-size:11px;background:transparent}#tabs button.on{color:var(--gold);font-weight:700}
+  .page{padding:10px 10px 70px}
+}
+</style>
+</head>
+<body>
+<div id="login" class="hide"><h1>Urban Luxe · PMS</h1><input id="email" type="email" placeholder="email" autocomplete="username"><input id="pass" type="password" placeholder="пароль" autocomplete="current-password"><button class="pri" onclick="login()">Войти</button><div id="loginErr"></div></div>
+<div id="app" class="hide">
+  <div id="top"><span class="logo">URBAN LUXE</span>
+    <nav><button data-v="cal" class="on">Шахматка</button><button data-v="today">Сегодня</button><button data-v="free">Свободно</button><button data-v="guests">Гости</button><button data-v="debts">Долги</button><button data-v="rules">Цены</button></nav>
+    <span class="sp"></span><span id="conn">online</span><span class="me" id="me"></span><button class="sm" onclick="logout()">выйти</button></div>
+  <div id="tools"></div>
+  <div id="main"></div>
+  <div id="tabs"><button data-v="today" class="on">Сегодня</button><button data-v="free">Свободно</button><button data-v="cal">Шахматка</button><button data-v="guests">Поиск</button></div>
+</div>
+<div id="drawer"><div class="dh"><h3 id="d_title">Бронь</h3><button class="sm" onclick="closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
+<div id="toast"></div>
+<script src="/pms.js?v=1"></script>
+</body>
+</html>
