@@ -42,7 +42,8 @@ async function status(user) {
   }
   else channex = { ok: false, error: 'CHANNEX_API_KEY не задан' };
   const mine = new Set(apts.map(a => a.id));
-  return { channex, channels, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+  const markups = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => markups[m.channel] = Number(m.pct));
+  return { channex, channels, markups, ota_plans: C.OTA_PLANS, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
 }
 
 async function setupComplex(body, user) {
@@ -71,6 +72,10 @@ async function setupComplex(body, user) {
     await C.q('channel_units?on_conflict=apartment_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ apartment_id: a.id, channel_property_id: prop.id, external_room_type_id: rt, external_rate_plan_id: rp, is_active: true, updated_at: new Date().toISOString() }) });
     log.push(a.id + ': room ' + rt.slice(0, 8) + ' rate ' + rp.slice(0, 8));
   }
+  // производные тарифы площадок (по умолчанию 0 %, регулируются в «Каналы → Наценки»)
+  const mk = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => mk[m.channel] = Number(m.pct));
+  const unitsNow = await C.q('channel_units?select=*&channel_property_id=eq.' + prop.id);
+  for (const u of unitsNow) for (const ch of Object.keys(C.OTA_PLANS)) { try { await C.ensureDerived(u, prop, ch, mk[ch] || 0); } catch (e) { log.push(u.apartment_id + ' ' + ch + ': ' + String(e.message).slice(0, 100)); } }
   const full = await C.rpc('pms_outbox_full', { p_apt: null });
   const pushed = await C.processOutbox();
   return { property: prop, log, queued: full, pushed };
@@ -99,6 +104,13 @@ exports.handler = async (event) => {
       case 'setup_webhook': return out(200, await setupWebhook());
       case 'push_full': { const q = await C.rpc('pms_outbox_full', { p_apt: body.apt || null }); const r = await C.processOutbox(); return out(200, { queued: q, pushed: r }); }
       case 'feed': return out(200, await C.ingestFeed());
+      case 'markup_set': {
+        const ch = String(body.channel || ''); const pct = Math.max(0, Math.min(100, Number(body.pct) || 0));
+        if (!C.OTA_PLANS[ch]) return out(400, { error: 'channel' });
+        await C.q('channel_markups?on_conflict=org_id,channel', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ org_id: user.org_id, channel: ch, pct, updated_at: new Date().toISOString(), updated_by: user.name }) });
+        const r = await C.applyMarkup(user.org_id, ch, pct);
+        return out(200, Object.assign({ channel: ch, pct }, r));
+      }
       case 'unit_update': { const o = {}; for (const f of ['markup_pct', 'push_rates', 'push_availability', 'is_active']) if (body[f] !== undefined) o[f] = body[f] === '' ? null : body[f]; o.updated_at = new Date().toISOString(); await C.q('channel_units?apartment_id=eq.' + enc(body.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(o) }); if (o.markup_pct !== undefined || o.is_active) await C.rpc('pms_outbox_full', { p_apt: body.apartment_id }); return out(200, { ok: true }); }
       case 'resolve_conflict': {
         const c = (await C.q('channel_conflicts?select=*&id=eq.' + enc(body.id)))[0]; if (!c) return out(404, { error: 'not found' });

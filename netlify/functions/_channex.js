@@ -54,7 +54,8 @@ async function pushUnit(unit, from, to, kind, cache) {
     res.availability = await cx('POST', '/availability', { values });
   }
   if ((kind === 'both' || kind === 'rates') && unit.push_rates) {
-    const m = await markupFor(unit, cache);
+    // наценка площадкам — не здесь: Standard = наш прайс, площадки получают производные тарифы Channex (+X %, см. ensureDerived)
+    const m = unit.markup_pct != null ? Number(unit.markup_pct) : 0;
     const values = ranges(rows, r => [Math.round(r.price * (1 + m / 100)), r.min_nights, r.closed ? 1 : 0, r.closed_to_arrival ? 1 : 0].join('|')).map(g => ({
       property_id: prop.external_id, rate_plan_id: unit.external_rate_plan_id, date_from: g.from, date_to: g.to,
       rate: String(Math.max(1, Math.round(g.row.price * (1 + m / 100)))) + '.00',
@@ -127,4 +128,35 @@ async function ingestFeed() {
   return { count: list.length, results: out };
 }
 
-module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed };
+// Производный тариф площадки: «Airbnb» = Standard + pct %. Создаётся один раз на квартиру, процент меняется PUT'ом.
+const OTA_PLANS = { airbnb: 'Airbnb', booking: 'Booking.com', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
+const derivedRate = pct => ({ rate: Number(pct) > 0 ? [['increase_by_percent', Number(pct).toFixed(2)]] : [] });
+async function ensureDerived(unit, prop, channel, pct) {
+  const title = OTA_PLANS[channel]; if (!title) throw new Error('unknown channel ' + channel);
+  const d = Object.assign({}, unit.derived || {});
+  if (d[channel] && d[channel].rate_plan_id) {
+    await cx('PUT', '/rate_plans/' + d[channel].rate_plan_id, { rate_plan: { options: [{ id: d[channel].option_id, occupancy: d[channel].occupancy, is_primary: true, derived_option: derivedRate(pct) }] } });
+    return d;
+  }
+  const std = await cx('GET', '/rate_plans/' + unit.external_rate_plan_id);
+  const occ = (((std.data.attributes || {}).options || [])[0] || {}).occupancy || 2;
+  const r = await cx('POST', '/rate_plans', { rate_plan: { property_id: prop.external_id, room_type_id: unit.external_room_type_id, parent_rate_plan_id: unit.external_rate_plan_id, title, sell_mode: 'per_room', rate_mode: 'derived', currency: 'USD', inherit_rate: true, inherit_stop_sell: true, inherit_closed_to_arrival: true, inherit_closed_to_departure: true, inherit_min_stay_arrival: true, inherit_min_stay_through: true, inherit_max_stay: true, options: [{ occupancy: occ, is_primary: true, derived_option: derivedRate(pct) }], meta: { apartment_id: unit.apartment_id, channel } } });
+  const opt = ((r.data.attributes || {}).options || [])[0] || {};
+  d[channel] = { rate_plan_id: r.data.id, option_id: opt.id, occupancy: occ };
+  await q('channel_units?apartment_id=eq.' + encodeURIComponent(unit.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ derived: d, updated_at: new Date().toISOString() }) });
+  return d;
+}
+// Применить наценку площадки ко всем квартирам организации
+async function applyMarkup(orgId, channel, pct) {
+  const units = await q('channel_units?select=*&is_active=eq.true');
+  const cache = await loadCache();
+  const out = { ok: 0, errors: [] };
+  for (const u of units) {
+    const apt = cache.apts[u.apartment_id]; const prop = cache.props[u.channel_property_id];
+    if (!apt || !prop || !prop.external_id || !u.external_rate_plan_id) continue;
+    if ((prop.org_id || 1) !== orgId) continue;
+    try { await ensureDerived(u, prop, channel, pct); out.ok++; } catch (e) { out.errors.push(u.apartment_id + ': ' + String(e.message).slice(0, 160)); }
+  }
+  return out;
+}
+module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, OTA_PLANS };
