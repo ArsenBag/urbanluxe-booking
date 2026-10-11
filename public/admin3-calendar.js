@@ -94,7 +94,7 @@ async function refreshGridSoft(){ if(location.hash!=='#cal')return; try{G=await 
 
 async function openBooking(id){
   let d; try{d=await capi({a:'booking',id});}catch(e){toast(e.message,true);return}
-  const b=d.booking, st=ST[b.status]||ST.confirmed; const canW=['admin','manager'].includes(ME.role);
+  const b=d.booking, st=ST[b.status]||ST.confirmed; const canW=['admin','manager','booker'].includes(ME.role);
   const paidTotal=d.payments.filter(p=>p.kind==='payment').reduce((s,p)=>s+Number(p.amount),0)-d.payments.filter(p=>p.kind==='refund').reduce((s,p)=>s+Number(p.amount),0);
   const debt=(b.total_price||0)-paidTotal-(b.prepaid||0);
   const stBtns=['confirmed','checked_in','checked_out','cancelled'].filter(s=>s!==b.status).map(s=>`<button class="btn ghost sm" onclick="CAL.setStatus('${b.id}','${s}')">${ST[s][0]}</button>`).join(' ');
