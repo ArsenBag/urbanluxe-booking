@@ -60,7 +60,9 @@ async function icalEvents(apt) {
   try {
     const r = await fetchWithTimeout(apt.ical_export_url, 9000);
     if (!r.ok) throw new Error('ical ' + r.status);
-    const events = parseICS(await r.text());
+    const body = await r.text();
+    if (body.indexOf('BEGIN:VCALENDAR') < 0) throw new Error('ical not ics (RC заглушка «сервис недоступен»)');
+    const events = parseICS(body);
     icalCache[apt.id] = { at: Date.now(), events };
     return events;
   } catch (e) {
