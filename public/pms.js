@@ -456,6 +456,10 @@ VIEWS.channels = async () => {
     const dt = s => s ? s.slice(5, 16).replace('T', ' ') : '—';
     let h = `<div class="kpi"><div><b style="color:${S.channex.ok ? 'var(--green)' : 'var(--red)'}">${S.channex.ok ? 'OK' : 'нет'}</b>Channex ${esc((S.channex.base || '').replace('https://', ''))}${S.channex.error ? '<div class="muted" style="font-size:11px">' + esc(S.channex.error) + '</div>' : ''}</div><div><b>${S.units.filter(u => u.is_active).length}</b>квартир подключено</div><div><b>${S.pending}</b>в очереди</div><div><b style="color:${S.conflicts.length ? 'var(--red)' : ''}">${S.conflicts.length}</b>конфликтов</div><div><b>${S.icals.length}</b>iCal-источников</div></div>`;
     if (S.conflicts.length) h += `<div class="card" style="border-color:#f3bdb8"><h3 style="color:var(--red)">Овербукинг с площадок</h3>` + S.conflicts.map(c => `<div class="li"><div class="g"><div class="n">${esc(aptName(c.apartment_id))} · ${ruD(c.check_in)} → ${ruD(c.check_out)} · ${esc(c.ota_name || '')} · ${esc(c.guest_name || '')} · ${money(c.amount, c.currency)}</div><div class="s">пересекается с бронью <a href="#" data-b="${c.conflicts_with}">${(c.conflicts_with || '').slice(0, 8)}</a> · ${dt(c.created_at)}</div></div><button class="sm" data-res="accept" data-id="${c.id}" title="другую бронь перенесли/отменили — записать эту">Даты освободили → записать</button><button class="sm danger" data-res="cancelled_on_ota" data-id="${c.id}">Отменено на площадке</button></div>`).join('') + `</div>`;
+    // наценки площадкам (0 по умолчанию)
+    const MK = S.markups || {}; const PL = S.ota_plans || { airbnb: 'Airbnb', booking: 'Booking.com', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
+    h += `<div class="card"><h3>Наценки площадкам <span class="muted" style="font-weight:400;font-size:12px">· % сверх прайса; 0 = цена как на сайте. Меняется — уходит на площадку за минуту</span></h3><div style="display:flex;gap:14px;flex-wrap:wrap">` +
+      Object.keys(PL).map(ch => `<label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted)">${PL[ch]}<span style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="100" step="1" value="${MK[ch] == null ? 0 : MK[ch]}" data-mkup="${ch}" style="width:70px"> %</span></label>`).join('') + `</div></div>`;
     // матрица квартиры × площадки
     const OTAS = [['booking', 'Booking', 'BookingCom'], ['airbnb', 'Airbnb', 'Airbnb'], ['ostrovok', 'Ostrovok', 'EmergingTravel'], ['agoda', 'Agoda', 'Agoda'], ['expedia', 'Expedia', 'Expedia']];
     const ICALS = [['yandex', 'Яндекс'], ['sutochno', 'Sutochno']];
@@ -487,6 +491,7 @@ VIEWS.channels = async () => {
     $('#ch').innerHTML = h;
     $$('#ch [data-b]').forEach(x => x.onclick = e => { e.preventDefault(); openBooking(x.dataset.b); });
     $$('#ch [data-res]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'resolve_conflict', id: x.dataset.id, resolution: x.dataset.res }), 'Решаю конфликт'));
+    $$('#ch [data-mkup]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'markup_set', channel: x.dataset.mkup, pct: x.value }), 'Наценка ' + x.dataset.mkup));
     $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
     $$('#ch [data-push]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'push_full', apt: x.dataset.push }), 'Отправляю'));
