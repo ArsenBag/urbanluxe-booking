@@ -57,12 +57,23 @@ async function auth(event) {
   const rows = await q('app_users?select=*&email=eq.' + enc(u.email.toLowerCase()));
   if (!rows.length || rows[0].is_active === false) return null;
   const me = rows[0];
-  return { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {} };
+  const org = (await q('organizations?select=id,name,short,slug,logo_url&id=eq.' + (me.org_id || 1)))[0] || { id: 1, name: 'Urban Luxe', short: 'UL' };
+  const access = {}; (await q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: org.id }) })).forEach(x => access[x.apartment_id] = x.mode);
+  return { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {}, org, access };
 }
-const aptFilter = (user, apts) => user.role === 'partner' ? apts.filter(a => (user.apartment_ids || []).includes(a.id)) : apts;
-const aptIn = user => user.role === 'partner' ? '&apartment_id=in.(' + (user.apartment_ids || ['-']).map(enc).join(',') + ')' : '';
-// ops/partner не видят способы оплаты и суммы по кассе — только paid/debt
-function stripPay(user, b) { if (user.can.pay_full) return b; const o = Object.assign({}, b); delete o.prepaid; delete o.deposit; return o; }
+// Видимость квартир: партнёр-собственник — свой список; остальные — квартиры своей организации + общие (apartment_access)
+const canSeeApt = (user, id) => user.role === 'partner' ? (user.apartment_ids || []).includes(id) : !!user.access[id];
+const fullApt = (user, id) => user.role === 'partner' ? false : user.access[id] === 'full';
+const aptFilter = (user, apts) => apts.filter(a => canSeeApt(user, a.id));
+const aptIn = user => { const ids = user.role === 'partner' ? (user.apartment_ids || []) : Object.keys(user.access); return '&apartment_id=in.(' + (ids.length ? ids : ['-']).map(enc).join(',') + ')'; };
+// ops/partner не видят способы оплаты и суммы по кассе — только paid/debt; чужая квартира в режиме «занятость» — без гостя и денег
+function stripPay(user, b) {
+  let o = b;
+  if (!fullApt(user, b.apartment_id) && user.role !== 'partner') { o = Object.assign({}, b, { guest_name: 'Занято · ' + (b.org_short || ''), guest_phone: null, guest_telegram: null, guest_whatsapp: null, guest_email: null, notes: null, admin_notes: null, client_notes: null, total_price: null, paid: null, debt: null, prepaid: null, deposit: null, pay_state: 'none', guest_id: null, external_id: null, occupancy_only: true }); return o; }
+  if (b.org_id && user.org && b.org_id !== user.org.id) o = Object.assign({}, b, { foreign_org: true });
+  if (user.can.pay_full) return o; o = Object.assign({}, o); delete o.prepaid; delete o.deposit; return o;
+}
+const needFull = (user, apt) => { if (!fullApt(user, apt)) { const e = new Error('Нет доступа к этой квартире'); e.status = 403; throw e; } };
 
 // ---------- чтение ----------
 async function grid(user, p) {
@@ -75,12 +86,13 @@ async function grid(user, p) {
     qAll('rate_calendar?select=apartment_id,date,price,min_nights,closed,closed_to_arrival,available,source&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=apartment_id,date'),
     qAll('cleaning_tasks?select=apartment_id,date,done,hk_status,hk_maid&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=date').catch(() => [])
   ]);
-  return { from, to, today, me: { role: user.role, name: user.name, can: user.can }, apartments: aptFilter(user, apts), bookings: bk.map(b => stripPay(user, b)), rates, cleaning };
+  return { from, to, today, me: { role: user.role, name: user.name, can: user.can, org: user.org, access: user.access }, apartments: aptFilter(user, apts), bookings: bk.map(b => stripPay(user, b)), rates, cleaning };
 }
 async function booking(user, id) {
   const b = (await q('v_bookings?select=*&id=eq.' + enc(id)))[0];
   if (!b) throw Object.assign(new Error('not found'), { status: 404 });
-  if (user.role === 'partner' && !(user.apartment_ids || []).includes(b.apartment_id)) throw Object.assign(new Error('forbidden'), { status: 403 });
+  if (!canSeeApt(user, b.apartment_id)) throw Object.assign(new Error('forbidden'), { status: 403 });
+  if (!fullApt(user, b.apartment_id)) return { booking: stripPay(user, b), payments: [], events: [], guest: null };
   const [pays, ev, g] = await Promise.all([
     user.can.pay_full ? q('payments?select=*&booking_id=eq.' + enc(id) + '&order=paid_at') : [],
     q('booking_events?select=*&booking_id=eq.' + enc(id) + '&order=created_at'),
@@ -118,12 +130,12 @@ async function today(user) {
   const inhouse = L.filter(b => b.check_in <= d && b.check_out > d);
   return { date: d, checkins: L.filter(b => b.check_in === d), checkouts: L.filter(b => b.check_out === d), tomorrow: L.filter(b => b.check_in === d1), inhouse, cleaning, debts: L.filter(b => (b.debt || 0) > 0 && b.currency === 'USD' && b.status !== 'request') };
 }
-async function guestSearch(s) {
+async function guestSearch(s, user) {
   s = String(s || '').trim(); if (s.length < 2) return [];
   const digits = s.replace(/\D/g, '');
   const or = ['name.ilike.*' + enc(s) + '*', 'telegram.ilike.*' + enc(s.replace(/^@/, '')) + '*'];
   if (digits.length >= 4) { or.push('phone_norm.ilike.*' + digits + '*'); or.push('phone.ilike.*' + enc(digits) + '*'); }
-  return q('guests?select=id,name,phone,telegram,whatsapp,email,lang,tags,blacklisted,total_bookings,total_spent,last_stay&or=(' + or.join(',') + ')&order=total_bookings.desc&limit=15');
+  return q('guests?select=id,name,phone,telegram,whatsapp,email,lang,tags,blacklisted,total_bookings,total_spent,last_stay&org_id=eq.' + user.org.id + '&or=(' + or.join(',') + ')&order=total_bookings.desc&limit=15');
 }
 async function guest(id) {
   const g = (await q('guests?select=*&id=eq.' + enc(id)))[0]; if (!g) throw Object.assign(new Error('not found'), { status: 404 });
@@ -153,8 +165,10 @@ async function create(body, user) {
   if (o.status !== 'blocked') { try { list = await price({ apartment_id: o.apartment_id, check_in: o.check_in, check_out: o.check_out, channel: o.channel }); } catch (_) { } }
   if (!(Number(o.total_price) > 0) && list && list.total) o.total_price = list.total;
   o.total_price = Math.round(Number(o.total_price) || 0);
-  o.created_by = user.email; o.booking_ref = ref();
+  needFull(user, o.apartment_id);
+  o.created_by = user.email; o.booking_ref = ref(); o.org_id = user.org.id;
   const b = (await q('bookings', { method: 'POST', body: JSON.stringify(o) }))[0];
+  if (b.guest_id) q('guests?id=eq.' + enc(b.guest_id) + '&org_id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ org_id: user.org.id }) }).catch(() => null);
   if (list && list.total && Math.abs(list.total - o.total_price) > 1) await logEvent(b.id, 'price_manual', { list_price: list.total, price: o.total_price, diff: o.total_price - list.total }, user);
   if (body.paid_now && Number(body.paid_now) > 0) await payment({ booking_id: b.id, amount: Number(body.paid_now), method: body.paid_method || 'cash', kind: 'prepayment', note: 'при создании', currency: o.currency }, user);
   return booking(user, b.id);
@@ -164,6 +178,7 @@ async function update(body, user) {
   const o = pick(body); delete o.status;
   const cur = (await q('bookings?select=id,apartment_id,check_in,check_out,total_price,status&id=eq.' + enc(body.id)))[0];
   if (!cur) throw new Error('not found');
+  needFull(user, cur.apartment_id); if (o.apartment_id) needFull(user, o.apartment_id);
   const ci = o.check_in || cur.check_in, co = o.check_out || cur.check_out;
   if (co <= ci) throw new Error('Выезд должен быть позже заезда');
   if (o.check_in || o.check_out) o.nights = nightsOf(ci, co);
@@ -178,8 +193,8 @@ async function update(body, user) {
 async function setStatus(body, user) {
   if (!STATUSES.includes(body.status)) throw new Error('status');
   if (user.can.status_only && !['checked_in', 'checked_out'].includes(body.status)) throw Object.assign(new Error('Только отметки заехал/выехал'), { status: 403 });
-  const cur = (await q('v_bookings?select=id,status,debt,total_price,currency&id=eq.' + enc(body.id)))[0];
-  if (!cur) throw new Error('not found');
+  const cur = (await q('v_bookings?select=id,status,debt,total_price,currency,apartment_id&id=eq.' + enc(body.id)))[0];
+  if (!cur) throw new Error('not found'); needFull(user, cur.apartment_id);
   if (body.status === 'checked_out' && cur.total_price > 0 && (cur.debt || 0) > 0 && !body.close_with_debt) {
     const e = new Error('DEBT:' + cur.debt); e.status = 409; throw e;   // интерфейс спросит «закрыть с долгом?» + причину
   }
@@ -193,7 +208,8 @@ async function payment(body, user) {
   if (!body.booking_id || !(Number(body.amount) > 0)) throw new Error('Сумма платежа');
   const kind = ['payment', 'prepayment', 'deposit', 'refund', 'deposit_return'].includes(body.kind) ? body.kind : 'payment';
   const method = ['cash', 'card', 'transfer', 'payme', 'click', 'ota'].includes(body.method) ? body.method : 'cash';
-  const rec = { booking_id: body.booking_id, amount: Number(body.amount), currency: body.currency || 'USD', method, kind, note: body.note || null, received_by: user.name || user.email, paid_at: body.paid_at || new Date().toISOString() };
+  const bk = (await q('bookings?select=apartment_id&id=eq.' + enc(body.booking_id)))[0]; if (!bk) throw new Error('not found'); needFull(user, bk.apartment_id);
+  const rec = { booking_id: body.booking_id, amount: Number(body.amount), currency: body.currency || 'USD', method, kind, note: body.note || null, received_by: user.name || user.email, paid_at: body.paid_at || new Date().toISOString(), org_id: user.org.id };
   const p = (await q('payments', { method: 'POST', body: JSON.stringify(rec) }))[0];
   await logEvent(body.booking_id, 'payment', { id: p.id, amount: rec.amount, currency: rec.currency, method, kind }, user);
   return booking(user, body.booking_id);
@@ -209,6 +225,7 @@ async function paymentDelete(body, user) {
 async function rateSet(body, user) {
   const ids = Array.isArray(body.apartment_ids) ? body.apartment_ids.filter(Boolean) : [];
   if (!ids.length || !isDate(body.from) || !isDate(body.to) || body.to < body.from) throw new Error('apartment_ids, from, to');
+  ids.forEach(id => needFull(user, id));
   const days = nightsOf(body.from, body.to) + 1; if (days > 370 || ids.length * days > 5000) throw new Error('Слишком большой диапазон (до 5 000 дней за раз)');
   const rows = [];
   for (const id of ids) for (let i = 0; i < days; i++) {
@@ -223,9 +240,10 @@ async function rateSet(body, user) {
   await q('rate_overrides?on_conflict=apartment_id,date', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify(rows) });
   return { ok: true, rows: rows.length };
 }
-async function rateClear(body) {
+async function rateClear(body, user) {
   const ids = Array.isArray(body.apartment_ids) ? body.apartment_ids.filter(Boolean) : [];
   if (!ids.length || !isDate(body.from) || !isDate(body.to)) throw new Error('apartment_ids, from, to');
+  ids.forEach(id => needFull(user, id));
   await q('rate_overrides?apartment_id=in.(' + ids.map(enc).join(',') + ')&date=gte.' + body.from + '&date=lte.' + body.to, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   return { ok: true };
 }
@@ -235,7 +253,7 @@ async function ruleSave(body, user) {
   if (!o.name || !o.kind) throw new Error('name, kind');
   o.updated_at = new Date().toISOString();
   if (r.id) { await q('rate_rules?id=eq.' + enc(r.id), { method: 'PATCH', body: JSON.stringify(o) }); return (await q('rate_rules?select=*&id=eq.' + enc(r.id)))[0]; }
-  o.created_by = user.name || user.email;
+  o.created_by = user.name || user.email; o.org_id = user.org.id;
   return (await q('rate_rules', { method: 'POST', body: JSON.stringify(o) }))[0];
 }
 async function guestUpdate(body, user) {
@@ -255,16 +273,16 @@ exports.handler = async (event) => {
     const user = await auth(event); if (!user) return out(401, { error: 'unauthorized' });
     if (event.httpMethod === 'GET') {
       switch (p.a) {
-        case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can });
+        case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can, org: user.org, access: user.access });
         case 'grid': return out(200, await grid(user, p));
         case 'booking': return out(200, await booking(user, p.id));
         case 'price': return out(200, await price(p));
         case 'free': return out(200, await free(user, p));
         case 'today': return out(200, await today(user));
-        case 'guest_search': if (!user.can.guests) return out(403, { error: 'forbidden' }); return out(200, await guestSearch(p.q));
+        case 'guest_search': if (!user.can.guests) return out(403, { error: 'forbidden' }); return out(200, await guestSearch(p.q, user));
         case 'guest': if (!user.can.guests) return out(403, { error: 'forbidden' }); return out(200, await guest(p.id));
         case 'debts': if (!user.can.pay) return out(403, { error: 'forbidden' }); return out(200, await debts(user));
-        case 'rules': if (!user.can.rates) return out(403, { error: 'forbidden' }); return out(200, await q('rate_rules?select=*&order=is_active.desc,priority.desc,date_from.desc.nullslast'));
+        case 'rules': if (!user.can.rates) return out(403, { error: 'forbidden' }); return out(200, await q('rate_rules?select=*&org_id=eq.' + user.org.id + '&order=is_active.desc,priority.desc,date_from.desc.nullslast'));
         default: return out(400, { error: 'unknown action' });
       }
     }
@@ -278,7 +296,7 @@ exports.handler = async (event) => {
       case 'payment': need('pay_full'); return out(200, await payment(body, user));
       case 'payment_delete': need('pay_full'); return out(200, await paymentDelete(body, user));
       case 'rate_set': need('rates'); return out(200, await rateSet(body, user));
-      case 'rate_clear': need('rates'); return out(200, await rateClear(body));
+      case 'rate_clear': need('rates'); return out(200, await rateClear(body, user));
       case 'rule_save': need('rates'); return out(200, await ruleSave(body, user));
       case 'rule_delete': need('rates'); await q('rate_rules?id=eq.' + enc(body.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
       case 'guest_update': need('guests_write'); return out(200, await guestUpdate(body, user));
