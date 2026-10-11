@@ -34,8 +34,9 @@ $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); })
 async function boot() {
   try { ME = await api({ a: 'me' }); } catch (e) { showLogin(); return; }
   $('#login').classList.add('hide'); $('#app').classList.remove('hide');
-  $('#me').textContent = ME.name + ' · ' + ME.role;
+  $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + ME.role;
   if (!ME.can.rates) $$('#top nav button[data-v=rules]').forEach(b => b.remove());
+  if (ME.role !== 'admin') $$('#top nav button[data-v=channels]').forEach(b => b.remove());
   if (!ME.can.guests) $$('button[data-v=guests]').forEach(b => b.remove());
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
@@ -128,9 +129,10 @@ function render() {
       const left = (s + sf), width = (e + ef) - left; if (width <= 0) return;
       const nx = bs[i + 1]; const gap = nx && nx.check_in === b.check_out && (hoursOf(nx.arrival_time, 14) - hoursOf(b.departure_time, 12)) < 2;
       const ch = (b.channel || '').toLowerCase(); const ota = OTA.includes(ch);
-      const sum = b.status === 'blocked' ? '' : money(b.total_price, b.currency);
-      h += `<div class="bar ${b.status} ${ota ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 ? 'debt' : ''} ${gap ? 'gap' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out'}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
-        <div class="t">${cut ? '◂ ' : ''}${esc(b.guest_name)}</div><div class="s">${sum}${b.channel && b.channel !== 'manual' && b.channel !== 'telegram' ? ' · ' + (CH[ch] || b.channel) : ''}${b.guests_count > 1 ? ' · ' + b.guests_count + ' чел.' : ''}</div>
+      const sum = b.status === 'blocked' || b.occupancy_only ? '' : money(b.total_price, b.currency);
+      const orgTag = b.foreign_org && !b.occupancy_only ? ' · ' + esc(b.org_short || '') : '';
+      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 ? 'debt' : ''} ${gap ? 'gap' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
+        <div class="t">${cut ? '◂ ' : ''}${esc(b.guest_name)}</div><div class="s">${sum}${b.channel && b.channel !== 'manual' && b.channel !== 'telegram' && !b.occupancy_only ? ' · ' + (CH[ch] || b.channel) : ''}${b.guests_count > 1 && !b.occupancy_only ? ' · ' + b.guests_count + ' чел.' : ''}${orgTag}</div>
         <div class="pay ${b.pay_state || ''}"></div></div>`;
     });
     h += `</div>`;
@@ -224,7 +226,8 @@ async function openBooking(id, preset) {
 function statusBadge(st) { const s = ST[st] || ST.confirmed; return `<span class="st" style="background:${s[1]}">${s[0]}</span>`; }
 function renderBooking() {
   const b = CUR.booking, apt = (G && G.apartments.find(a => a.id === b.apartment_id)) || { name: b.apartment_name };
-  const g = CUR.guest; const canW = ME.can.write && b.status !== 'cancelled';
+  const g = CUR.guest; const canW = ME.can.write && b.status !== 'cancelled' && !b.occupancy_only;
+  if (b.occupancy_only) { openDrawer('Занято', `<div class="muted">Квартира партнёра: видна только занятость.</div><table class="t"><tr><td>Квартира</td><td class="b">${esc(apt.name)}</td></tr><tr><td>Даты</td><td class="b">${ruD(b.check_in)} → ${ruD(b.check_out)}</td></tr><tr><td>Организация</td><td>${esc(b.org_short || '')}</td></tr></table>`, '<button onclick="closeDrawer()">Закрыть</button>'); return; }
   const nights = nightsOf(b.check_in, b.check_out);
   let h = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${statusBadge(b.status)}<span class="muted">${esc(CH[(b.channel || '').toLowerCase()] || b.channel || '')}${b.external_id ? ' · ' + esc(b.external_id) : ''}</span><span class="sp" style="flex:1"></span><span class="muted" style="font-size:11px">${esc(b.id.slice(0, 8))}</span></div>
     <h2 style="margin:8px 0 2px;font-size:17px">${esc(b.guest_name)}</h2>
@@ -431,6 +434,96 @@ VIEWS.rules = async () => {
       try { await api(null, { a: 'rule_save', rule }); closeDrawer(); toast('Сохранено'); list(); } catch (e) { alert(e.message); } };
   };
   $('#nr').onclick = () => edit(null); list();
+};
+
+// =====================================================================
+// КАНАЛЫ (admin) — channex-admin.js
+// =====================================================================
+async function capi(params, body) {
+  const t = await token(); const r = await fetch('/.netlify/functions/channex-admin' + (body ? '' : '?' + new URLSearchParams(params)), { method: body ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({ error: 'bad json' })); if (!r.ok || j.error) throw new Error(j.error || r.status); return j;
+}
+VIEWS.channels = async () => {
+  $('#tools').innerHTML = `<button class="pri sm" id="c_full">⟳ Отправить всё на площадки</button><button class="sm" id="c_feed">⬇ Забрать брони</button><button class="sm" id="c_hook">Вебхук Channex</button><select id="c_cx"><option value="">+ подключить ЖК…</option></select><button class="sm" id="c_ical">⟳ iCal</button><span class="muted" id="c_msg"></span>`;
+  $('#main').innerHTML = '<div class="page" id="ch"><div class="muted">загрузка…</div></div>';
+  const say = (m, bad) => { const e = $('#c_msg'); e.textContent = m; e.style.color = bad ? 'var(--red)' : ''; };
+  const run = async (fn, label) => { say(label + '…'); try { const r = await fn(); say('готово'); console.log(label, r); load(); } catch (e) { say(e.message, true); } };
+  let S; const load = async () => {
+    try { S = await capi({ a: 'status' }); } catch (e) { $('#ch').innerHTML = '<div class="card">' + esc(e.message) + '</div>'; return; }
+    const cx = $('#c_cx'); if (cx.options.length <= 1) [...new Set(S.apartments.filter(a => a.is_active).map(a => a.complex))].forEach(c => cx.add(new Option(c, c)));
+    const aptName = id => (S.apartments.find(a => a.id === id) || { name: id }).name;
+    const propName = id => (S.properties.find(p => p.id === id) || {}).name || '—';
+    const dt = s => s ? s.slice(5, 16).replace('T', ' ') : '—';
+    let h = `<div class="kpi"><div><b style="color:${S.channex.ok ? 'var(--green)' : 'var(--red)'}">${S.channex.ok ? 'OK' : 'нет'}</b>Channex ${esc((S.channex.base || '').replace('https://', ''))}${S.channex.error ? '<div class="muted" style="font-size:11px">' + esc(S.channex.error) + '</div>' : ''}</div><div><b>${S.units.filter(u => u.is_active).length}</b>квартир подключено</div><div><b>${S.pending}</b>в очереди</div><div><b style="color:${S.conflicts.length ? 'var(--red)' : ''}">${S.conflicts.length}</b>конфликтов</div><div><b>${S.icals.length}</b>iCal-источников</div></div>`;
+    if (S.conflicts.length) h += `<div class="card" style="border-color:#f3bdb8"><h3 style="color:var(--red)">Овербукинг с площадок</h3>` + S.conflicts.map(c => `<div class="li"><div class="g"><div class="n">${esc(aptName(c.apartment_id))} · ${ruD(c.check_in)} → ${ruD(c.check_out)} · ${esc(c.ota_name || '')} · ${esc(c.guest_name || '')} · ${money(c.amount, c.currency)}</div><div class="s">пересекается с бронью <a href="#" data-b="${c.conflicts_with}">${(c.conflicts_with || '').slice(0, 8)}</a> · ${dt(c.created_at)}</div></div><button class="sm" data-res="accept" data-id="${c.id}" title="другую бронь перенесли/отменили — записать эту">Даты освободили → записать</button><button class="sm danger" data-res="cancelled_on_ota" data-id="${c.id}">Отменено на площадке</button></div>`).join('') + `</div>`;
+    // матрица квартиры × площадки
+    const OTAS = [['booking', 'Booking', 'BookingCom'], ['airbnb', 'Airbnb', 'Airbnb'], ['ostrovok', 'Ostrovok', 'EmergingTravel'], ['agoda', 'Agoda', 'Agoda'], ['expedia', 'Expedia', 'Expedia']];
+    const ICALS = [['yandex', 'Яндекс'], ['sutochno', 'Sutochno']];
+    const unitOf = id => S.units.find(u => u.apartment_id === id);
+    const chanFor = (u, code) => { const p = u && S.properties.find(x => x.id === u.channel_property_id); if (!p || !p.external_id) return null; return S.channels.find(c => (c.channel || '').toLowerCase().replace(/[^a-z]/g, '') === code.toLowerCase().replace(/[^a-z]/g, '') && (c.properties || []).includes(p.external_id)); };
+    const icalFor = (id, ch) => S.icals.find(i => i.apartment_id === id && i.channel === ch);
+    const cell = (ok, label, title, cls) => `<td style="text-align:center" title="${esc(title || '')}">${ok === null ? '<span class="muted">—</span>' : ok ? '<span style="color:var(--green);font-weight:700">✓</span>' : '<span class="' + (cls || 'muted') + '" style="font-size:11px">' + esc(label) + '</span>'}</td>`;
+    const byCx = {}; S.apartments.filter(a => a.is_active).forEach(a => (byCx[a.complex] = byCx[a.complex] || []).push(a));
+    h += `<div class="card"><h3>Менеджер каналов <span class="muted" style="font-weight:400;font-size:12px">· клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex</span></h3>
+      <table class="t"><tr><th>Квартира</th><th>Channex</th>${OTAS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}${ICALS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}<th>Цены отпр.</th><th>Ошибка</th></tr>`;
+    for (const cx of Object.keys(byCx)) {
+      const hasProp = S.properties.some(p => p.complex === cx && p.external_id);
+      h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
+      for (const a of byCx[cx]) {
+        const u = unitOf(a.id);
+        h += `<tr data-apt="${a.id}" style="cursor:pointer"><td class="b">${a.catalog_no ? '<span class="no tag">' + a.catalog_no + '</span> ' : ''}${esc(a.name)}</td>`;
+        h += cell(u && u.external_room_type_id ? true : (hasProp ? false : null), 'не создана', u ? 'room ' + (u.external_room_type_id || '').slice(0, 8) : '');
+        for (const o of OTAS) { const c = chanFor(u, o[2]); h += cell(u && u.external_room_type_id ? !!c : null, 'подключить', c ? c.title : ''); }
+        for (const o of ICALS) { const i = icalFor(a.id, o[0]); h += cell(i ? !i.error : false, 'ссылка', i ? (i.error || ('проверено ' + dt(i.last_ok_at))) : ''); }
+        h += `<td class="nowrap">${u ? dt(u.last_pushed_at) : '—'}${u && !u.is_active ? ' <span class="tag bad">выкл</span>' : ''}</td><td style="color:var(--red);font-size:11px">${esc(((u && u.last_error) || '').slice(0, 60))}</td></tr>`;
+      }
+    }
+    h += `</table><div class="muted" style="font-size:11px;margin-top:6px">Booking / Airbnb / Ostrovok / Agoda / Expedia подключаются в Channex: <a target="_blank" href="${esc((S.channex.base || 'https://staging.channex.io') + '/channels')}">Channels → Add new channel</a> → выбрать карточку ЖК и сопоставить комнаты. Яндекс и Sutochno — по ссылкам iCal в карточке квартиры.</div></div>`;
+    if (S.failed.length) h += `<div class="card"><h3>Ошибки отправки</h3>` + S.failed.map(f => `<div class="ev"><b>${esc(aptName(f.apartment_id))}</b> попыток ${f.attempts}: ${esc((f.error || '').slice(0, 160))}</div>`).join('') + `</div>`;
+    h += `<div class="card"><h3>iCal-площадки (Яндекс Путешествия, Sutochno)</h3><div class="muted" style="font-size:12px;margin-bottom:6px">Наша ссылка для экстранета площадки: <code>${esc(S.ical_base)}&lt;id квартиры&gt;</code>. Их ссылку вставьте сюда — брони появятся в шахматке.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><select id="i_apt">${S.apartments.filter(a => a.is_active).map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select><select id="i_ch"><option value="yandex">Яндекс Путешествия</option><option value="sutochno">Sutochno</option><option value="other">другое</option></select><input id="i_url" placeholder="https://…ics" style="flex:1;min-width:260px"><button class="sm pri" id="i_add">Добавить</button></div>
+      ${S.icals.length ? `<table class="t"><tr><th>Квартира</th><th>Канал</th><th>Ссылка</th><th>Проверено</th><th>Событий</th><th>Ошибка</th><th></th></tr>` + S.icals.map(i => `<tr><td>${esc(aptName(i.apartment_id))}</td><td>${esc(i.channel)}</td><td style="font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(i.url)}</td><td class="nowrap">${dt(i.last_ok_at)}</td><td>${i.events_count == null ? '—' : i.events_count}</td><td style="color:var(--red);font-size:11px">${esc(i.error || '')}</td><td><button class="sm danger" data-idel="${i.id}">✕</button></td></tr>`).join('') + '</table>' : ''}</div>`;
+    h += `<div class="card"><h3>Последние брони с площадок</h3>` + (S.recent.length ? `<table class="t"><tr><th>Когда</th><th>Площадка</th><th>№</th><th>Статус</th><th>Результат</th></tr>` + S.recent.map(b => `<tr><td class="nowrap">${dt(b.received_at)}</td><td>${esc(b.ota_name || '')}</td><td>${esc(b.unique_id || '')}</td><td>${esc(b.status || '')}</td><td>${b.conflict ? '<span class="tag bad">конфликт</span>' : b.error ? '<span class="tag bad">' + esc(b.error.slice(0, 60)) + '</span>' : b.booking_id ? '<a href="#" data-b="' + b.booking_id + '">бронь ' + b.booking_id.slice(0, 8) + '</a>' : '—'}${b.acked_at ? ' ✓' : ''}</td></tr>`).join('') + '</table>' : '<div class="muted">пока нет</div>') + `</div>`;
+    $('#ch').innerHTML = h;
+    $$('#ch [data-b]').forEach(x => x.onclick = e => { e.preventDefault(); openBooking(x.dataset.b); });
+    $$('#ch [data-res]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'resolve_conflict', id: x.dataset.id, resolution: x.dataset.res }), 'Решаю конфликт'));
+    $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
+    $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
+    $$('#ch [data-push]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'push_full', apt: x.dataset.push }), 'Отправляю'));
+    $$('#ch [data-act]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.act, is_active: x.dataset.on === '1' }), 'Сохраняю'));
+    $$('#ch [data-mk]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.mk, markup_pct: x.value }), 'Наценка'));
+    $$('#ch [data-pr]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.pr, push_rates: x.checked }), 'Сохраняю'));
+    $$('#ch [data-pa]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.pa, push_availability: x.checked }), 'Сохраняю'));
+    $$('#ch [data-idel]').forEach(x => x.onclick = () => { if (confirm('Удалить источник?')) run(() => capi(null, { a: 'ical_delete', id: x.dataset.idel }), 'Удаляю'); });
+    $('#i_add').onclick = () => run(() => capi(null, { a: 'ical_add', apartment_id: $('#i_apt').value, channel: $('#i_ch').value, url: $('#i_url').value.trim() }), 'Добавляю');
+  };
+  const openUnit = (id) => {
+    const a = S.apartments.find(x => x.id === id), u = S.units.find(x => x.apartment_id === id) || {};
+    const exp = S.ical_base + id;
+    const ic = ch => S.icals.find(i => i.apartment_id === id && i.channel === ch) || {};
+    openDrawer(a.name, `<div class="sec">Ссылки iCal</div>
+      <label class="muted" style="font-size:11px">Экспорт (наша занятость → вставить в экстранет Яндекса / Sutochno)</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px"><input value="${esc(exp)}" readonly style="flex:1;font-size:11px" onclick="this.select()"><button class="sm" id="u_copy">копировать</button></div>
+      ${[['yandex', 'Яндекс Путешествия'], ['sutochno', 'Sutochno']].map(([ch, nm]) => `<label class="muted" style="font-size:11px">Импорт — ссылка ${nm} (их брони → к нам)</label><div style="display:flex;gap:6px;margin-bottom:8px"><input data-ical="${ch}" value="${esc(ic(ch).url || '')}" placeholder="https://…ics" style="flex:1;font-size:11px"><button class="sm" data-isave="${ch}">сохранить</button>${ic(ch).id ? '<button class="sm danger" data-idel2="' + ic(ch).id + '">✕</button>' : ''}</div>${ic(ch).id ? '<div class="muted" style="font-size:11px;margin:-4px 0 8px">проверено ' + (ic(ch).last_ok_at || '—').slice(0, 16).replace('T', ' ') + (ic(ch).error ? ' · <span style="color:var(--red)">' + esc(ic(ch).error) + '</span>' : ' · событий ' + (ic(ch).events_count == null ? '—' : ic(ch).events_count)) + '</div>' : ''}`).join('')}
+      <div class="sec">Channex</div>
+      ${u.external_room_type_id ? `<div class="muted" style="font-size:11px">room ${esc(u.external_room_type_id)}<br>rate ${esc(u.external_rate_plan_id || '')}</div>
+      <div class="f" style="margin-top:8px"><label>Наценка, % <input id="u_mk" type="number" value="${u.markup_pct == null ? '' : u.markup_pct}" placeholder="из правил «Цены»"></label><label>&nbsp;<button class="sm" id="u_push">⟳ отправить цены и занятость</button></label>
+      <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="u_pr" ${u.push_rates ? 'checked' : ''}>слать цены</label><label style="flex-direction:row;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="u_pa" ${u.push_availability ? 'checked' : ''}>слать занятость</label>
+      <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="u_on" ${u.is_active !== false ? 'checked' : ''}>подключена</label></div>
+      ${u.last_error ? '<div class="warn">' + esc(u.last_error) + '</div>' : ''}` : '<div class="muted">Комната в Channex не создана — нажмите «подключить ЖК к Channex» в строке ЖК.</div>'}`,
+      `<button class="pri" id="u_save">Сохранить</button><button onclick="closeDrawer()">Закрыть</button>`);
+    $('#u_copy').onclick = () => navigator.clipboard.writeText(exp).then(() => toast('Скопировано'));
+    $$('#d_body [data-isave]').forEach(b => b.onclick = () => { const url = $('#d_body [data-ical="' + b.dataset.isave + '"]').value.trim(); if (!url) return; run(() => capi(null, { a: 'ical_add', apartment_id: id, channel: b.dataset.isave, url }), 'Сохраняю iCal').then(() => closeDrawer()); });
+    $$('#d_body [data-idel2]').forEach(b => b.onclick = () => run(() => capi(null, { a: 'ical_delete', id: b.dataset.idel2 }), 'Удаляю').then(() => closeDrawer()));
+    if ($('#u_push')) $('#u_push').onclick = () => run(() => capi(null, { a: 'push_full', apt: id }), 'Отправляю');
+    $('#u_save').onclick = () => { if (!u.external_room_type_id) return closeDrawer(); run(() => capi(null, { a: 'unit_update', apartment_id: id, markup_pct: $('#u_mk').value, push_rates: $('#u_pr').checked, push_availability: $('#u_pa').checked, is_active: $('#u_on').checked }), 'Сохраняю').then(() => closeDrawer()); };
+  };
+  $('#c_full').onclick = () => run(() => capi(null, { a: 'push_full' }), 'Отправляю всё');
+  $('#c_feed').onclick = () => run(() => capi(null, { a: 'feed' }), 'Забираю брони');
+  $('#c_hook').onclick = () => run(() => capi(null, { a: 'setup_webhook' }), 'Вебхук');
+  $('#c_ical').onclick = () => run(() => capi(null, { a: 'ical_pull' }), 'iCal');
+  $('#c_cx').onchange = e => { const c = e.target.value; if (!c) return; e.target.value = ''; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); };
+  load();
 };
 
 // =====================================================================
