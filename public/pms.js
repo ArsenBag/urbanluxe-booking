@@ -11,7 +11,7 @@ const nightsOf = (a, b) => Math.round((new Date(b) - new Date(a)) / DAYMS);
 const DN = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'], MN = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const ruD = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
 const money = (v, cur) => v == null ? '—' : (cur === 'RUB' ? '₽' : cur === 'UZS' ? '' : '$') + Math.round(v).toLocaleString('ru-RU') + (cur === 'UZS' ? ' сум' : '');
-const ST = { request: ['Заявка', '#d9a21b'], confirmed: ['Подтверждена', '#2f6fd6'], checked_in: ['Живёт', '#2e9e5b'], checked_out: ['Выехал', '#8a919b'], cancelled: ['Отменена', '#5a2e2e'], blocked: ['Блок', '#3a3f48'] };
+const ST = { request: ['Заявка', '#fbf1d9'], confirmed: ['Подтверждена', '#e3ecf8'], checked_in: ['Живёт', '#def2e6'], checked_out: ['Выехал', '#eef0f3'], cancelled: ['Отменена', '#fde8e6'], blocked: ['Блок', '#eceef2'] }; // пастель, текст тёмный (.st)
 const CH = { telegram: 'Telegram', website: 'Сайт', manual: 'Бронер', rc: 'RC', ostrovok: 'Ostrovok', yandex: 'Яндекс', booking: 'Booking', airbnb: 'Airbnb', sutochno: 'Sutochno', walk_in: 'Без брони', corporate: 'Корпоратив', ota: 'OTA', other: 'Другое' };
 const OTA = ['ostrovok', 'yandex', 'booking', 'airbnb', 'sutochno', 'ota', 'agoda', 'expedia'];
 const toast = (m, ms) => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', ms || 2600); };
@@ -130,8 +130,9 @@ function render() {
       const nx = bs[i + 1]; const gap = nx && nx.check_in === b.check_out && (hoursOf(nx.arrival_time, 14) - hoursOf(b.departure_time, 12)) < 2;
       const ch = (b.channel || '').toLowerCase(); const ota = OTA.includes(ch);
       const sum = b.status === 'blocked' || b.occupancy_only ? '' : money(b.total_price, b.currency);
+      // точка долга — только по нашим броням: у импорта из RC платежи не ведутся, иначе красное на всём
       const orgTag = b.foreign_org && !b.occupancy_only ? ' · ' + esc(b.org_short || '') : '';
-      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 ? 'debt' : ''} ${gap ? 'gap' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
+      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 && b.source !== 'rc' ? 'debt' : ''} ${gap ? 'gap' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
         <div class="t">${cut ? '◂ ' : ''}${esc(b.guest_name)}</div><div class="s">${sum}${b.channel && b.channel !== 'manual' && b.channel !== 'telegram' && !b.occupancy_only ? ' · ' + (CH[ch] || b.channel) : ''}${b.guests_count > 1 && !b.occupancy_only ? ' · ' + b.guests_count + ' чел.' : ''}${orgTag}</div>
         <div class="pay ${b.pay_state || ''}"></div></div>`;
     });
@@ -240,7 +241,7 @@ function renderBooking() {
     <tr><td>Даты</td><td class="b">${ruD(b.check_in)} ${esc(b.arrival_time || '14:00')} → ${ruD(b.check_out)} ${esc(b.departure_time || '12:00')} · ${nights} ноч.</td></tr>
     <tr><td>Гостей</td><td>${b.guests_count || 1}</td></tr>
     <tr><td>Цена</td><td class="b">${money(b.total_price, b.currency)}${nights ? ' <span class="muted">(' + money(b.total_price / nights, b.currency) + '/ночь)</span>' : ''}</td></tr>
-    ${b.total_price > 0 ? `<tr><td>Оплачено</td><td><span class="b" style="color:${b.pay_state === 'paid' ? 'var(--green)' : b.pay_state === 'partial' ? '#b07a00' : 'var(--red)'}">${money(b.paid, b.currency)}</span>${b.debt > 0 ? ' · остаток <b style="color:var(--red)">' + money(b.debt, b.currency) + '</b>' : ' · ✓'}</td></tr>` : ''}
+    ${b.total_price > 0 ? (b.source === 'rc' && !(b.paid > 0) ? `<tr><td>Оплачено</td><td class="muted">учёт оплат — в RC (у нас платежей нет)</td></tr>` : `<tr><td>Оплачено</td><td><span class="b" style="color:${b.pay_state === 'paid' ? 'var(--green)' : b.pay_state === 'partial' ? '#b07a00' : 'var(--red)'}">${money(b.paid, b.currency)}</span>${b.debt > 0 ? ' · остаток <b style="color:var(--red)">' + money(b.debt, b.currency) + '</b>' : ' · ✓'}</td></tr>`) : ''}
     ${b.deposit ? `<tr><td>Депозит</td><td>${money(b.deposit, b.currency)}</td></tr>` : ''}
     ${b.notes ? `<tr><td>Заметки</td><td>${esc(b.notes)}</td></tr>` : ''}${b.admin_notes ? `<tr><td>Для своих</td><td>${esc(b.admin_notes)}</td></tr>` : ''}${b.client_notes ? `<tr><td>От гостя</td><td>${esc(b.client_notes)}</td></tr>` : ''}
     </table>`;
@@ -372,14 +373,14 @@ VIEWS.guests = () => {
 // =====================================================================
 // СЕГОДНЯ / СВОБОДНО / ДОЛГИ / ЦЕНЫ
 // =====================================================================
-const bookLine = (b, extra) => `<div class="li" data-b="${b.id}"><span class="no">${(G && (G.apartments.find(a => a.id === b.apartment_id) || {}).catalog_no) || ''}</span><div class="g"><div class="n">${esc(b.apartment_name)} · ${esc(b.guest_name)}</div><div class="s">${ruD(b.check_in)} ${esc(b.arrival_time || '')} → ${ruD(b.check_out)} ${esc(b.departure_time || '')} · ${money(b.total_price, b.currency)}${b.total_price > 0 ? (b.debt > 0 ? ' · <span style="color:var(--red)">остаток ' + money(b.debt, b.currency) + '</span>' : ' · оплачено') : ''}${b.guest_phone ? ' · ' + esc(b.guest_phone) : ''}</div></div>${extra || ''}</div>`;
+const bookLine = (b, extra) => `<div class="li" data-b="${b.id}"><span class="no">${(G && (G.apartments.find(a => a.id === b.apartment_id) || {}).catalog_no) || ''}</span><div class="g"><div class="n">${esc(b.apartment_name)} · ${esc(b.guest_name)}</div><div class="s">${ruD(b.check_in)} ${esc(b.arrival_time || '')} → ${ruD(b.check_out)} ${esc(b.departure_time || '')} · ${money(b.total_price, b.currency)}${b.total_price > 0 ? (b.source === 'rc' && !(b.paid > 0) ? '' : b.debt > 0 ? ' · <span style="color:var(--red)">остаток ' + money(b.debt, b.currency) + '</span>' : ' · оплачено') : ''}${b.guest_phone ? ' · ' + esc(b.guest_phone) : ''}</div></div>${extra || ''}</div>`;
 VIEWS.today = async () => {
   $('#main').innerHTML = '<div class="page"><div class="muted">загрузка…</div></div>';
   let d; try { d = await api({ a: 'today' }); if (!G) G = { today: d.date, apartments: await api({ a: 'grid', from: d.date, to: addD(d.date, 1) }).then(g => g.apartments) }; } catch (e) { $('#main').innerHTML = '<div class="page">' + esc(e.message) + '</div>'; return; }
   const btn = (b, st, label) => (ME.can.write || ME.can.status_only) ? `<button class="sm pri" data-st="${st}" data-b="${b.id}">${label}</button>` : '';
   const cl = d.cleaning.filter(c => c.date === d.date && c.hk_status !== 'canceled');
   const sec = (title, arr, f) => `<div class="card"><h3>${title} <span class="muted">${arr.length}</span></h3>${arr.length ? arr.map(f).join('') : '<div class="muted">—</div>'}</div>`;
-  $('#main').innerHTML = `<div class="page"><div class="kpi"><div><b>${d.checkins.length}</b>заездов</div><div><b>${d.checkouts.length}</b>выездов</div><div><b>${d.inhouse.length}</b>живут</div><div><b>${d.debts.length}</b>с долгом</div><div><b>${cl.filter(c => !c.done).length}</b>не убрано</div></div>
+  $('#main').innerHTML = `<div class="page"><div class="kpi"><div><b>${d.checkins.length}</b>заездов</div><div><b>${d.checkouts.length}</b>выездов</div><div><b>${d.inhouse.length}</b>живут</div><div><b>${d.debts.filter(b => !(b.source === 'rc' && !(b.paid > 0))).length}</b>с долгом</div><div><b>${cl.filter(c => !c.done).length}</b>не убрано</div></div>
     ${sec('Выезды сегодня', d.checkouts, b => bookLine(b, b.status !== 'checked_out' ? btn(b, 'checked_out', 'Выехал') : '<span class="tag">выехал</span>'))}
     ${sec('Заезды сегодня', d.checkins, b => bookLine(b, b.status === 'checked_in' ? '<span class="tag">заехал</span>' : btn(b, 'checked_in', 'Заехал')))}
     ${sec('Живут', d.inhouse.filter(b => b.check_in !== d.date), b => bookLine(b))}
@@ -399,7 +400,7 @@ VIEWS.free = async () => {
 };
 VIEWS.debts = async () => {
   $('#main').innerHTML = '<div class="page"><div class="muted">загрузка…</div></div>';
-  let rows; try { rows = await api({ a: 'debts' }); if (!G) G = { today: iso(Date.now() + 5 * 36e5), apartments: [] }; } catch (e) { $('#main').innerHTML = '<div class="page">' + esc(e.message) + '</div>'; return; }
+  let rows; try { rows = (await api({ a: 'debts' })).filter(b => !(b.source === 'rc' && !(b.paid > 0))); /* импорт из RC без платежей — не долг, а отсутствие учёта */ if (!G) G = { today: iso(Date.now() + 5 * 36e5), apartments: [] }; } catch (e) { $('#main').innerHTML = '<div class="page">' + esc(e.message) + '</div>'; return; }
   const sum = rows.filter(b => b.currency === 'USD').reduce((s, b) => s + b.debt, 0);
   $('#main').innerHTML = `<div class="page"><div class="kpi"><div><b>${rows.length}</b>броней с остатком</div><div><b>${money(sum)}</b>всего (USD)</div></div><div class="card">${rows.length ? `<table class="t"><tr><th>Гость</th><th>Квартира</th><th>Даты</th><th>Цена</th><th>Остаток</th><th>Статус</th><th>Дней</th></tr>` + rows.map(b => `<tr style="cursor:pointer" data-b="${b.id}"><td class="b">${esc(b.guest_name)}<br><span class="muted">${esc(b.guest_phone || '')}</span></td><td>${esc(b.apartment_name)}</td><td class="nowrap">${ruD(b.check_in)}–${ruD(b.check_out)}</td><td>${money(b.total_price, b.currency)}</td><td class="b" style="color:var(--red)">${money(b.debt, b.currency)}</td><td>${statusBadge(b.status)}</td><td>${b.days > 0 ? b.days : ''}</td></tr>`).join('') + '</table>' : '<div class="muted">долгов нет</div>'}</div></div>`;
   $$('#main [data-b]').forEach(r => r.onclick = () => openBooking(r.dataset.b));
