@@ -76,7 +76,8 @@ async function setupComplex(body, user) {
   const mk = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => mk[m.channel] = Number(m.pct));
   const unitsNow = await C.q('channel_units?select=*&channel_property_id=eq.' + prop.id);
   for (const u of unitsNow) for (const ch of Object.keys(C.OTA_PLANS)) { try { await C.ensureDerived(u, prop, ch, mk[ch] || 0); } catch (e) { log.push(u.apartment_id + ' ' + ch + ': ' + String(e.message).slice(0, 100)); } }
-  const full = await C.rpc('pms_outbox_full', { p_apt: null });
+  // в очередь — только квартиры этого ЖК (полная очередь по всем квартирам упиралась в лимит Channex 429 на уже подключённых)
+  let full = 0; for (const a of apts) { try { full += Number(await C.rpc('pms_outbox_full', { p_apt: a.id })) || 0; } catch (_) { } }
   const pushed = await C.processOutbox();
   return { property: prop, log, queued: full, pushed };
 }
@@ -102,8 +103,38 @@ exports.handler = async (event) => {
     switch (body.a) {
       case 'setup_complex': return out(200, await setupComplex(body, user));
       case 'setup_webhook': return out(200, await setupWebhook());
+      case 'reconcile_derived': { const props = await C.q('channel_properties?select=*&external_id=not.is.null&org_id=eq.' + user.org_id); const r = []; for (const p of props) r.push(Object.assign({ property: p.name }, await C.reconcileDerived(p.external_id))); return out(200, r); }
       case 'push_full': { const q = await C.rpc('pms_outbox_full', { p_apt: body.apt || null }); const r = await C.processOutbox(); return out(200, { queued: q, pushed: r }); }
       case 'feed': return out(200, await C.ingestFeed());
+      // Маппинг Airbnb через API: phase='unmap' снимает маппинги листингов со Standard; phase='map' (через ~40 с) ставит на производный тариф «Airbnb»
+      case 'airbnb_remap': {
+        const chId = body.channel_id; if (!chId) return out(400, { error: 'channel_id' });
+        const ch = await C.cx('GET', '/channels/' + chId); const attrs = ch.data.attributes || {};
+        const maps = attrs.rate_plans || attrs.mappings || [];
+        const units = await C.q('channel_units?select=*&is_active=eq.true');
+        const byStd = {}, byDer = {}; units.forEach(u => { byStd[u.external_rate_plan_id] = u; const d = (u.derived || {}).airbnb; if (d) byDer[d.rate_plan_id] = u; });
+        const log = [];
+        if (body.phase === 'unmap') {
+          for (const m of maps) { if (byStd[m.rate_plan_id]) { try { await C.cx('DELETE', '/channels/' + chId + '/mappings/' + m.id); log.push('unmapped ' + byStd[m.rate_plan_id].apartment_id + ' listing ' + (m.settings || {}).listing_id); } catch (e) { log.push('ERR ' + String(e.message).slice(0, 120)); } } }
+          return out(200, { phase: 'unmap', log, total: maps.length });
+        }
+        if (body.phase === 'map') {
+          const have = new Set(maps.map(m => String((m.settings || {}).listing_id)));
+          const list = await C.cx('GET', '/channels/' + chId + '/action/listings');
+          const listings = (((list.data || {}).listing_id_dictionary || {}).values) || [];
+          const apts = await C.q('apartments?select=id,name,catalog_no');
+          for (const l of listings) {
+            if (have.has(String(l.id))) { log.push('skip (mapped) ' + l.title); continue; }
+            const want = body.pairs && body.pairs[String(l.id)];
+            const u = want ? units.find(x => x.apartment_id === want) : null;
+            if (!u) { log.push('no pair for ' + l.title + ' (' + l.id + ')'); continue; }
+            const d = (u.derived || {}).airbnb; if (!d) { log.push('no derived plan ' + u.apartment_id); continue; }
+            try { await C.cx('POST', '/channels/' + chId + '/mappings', { mapping: { rate_plan_id: d.rate_plan_id, settings: { listing_id: String(l.id) } } }); log.push('mapped ' + l.title + ' → ' + u.apartment_id + ' / Airbnb'); } catch (e) { log.push('ERR ' + l.title + ': ' + String(e.message).slice(0, 160)); }
+          }
+          return out(200, { phase: 'map', log });
+        }
+        return out(200, { mappings: maps.map(m => ({ id: m.id, rate_plan_id: m.rate_plan_id, apt: (byStd[m.rate_plan_id] || byDer[m.rate_plan_id] || {}).apartment_id, plan: byStd[m.rate_plan_id] ? 'Standard' : byDer[m.rate_plan_id] ? 'Airbnb' : '?', listing_id: (m.settings || {}).listing_id })) });
+      }
       case 'markup_set': {
         const ch = String(body.channel || ''); const pct = Math.max(0, Math.min(100, Number(body.pct) || 0));
         if (!C.OTA_PLANS[ch]) return out(400, { error: 'channel' });

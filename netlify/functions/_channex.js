@@ -98,6 +98,8 @@ async function processOutbox(limit) {
       if (e.status === 429) break;
     }
   }
+  // 429 (лимит Channex) — не ошибка, очередь уйдёт следующим запуском; в Telegram не шумим
+  out.errors = out.errors.filter(x => !/^Channex 429/.test(x.error));
   if (out.errors.length) await alertAdmin('⚠️ Channex: ошибка отправки цен/занятости\n' + out.errors.map(x => x.apt + ': ' + x.error.slice(0, 120)).join('\n'));
   return out;
 }
@@ -106,6 +108,8 @@ async function processOutbox(limit) {
 async function ingestRevision(revisionId) {
   const j = await cx('GET', '/booking_revisions/' + revisionId);
   const a = (j.data && j.data.attributes) || j.data || j;
+  // запоздавший повтор вебхука (Channex ретраит после наших 5xx): если бронь в Channex уже отменена — не воскрешать её у нас
+  if (a.status !== 'cancelled' && a.booking_id) { try { const b = await cx('GET', '/bookings/' + a.booking_id); const bs = b.data && b.data.attributes && b.data.attributes.status; if (bs === 'cancelled') a.status = 'cancelled'; } catch (_) { } }
   const rec = { provider: 'channex', external_booking_id: a.booking_id, revision_id: a.id || revisionId, unique_id: a.unique_id, ota_name: a.ota_name, ota_reservation_code: a.ota_reservation_code, status: a.status, payload: a };
   const rows = await q('channel_bookings?on_conflict=provider,revision_id', { method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify(rec) });
   const cb = rows[0];
@@ -144,7 +148,16 @@ async function ensureDerived(unit, prop, channel, pct) {
   const opt = ((r.data.attributes || {}).options || [])[0] || {};
   d[channel] = { rate_plan_id: r.data.id, option_id: opt.id, occupancy: occ };
   await q('channel_units?apartment_id=eq.' + encodeURIComponent(unit.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ derived: d, updated_at: new Date().toISOString() }) });
+  unit.derived = d; // вызывающий цикл по каналам работает с тем же объектом — иначе каждый канал затирал предыдущий
   return d;
+}
+// Восстановить derived из Channex (тарифы несут meta.apartment_id/channel) — на случай расхождения
+async function reconcileDerived(propExternalId) {
+  const j = await cx('GET', '/rate_plans?filter[property_id]=' + propExternalId + '&pagination[limit]=500');
+  const byApt = {};
+  for (const rp of (j.data || [])) { const a = rp.attributes || {}; const m = a.meta || {}; if (a.rate_mode !== 'derived' || !m.apartment_id || !m.channel) continue; const opt = (a.options || [])[0] || {}; (byApt[m.apartment_id] = byApt[m.apartment_id] || {})[m.channel] = { rate_plan_id: rp.id, option_id: opt.id, occupancy: opt.occupancy }; }
+  let n = 0; for (const apt of Object.keys(byApt)) { await q('channel_units?apartment_id=eq.' + encodeURIComponent(apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ derived: byApt[apt], updated_at: new Date().toISOString() }) }); n++; }
+  return { units: n, plans: Object.values(byApt).reduce((s, d) => s + Object.keys(d).length, 0) };
 }
 // Применить наценку площадки ко всем квартирам организации
 async function applyMarkup(orgId, channel, pct) {
@@ -159,4 +172,4 @@ async function applyMarkup(orgId, channel, pct) {
   }
   return out;
 }
-module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, OTA_PLANS };
+module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS };

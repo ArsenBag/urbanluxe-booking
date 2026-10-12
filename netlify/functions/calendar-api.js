@@ -133,7 +133,7 @@ async function rcSync() {
   const tok = process.env.RC_TOKEN; if (!tok) throw new Error('RC_TOKEN не задан в Netlify env');
   const map = await q('rpc/rc_apartment_map', { method: 'POST', body: '{}' });
   const ids = map.map(m => m.rc_id).join(',');
-  const d = T.tashToday(0); const ranges = [[addDays(d, -40), addDays(d, 39)], [addDays(d, 40), addDays(d, 119)], [addDays(d, 120), addDays(d, 199)]];
+  const d = T.tashToday(0); const ranges = []; for (let s = -40; s < 440; s += 80) ranges.push([addDays(d, s), addDays(d, s + 79)]); // −40…+439 дней окнами по 80 (RC не отдаёт длиннее); 12.10: было до +199 — брони на май 2027 не попадали
   const ev = {};
   for (const [b, e] of ranges) {
     const r = await fetch('https://realtycalendar.ru/v2/event_calendars/?begin_date=' + b + '&end_date=' + e + '&statuses[]=booked&statuses[]=request&apartment_ids=' + ids, { headers: { 'X-User-Token': tok, Accept: 'application/json' } });
