@@ -125,16 +125,18 @@ function render() {
     bs.forEach((b, i) => {
       const s0 = nightsOf(FROM, b.check_in), e0 = nightsOf(FROM, b.check_out); if (e0 < 0 || s0 > days.length) return;
       const cut = s0 < 0, s = cut ? 0 : s0, e = Math.min(e0, days.length);
-      const sf = cut ? 0 : hoursOf(b.arrival_time, 14) / 24, ef = e0 > days.length ? 0 : hoursOf(b.departure_time, 12) / 24;
+      // полоса ровно по границам дней (с начала дня заезда до начала дня выезда); поздний выезд (после 12:00) — скошенный хвост в день выезда, ранний заезд (до 12:00) — скошенная голова
+      const late = !cut && e0 <= days.length && hoursOf(b.departure_time, 12) > 12, early = !cut && hoursOf(b.arrival_time, 14) < 12;
+      const sf = early ? -0.45 : 0, ef = late ? 0.45 : 0;
       const left = (s + sf), width = (e + ef) - left; if (width <= 0) return;
       const nx = bs[i + 1]; const gap = nx && nx.check_in === b.check_out && (hoursOf(nx.arrival_time, 14) - hoursOf(b.departure_time, 12)) < 2;
       const ch = (b.channel || '').toLowerCase(); const ota = OTA.includes(ch);
       const sum = b.status === 'blocked' || b.occupancy_only ? '' : money(b.total_price, b.currency);
       // точка долга — только по нашим броням: у импорта из RC платежи не ведутся, иначе красное на всём
       const orgTag = b.foreign_org && !b.occupancy_only ? ' · ' + esc(b.org_short || '') : '';
-      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 && b.source !== 'rc' ? 'debt' : ''} ${gap ? 'gap' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
+      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 && b.source !== 'rc' ? 'debt' : ''} ${gap ? 'gap' : ''} ${late ? 'late' : ''} ${early ? 'early' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
         <div class="t">${cut ? '◂ ' : ''}${esc(b.guest_name)}</div><div class="s">${sum}${b.channel && b.channel !== 'manual' && b.channel !== 'telegram' && !b.occupancy_only ? ' · ' + (CH[ch] || b.channel) : ''}${b.guests_count > 1 && !b.occupancy_only ? ' · ' + b.guests_count + ' чел.' : ''}${orgTag}</div>
-        <div class="pay ${b.pay_state || ''}"></div></div>`;
+        ${late ? '<span class="lt">' + esc(String(b.departure_time).slice(0, 5)) + '</span>' : ''}${early ? '<span class="et">' + esc(String(b.arrival_time).slice(0, 5)) + '</span>' : ''}<div class="pay ${b.pay_state || ''}"></div></div>`;
     });
     h += `</div>`;
   }

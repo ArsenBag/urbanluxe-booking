@@ -59,7 +59,10 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 .bar.ota{border-left:4px solid #ff7a00}.bar.ch-booking{border-left-color:#003580}.bar.ch-airbnb{border-left-color:#ff5a5f}.bar.ch-ostrovok{border-left-color:#ff7a00}.bar.ch-yandex{border-left-color:#fc3f1d}.bar.ch-sutochno{border-left-color:#ff7a00}
 .bar .pay{position:absolute;left:0;right:0;bottom:0;height:4px;background:transparent}.bar .pay.paid{background:#1f9d4e}.bar .pay.partial{background:#e0a71e}.bar .pay.unpaid{background:transparent}
 .bar.debt::after{content:'$';position:absolute;right:4px;top:3px;background:var(--red);color:#fff;border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center;font-weight:700}
-.bar.gap{outline:2px solid var(--red)}.bar.flash{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 4px #ffd666}100%{box-shadow:none}}
+.bar.late{clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);padding-right:22px;border-right:0}.bar.early{clip-path:polygon(14px 0,100% 0,100% 100%,0 100%);padding-left:22px;border-left-width:0}
+.bar.late.early{clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%)}
+.bar .lt,.bar .et{position:absolute;top:2px;font-size:9px;font-weight:700;color:#7a1f1a;background:rgba(255,255,255,.75);border-radius:3px;padding:0 3px;line-height:12px}.bar .lt{right:16px}.bar .et{left:16px}
+.bar.gap{box-shadow:inset 0 0 0 2px var(--red)}.bar.flash{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 4px #ffd666}100%{box-shadow:none}}
 .bar:hover{filter:brightness(.96)}.bar.dragging{opacity:.5}.row.over{background:#eef5ff}
 #pop{position:fixed;z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:10px 12px;min-width:220px;font-size:12px}
 #pop .big{font-size:16px;font-weight:700;margin:4px 0}#pop .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
@@ -104,6 +107,6 @@ table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th
 </div>
 <div id="drawer"><div class="dh"><h3 id="d_title">Бронь</h3><button class="sm" onclick="closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
 <div id="toast"></div>
-<script src="/pms.js?v=6"></script>
+<script src="/pms.js?v=7"></script>
 </body>
 </html>
