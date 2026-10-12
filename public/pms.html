@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* 12.10.2026 — стиль по образцу RealtyCalendar: белое поле без вертикальной сетки, тёмные цены по центру клетки, плотные цветные полосы с тёмным текстом */
-:root{--bg:#fff;--card:#fff;--line:#dfe3e8;--line2:#eef0f3;--text:#1f2328;--muted:#6b7480;--faint:#9aa3ad;--gold:#b8923f;--blue:#1a6fd1;--green:#2f9e5b;--yellow:#e0a71e;--red:#d9463e;--grey:#8a919b;--cell:38px;--row:42px;--aptw:190px;--r:6px}
+:root{--bg:#fff;--card:#fff;--line:#dfe3e8;--line2:#eef0f3;--text:#1f2328;--muted:#6b7480;--faint:#9aa3ad;--gold:#b8923f;--blue:#1a6fd1;--green:#2f9e5b;--yellow:#e0a71e;--red:#d9463e;--grey:#8a919b;--cell:32px;--row:38px;--fs:11px;--aptw:180px;--r:6px}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.35 -apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid #c9d0d8;background:#fff;border-radius:var(--r);padding:6px 11px}button:hover{background:#f3f5f8}
@@ -33,27 +33,28 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 #main{padding:0}
 /* шахматка */
 #wrap{position:relative;overflow:auto;height:calc(100vh - 94px);background:#fff}
+#chess{cursor:default}#chess .c{cursor:cell}#chess.panning,#chess.panning *{cursor:grabbing!important;user-select:none}
 #chess{position:relative;display:grid;grid-template-columns:var(--aptw) 1fr;width:max-content;min-width:100%}
 .hd{position:sticky;top:0;z-index:30;background:#fff}
 .hd-apt{position:sticky;left:0;z-index:35;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line);height:46px;display:flex;align-items:flex-end;padding:4px 10px;font-size:12px;color:var(--muted)}
 .hd-days{display:flex;height:46px;border-bottom:1px solid var(--line)}
 .hd-day{width:var(--cell);flex:0 0 var(--cell);text-align:center;font-size:11px;color:var(--muted);padding-top:14px;position:relative}
-.hd-day b{display:block;font-size:14px;color:var(--text);font-weight:700;line-height:17px}.hd-day.we b,.hd-day.we{color:var(--red)}
+.hd-day b{display:block;font-size:calc(var(--fs) + 2px);color:var(--text);font-weight:700;line-height:17px}.hd-day.we b,.hd-day.we{color:var(--red)}
 .hd-day.today b{background:var(--blue);color:#fff;border-radius:6px;margin:0 6px}
 .hd-day .mo{position:absolute;top:1px;left:3px;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
 .grp{grid-column:1/3;background:#f3f5f8;border-bottom:1px solid var(--line);padding:4px 0;font-size:12px;font-weight:700;color:var(--text);cursor:pointer}.grp .gt{position:sticky;left:10px;display:inline-block}
 .grp span{color:var(--muted);font-weight:400;margin-left:6px}
 .apt{position:sticky;left:0;z-index:20;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line2);height:var(--row);padding:3px 10px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
-.apt .n{font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.apt .s{font-size:11px;color:var(--muted);white-space:nowrap}
+.apt .n{font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(var(--fs) + 1px)}.apt .s{font-size:calc(var(--fs) - 1px);color:var(--muted);white-space:nowrap}
 .apt .no{display:inline-block;min-width:18px;text-align:center;color:var(--muted);font-weight:600;font-size:11px;margin-right:5px}
 .row{position:relative;height:var(--row);border-bottom:1px solid var(--line2);display:flex}
-.c{width:var(--cell);flex:0 0 var(--cell);height:100%;font-size:12px;color:var(--text);display:flex;align-items:center;justify-content:center;position:relative;user-select:none;font-variant-numeric:tabular-nums}
+.c{width:var(--cell);flex:0 0 var(--cell);height:100%;font-size:var(--fs);color:var(--text);display:flex;align-items:center;justify-content:center;position:relative;user-select:none;font-variant-numeric:tabular-nums}
 .c.we{background:#fff6f6}.c.today{box-shadow:inset 2px 0 0 var(--blue)}.c.sel{background:#cfe0fb!important}
 .c.closed{background:repeating-linear-gradient(135deg,#f0f1f3 0 4px,#e2e5e9 4px 8px)}.c.cta{background:repeating-linear-gradient(135deg,transparent 0 6px,#f6e8c8 6px 8px)}
 .c .mn{position:absolute;top:1px;right:2px;font-size:9px;color:#b08a3a}.c .ov{color:var(--blue);font-weight:700}
 .c .cl{position:absolute;left:50%;bottom:-3px;width:6px;height:6px;border-radius:50%;transform:translateX(-50%);z-index:3}.c .cl.ok{background:var(--green)}.c .cl.no{background:#e8a33d}.c .cl.plan{background:#fff;border:1.5px solid #b0b6bf}
-.bar{position:absolute;top:5px;height:32px;border-radius:5px;color:#1f2328;font-size:12px;padding:2px 7px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:5;display:flex;flex-direction:column;justify-content:center;line-height:1.2;border:1px solid rgba(0,0,0,.08)}
-.bar .t{font-weight:700;overflow:hidden;text-overflow:ellipsis}.bar .s{font-size:10px;color:#4b5563;overflow:hidden;text-overflow:ellipsis}
+.bar{position:absolute;top:4px;height:calc(var(--row) - 9px);border-radius:5px;color:#1f2328;font-size:var(--fs);padding:2px 7px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:5;display:flex;flex-direction:column;justify-content:center;line-height:1.2;border:1px solid rgba(0,0,0,.08)}
+.bar .t{font-weight:700;overflow:hidden;text-overflow:ellipsis}.bar .s{font-size:calc(var(--fs) - 1px);color:#4b5563;overflow:hidden;text-overflow:ellipsis}
 .bar.request{background:#fde68a}.bar.confirmed{background:#f8a5a0}.bar.checked_in{background:#9ee0a8}.bar.checked_out{background:#d6dae0;color:#4b5563}
 .bar.blocked{background:repeating-linear-gradient(135deg,#9aa1ab 0 6px,#b8bec7 6px 12px);color:#1f2328}.bar.foreign{background:repeating-linear-gradient(135deg,#d6dae0 0 6px,#e8ebef 6px 12px);color:#4b5563;cursor:default}
 .bar.ota{border-left:4px solid #ff7a00}.bar.ch-booking{border-left-color:#003580}.bar.ch-airbnb{border-left-color:#ff5a5f}.bar.ch-ostrovok{border-left-color:#ff7a00}.bar.ch-yandex{border-left-color:#fc3f1d}.bar.ch-sutochno{border-left-color:#ff7a00}
@@ -107,6 +108,6 @@ table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th
 </div>
 <div id="drawer"><div class="dh"><h3 id="d_title">Бронь</h3><button class="sm" onclick="closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
 <div id="toast"></div>
-<script src="/pms.js?v=7"></script>
+<script src="/pms.js?v=8"></script>
 </body>
 </html>

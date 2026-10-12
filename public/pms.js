@@ -68,7 +68,8 @@ VIEWS.cal = async () => {
     <input id="q" placeholder="гость / телефон / № брони" style="width:170px">
     <button class="sm desk" id="tp">${SHOWPRICE ? 'скрыть цены' : 'показать цены'}</button>
     ${ME.can.write ? '<button class="sm pri" id="nb">+ бронь</button>' : ''}
-    <span class="muted desk" id="cnt"></span>`;
+    <span class="muted desk" id="cnt"></span>
+    <span class="desk" style="display:flex;gap:2px;margin-left:4px"><button class="sm" id="zm" title="мельче">−</button><button class="sm" id="zp" title="крупнее">+</button></span>`;
   $('#main').innerHTML = '<div id="wrap"><div id="chess"></div></div><div id="pop" class="hide"></div>';
   $('#prev').onclick = () => shift(-14); $('#next').onclick = () => shift(14); $('#tod').onclick = () => { FROM = addD(G.today, -7); TO = addD(FROM, 90); load(); };
   $('#from').onchange = e => { FROM = e.target.value; TO = addD(FROM, 90); load(); };
@@ -78,6 +79,11 @@ VIEWS.cal = async () => {
   $('#q').oninput = e => { SEARCH = e.target.value.trim().toLowerCase(); render(); };
   $('#tp').onclick = () => { SHOWPRICE = !SHOWPRICE; localStorage.pms_prices = SHOWPRICE ? '1' : '0'; $('#tp').textContent = SHOWPRICE ? 'скрыть цены' : 'показать цены'; render(); };
   if ($('#nb')) $('#nb').onclick = () => openBooking(null, { check_in: G.today, check_out: addD(G.today, 1) });
+  // масштаб: три ступени, запоминается
+  const ZOOMS = [[28, 34, 10], [32, 38, 11], [38, 44, 12]]; let zi = Math.min(2, Math.max(0, Number(localStorage.pms_zoom ?? 1)));
+  const applyZoom = () => { const z = ZOOMS[zi]; const r = document.documentElement.style; r.setProperty('--cell', z[0] + 'px'); r.setProperty('--row', z[1] + 'px'); r.setProperty('--fs', z[2] + 'px'); localStorage.pms_zoom = zi; };
+  if (!isMobile()) applyZoom();
+  $('#zm').onclick = () => { if (zi > 0) { zi--; applyZoom(); render(); } }; $('#zp').onclick = () => { if (zi < 2) { zi++; applyZoom(); render(); } };
   await load();
 };
 function shift(k) { FROM = addD(FROM, k); TO = addD(FROM, 90); load(); }
@@ -165,11 +171,25 @@ function bindGrid() {
       try { await api(null, { a: 'update', id: bk.id, apartment_id: apt, check_in: ci, check_out: co }); toast('Перенесено'); load(true); } catch (err) { alert(err.message); }
     };
   });
-  // выделение свободных дней
-  let drag = null;
-  chess.onmousedown = e => { const c = e.target.closest('.c'); if (!c || e.button !== 0) return; hidePop(); drag = { apt: c.dataset.apt, d0: c.dataset.d, d1: c.dataset.d, apts: [c.dataset.apt], shift: e.shiftKey }; paintSel(drag); e.preventDefault(); };
-  chess.onmousemove = e => { if (!drag) return; const c = e.target.closest('.c'); if (!c) return; drag.d1 = c.dataset.d; if (drag.shift || e.shiftKey) { const ids = visibleApts().map(a => a.id); const i0 = ids.indexOf(drag.apt), i1 = ids.indexOf(c.dataset.apt); drag.apts = ids.slice(Math.min(i0, i1), Math.max(i0, i1) + 1); } paintSel(drag); };
-  document.onmouseup = e => { if (!drag) return; const s = drag; drag = null; const from = s.d0 < s.d1 ? s.d0 : s.d1, to = addD(s.d0 < s.d1 ? s.d1 : s.d0, 1); SEL = { apts: s.apts, from, to }; showPop(e, SEL); };
+  // 12.10: зажатая левая кнопка + движение = прокрутка шахматки (как карта); клик по свободной клетке = выбор одной ночи;
+  // Shift + протяжка = выделение диапазона дат (и нескольких квартир по вертикали)
+  let drag = null, pan = null;
+  const wrap = $('#wrap');
+  chess.onmousedown = e => {
+    if (e.button !== 0 || e.target.closest('.bar')) return;
+    const c = e.target.closest('.c');
+    if (c && e.shiftKey) { hidePop(); drag = { apt: c.dataset.apt, d0: c.dataset.d, d1: c.dataset.d, apts: [c.dataset.apt], shift: true }; paintSel(drag); e.preventDefault(); return; }
+    pan = { x: e.clientX, y: e.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop, moved: false, cell: c }; e.preventDefault();
+  };
+  chess.onmousemove = e => {
+    if (pan) { const dx = e.clientX - pan.x, dy = e.clientY - pan.y; if (!pan.moved && Math.abs(dx) + Math.abs(dy) > 4) { pan.moved = true; chess.classList.add('panning'); } if (pan.moved) { wrap.scrollLeft = pan.sl - dx; wrap.scrollTop = pan.st - dy; } return; }
+    if (!drag) return; const c = e.target.closest('.c'); if (!c) return; drag.d1 = c.dataset.d; const ids = visibleApts().map(a => a.id); const i0 = ids.indexOf(drag.apt), i1 = ids.indexOf(c.dataset.apt); drag.apts = ids.slice(Math.min(i0, i1), Math.max(i0, i1) + 1); paintSel(drag);
+  };
+  document.onmouseup = e => {
+    if (pan) { const p = pan; pan = null; chess.classList.remove('panning'); if (!p.moved && p.cell) { hidePop(); SEL = { apts: [p.cell.dataset.apt], from: p.cell.dataset.d, to: addD(p.cell.dataset.d, 1) }; paintSel({ apt: SEL.apts[0], d0: SEL.from, d1: SEL.from, apts: SEL.apts }); showPop(e, SEL); } return; }
+    if (!drag) return; const s = drag; drag = null; const from = s.d0 < s.d1 ? s.d0 : s.d1, to = addD(s.d0 < s.d1 ? s.d1 : s.d0, 1); SEL = { apts: s.apts, from, to }; showPop(e, SEL);
+  };
+  document.onmouseleave = () => { if (pan) { pan = null; chess.classList.remove('panning'); } };
   // мобильный тап по клетке — сразу бронь
   if (isMobile()) chess.onclick = e => { const c = e.target.closest('.c'); if (!c) return; SEL = { apts: [c.dataset.apt], from: c.dataset.d, to: addD(c.dataset.d, 1) }; showPop(e, SEL); };
 }
