@@ -11,7 +11,7 @@ const nightsOf = (a, b) => Math.round((new Date(b) - new Date(a)) / DAYMS);
 const DN = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'], MN = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const ruD = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
 const money = (v, cur) => v == null ? '—' : (cur === 'RUB' ? '₽' : cur === 'UZS' ? '' : '$') + Math.round(v).toLocaleString('ru-RU') + (cur === 'UZS' ? ' сум' : '');
-const ST = { request: ['Заявка', '#fbf1d9'], confirmed: ['Подтверждена', '#e3ecf8'], checked_in: ['Живёт', '#def2e6'], checked_out: ['Выехал', '#eef0f3'], cancelled: ['Отменена', '#fde8e6'], blocked: ['Блок', '#eceef2'] }; // пастель, текст тёмный (.st)
+const ST = { request: ['Заявка', '#fde68a'], confirmed: ['Подтверждена', '#f8a5a0'], checked_in: ['Живёт', '#9ee0a8'], checked_out: ['Выехал', '#d6dae0'], cancelled: ['Отменена', '#f3c4c1'], blocked: ['Блок', '#b8bec7'] }; // как полосы в шахматке (стиль RC), текст тёмный
 const CH = { telegram: 'Telegram', website: 'Сайт', manual: 'Бронер', rc: 'RC', ostrovok: 'Ostrovok', yandex: 'Яндекс', booking: 'Booking', airbnb: 'Airbnb', sutochno: 'Sutochno', walk_in: 'Без брони', corporate: 'Корпоратив', ota: 'OTA', other: 'Другое' };
 const OTA = ['ostrovok', 'yandex', 'booking', 'airbnb', 'sutochno', 'ota', 'agoda', 'expedia'];
 const toast = (m, ms) => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', ms || 2600); };
