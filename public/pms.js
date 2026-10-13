@@ -554,7 +554,7 @@ VIEWS.channels = async () => {
       <table class="t"><tr><th>Квартира</th><th>Channex</th>${OTAS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}${ICALS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}<th>Цены отпр.</th><th>Ошибка</th></tr>`;
     for (const cx of Object.keys(byCx)) {
       const hasProp = S.properties.some(p => p.complex === cx && p.external_id);
-      h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
+      h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
       for (const a of byCx[cx]) {
         const u = unitOf(a.id);
         h += `<tr data-apt="${a.id}" style="cursor:pointer"><td class="b">${a.catalog_no ? '<span class="no tag">' + a.catalog_no + '</span> ' : ''}${esc(a.name)}</td>`;
@@ -577,6 +577,7 @@ VIEWS.channels = async () => {
     $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
     $$('#ch [data-push]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'push_full', apt: x.dataset.push }), 'Отправляю'));
+    $$('#ch [data-pushcx]').forEach(x => x.onclick = e => { e.stopPropagation(); run(() => capi(null, { a: 'push_full', complex: x.dataset.pushcx }), 'Полная отправка ' + x.dataset.pushcx); });
     $$('#ch [data-act]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.act, is_active: x.dataset.on === '1' }), 'Сохраняю'));
     $$('#ch [data-mk]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.mk, markup_pct: x.value }), 'Наценка'));
     $$('#ch [data-pr]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.pr, push_rates: x.checked }), 'Сохраняю'));
