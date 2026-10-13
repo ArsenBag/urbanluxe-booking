@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Urban Luxe · Админка</title>
+<link rel="icon" href="/favicon.ico">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/admin/admin.css?v=1">
+</head>
+<body>
+<!-- Админка v4 (14.10.2026). Спека: docs/superpowers/specs/2026-10-14-admin-v4-design.md. Один index.html, один файл на раздел. -->
+<div id="login" class="hide">
+  <h1>Urban Luxe · Админка</h1>
+  <input id="email" type="email" placeholder="email" autocomplete="username">
+  <input id="pass" type="password" placeholder="пароль" autocomplete="current-password">
+  <button class="pri" onclick="ADM.login()">Войти</button>
+  <div id="loginErr"></div>
+  <div class="muted" style="font-size:11px;margin-top:12px">Вход из Telegram-бота: команда <b>/pms</b> — ссылка подходит и для админки.</div>
+</div>
+
+<div id="app" class="hide">
+  <div id="top">
+    <span class="logo">URBAN LUXE</span>
+    <div class="apps">
+      <a href="/pms" title="Шахматка, брони, цены, гости">PMS</a>
+      <a class="on" href="/admin">Админка</a>
+      <a href="/map" title="Живая карта бизнеса">Карта</a>
+    </div>
+    <nav>
+      <button data-v="dash" class="on">Дашборд</button>
+      <button data-v="analytics">Аналитика</button>
+      <button data-v="finance" data-role="admin">Финансы</button>
+      <button data-v="apartments">Квартиры</button>
+      <button data-v="ops">Операционка</button>
+      <button data-v="chat">Чат</button>
+      <button data-v="staff">Персонал</button>
+      <button data-v="users" data-role="admin">Доступы</button>
+      <button data-v="strategy" data-role="admin">Стратегия</button>
+    </nav>
+    <span class="sp"></span>
+    <span id="conn">online</span>
+    <span class="me" id="me"></span>
+    <button class="sm" onclick="ADM.logout()">выйти</button>
+  </div>
+  <div id="main"></div>
+</div>
+
+<div id="drawer"><div class="dh"><h3 id="d_title"></h3><button class="sm" onclick="ADM.closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
+<div id="toast"></div>
+
+<script src="/admin/core.js?v=1"></script>
+<script src="/admin/dash.js?v=1"></script>
+<script>ADM.start();</script>
+</body>
+</html>
