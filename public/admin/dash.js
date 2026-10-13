@@ -141,10 +141,10 @@ function drawChart(series) {
 // ---------- загрузка 14 дней ----------
 async function loadOcc14() {
   try {
-    const d = await api({ a: 'dashboard' });
-    const arr = d.occupancy14 || [];
+    const d = await api({ a: 'occ14' });
+    const arr = d.days || [];
     $('#occ14').className = 'occ14';
-    $('#occ14').innerHTML = arr.map(o => { const dt = new Date(o.date + 'T00:00:00Z'), we = dt.getUTCDay() === 0 || dt.getUTCDay() === 6; return `<div><div class="bar" title="${o.date}: ${o.pct}%"><i style="height:${o.pct}%"></i></div><b>${o.pct}%</b><span class="${we ? 'we' : ''}">${DN[dt.getUTCDay()]} ${+o.date.slice(8, 10)}</span></div>`; }).join('');
+    $('#occ14').innerHTML = arr.map(o => { const dt = new Date(o.date + 'T00:00:00Z'), we = dt.getUTCDay() === 0 || dt.getUTCDay() === 6; return `<div><div class="bar" title="${o.date}: занято ${o.busy} из ${d.active}"><i style="height:${o.pct}%"></i></div><b>${o.pct}%</b><span class="${we ? 'we' : ''}">${DN[dt.getUTCDay()]} ${+o.date.slice(8, 10)}</span></div>`; }).join('');
   } catch (e) { $('#occ14').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; }
 }
 
