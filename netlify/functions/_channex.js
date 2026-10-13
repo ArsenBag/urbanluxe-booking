@@ -41,25 +41,37 @@ function ranges(rows, keyFn) {
   return out;
 }
 
-// Значения ARI одной квартиры за диапазон (включительно) — без отправки
-async function unitValues(unit, from, to, kind, cache) {
+// Значения ARI одной квартиры — только по изменённым датам и только изменённые поля (дельта, требование Channex).
+// `days` = { 'YYYY-MM-DD': Set(['rate','min_stay','cta','stop_sell','availability']) }; без days — полный снимок диапазона from..to.
+const ALL_FIELDS = ['availability', 'rate', 'min_stay', 'cta', 'stop_sell'];
+const money2 = v => (Math.round(Number(v) * 100) / 100).toFixed(2);
+async function unitValues(unit, from, to, kind, cache, days) {
   const t0 = today(); if (from < t0) from = t0; if (to < from) return null;
   const prop = cache.props[unit.channel_property_id]; if (!prop || !prop.external_id) throw new Error('property без external_id');
   if (!unit.external_room_type_id || !unit.external_rate_plan_id) throw new Error('unit без room_type/rate_plan');
-  const rows = await qAll('rate_calendar?select=date,price,min_nights,closed,closed_to_arrival,available&apartment_id=eq.' + encodeURIComponent(unit.apartment_id) + '&date=gte.' + from + '&date=lte.' + to + '&order=date');
+  let rows = await qAll('rate_calendar?select=date,price,min_nights,closed,closed_to_arrival,available&apartment_id=eq.' + encodeURIComponent(unit.apartment_id) + '&date=gte.' + from + '&date=lte.' + to + '&order=date');
+  if (days) rows = rows.filter(r => days[r.date]);
   if (!rows.length) return null;
+  const fieldsOf = r => days ? days[r.date] : new Set(ALL_FIELDS);
   const v = { availability: [], restrictions: [], days: rows.length };
-  if ((kind === 'both' || kind === 'availability') && unit.push_availability) {
-    v.availability = ranges(rows, r => r.available ? '1' : '0').map(g => ({ property_id: prop.external_id, room_type_id: unit.external_room_type_id, date_from: g.from, date_to: g.to, availability: g.row.available ? 1 : 0 }));
+  if (unit.push_availability) {
+    const av = rows.filter(r => fieldsOf(r).has('availability'));
+    v.availability = ranges(av, r => r.available ? '1' : '0').map(g => ({ property_id: prop.external_id, room_type_id: unit.external_room_type_id, date_from: g.from, date_to: g.to, availability: g.row.available ? 1 : 0 }));
   }
-  if ((kind === 'both' || kind === 'rates') && unit.push_rates) {
+  if (unit.push_rates) {
     // наценка площадкам — не здесь: Standard = наш прайс, площадки получают производные тарифы Channex (+X %, см. ensureDerived)
     const m = unit.markup_pct != null ? Number(unit.markup_pct) : 0;
-    v.restrictions = ranges(rows, r => [Math.round(r.price * (1 + m / 100)), r.min_nights, r.closed ? 1 : 0, r.closed_to_arrival ? 1 : 0].join('|')).map(g => ({
-      property_id: prop.external_id, rate_plan_id: unit.external_rate_plan_id, date_from: g.from, date_to: g.to,
-      rate: String(Math.max(1, Math.round(g.row.price * (1 + m / 100)))) + '.00',
-      min_stay_arrival: Math.max(1, g.row.min_nights || 1), closed_to_arrival: !!g.row.closed_to_arrival, stop_sell: !!g.row.closed
-    }));
+    const rs = rows.filter(r => { const f = fieldsOf(r); return f.has('rate') || f.has('min_stay') || f.has('cta') || f.has('stop_sell'); });
+    // ключ диапазона = набор полей + их значения; в объект попадают только изменённые поля
+    const keyOf = r => { const f = fieldsOf(r); return [f.has('rate') ? 'r' + money2(r.price * (1 + m / 100)) : '', f.has('min_stay') ? 'm' + (r.min_nights || 1) : '', f.has('cta') ? 'c' + (r.closed_to_arrival ? 1 : 0) : '', f.has('stop_sell') ? 's' + (r.closed ? 1 : 0) : ''].join('|'); };
+    v.restrictions = ranges(rs, keyOf).map(g => {
+      const f = fieldsOf(g.row), o = { property_id: prop.external_id, rate_plan_id: unit.external_rate_plan_id, date_from: g.from, date_to: g.to };
+      if (f.has('rate')) o.rate = money2(Math.max(1, g.row.price * (1 + m / 100)));
+      if (f.has('min_stay')) o.min_stay_arrival = Math.max(1, g.row.min_nights || 1);
+      if (f.has('cta')) o.closed_to_arrival = !!g.row.closed_to_arrival;
+      if (f.has('stop_sell')) o.stop_sell = !!g.row.closed;
+      return o;
+    });
   }
   return v;
 }
@@ -93,7 +105,13 @@ async function processOutbox(limit) {
   const units = await q('channel_units?select=*&is_active=eq.true'); const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
   const cache = await loadCache();
   const groups = {};
-  for (const o of pending) { const g = groups[o.apartment_id] = groups[o.apartment_id] || { ids: [], from: o.date_from, to: o.date_to, kind: o.kind, attempts: o.attempts || 0 }; g.ids.push(o.id); if (o.date_from < g.from) g.from = o.date_from; if (o.date_to > g.to) g.to = o.date_to; if (o.kind !== g.kind) g.kind = 'both'; }
+  for (const o of pending) {
+    const g = groups[o.apartment_id] = groups[o.apartment_id] || { ids: [], from: o.date_from, to: o.date_to, kind: o.kind, attempts: o.attempts || 0, days: {} };
+    g.ids.push(o.id); if (o.date_from < g.from) g.from = o.date_from; if (o.date_to > g.to) g.to = o.date_to; if (o.kind !== g.kind) g.kind = 'both';
+    // какие поля изменились по каким датам (старые записи без fields → по kind)
+    const f = (o.fields && o.fields.length) ? o.fields : (o.kind === 'availability' ? ['availability'] : o.kind === 'rates' ? ['rate', 'min_stay', 'cta', 'stop_sell'] : ALL_FIELDS);
+    for (let d = o.date_from; d <= o.date_to; d = addDays(d, 1)) { const set = g.days[d] = g.days[d] || new Set(); f.forEach(x => set.add(x)); }
+  }
   const out = { sent: 0, errors: [], tasks: [] };
   const now = () => new Date().toISOString();
   const mark = (ids, patch) => q('channel_outbox?id=in.(' + ids.join(',') + ')', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
@@ -108,7 +126,7 @@ async function processOutbox(limit) {
     const items = byProp[pid];
     const v = { availability: [], restrictions: [], days: 0 }; const okItems = [];
     for (const it of items) {
-      try { const uv = await unitValues(it.u, it.g.from, it.g.to, it.g.kind, cache); if (!uv) { await mark(it.g.ids, { sent_at: now(), error: 'no rows' }); continue; } v.availability.push(...uv.availability); v.restrictions.push(...uv.restrictions); v.days += uv.days; okItems.push(it); }
+      try { const uv = await unitValues(it.u, it.g.from, it.g.to, it.g.kind, cache, it.g.days); if (!uv) { await mark(it.g.ids, { sent_at: now(), error: 'no rows' }); continue; } v.availability.push(...uv.availability); v.restrictions.push(...uv.restrictions); v.days += uv.days; okItems.push(it); }
       catch (e) { const msg = String(e.message || e).slice(0, 500); await mark(it.g.ids, { attempts: it.g.attempts + 1, error: msg }); out.errors.push({ apt: it.apt, error: msg }); }
     }
     if (!okItems.length) continue;
@@ -134,8 +152,9 @@ async function processOutbox(limit) {
 async function ingestRevision(revisionId) {
   const j = await cx('GET', '/booking_revisions/' + revisionId);
   const a = (j.data && j.data.attributes) || j.data || j;
-  // запоздавший повтор вебхука (Channex ретраит после наших 5xx): если бронь в Channex уже отменена — не воскрешать её у нас
-  if (a.status !== 'cancelled' && a.booking_id) { try { const b = await cx('GET', '/bookings/' + a.booking_id); const bs = b.data && b.data.attributes && b.data.attributes.status; if (bs === 'cancelled') a.status = 'cancelled'; } catch (_) { } }
+  // запоздавший повтор вебхука (Channex ретраит после наших 5xx): если у нас по этой брони уже есть ревизия «отменена» —
+  // не воскрешать её. Без GET /bookings/:id (сертификация: брони только через вебхук/feed + booking_revisions).
+  if (a.status !== 'cancelled' && a.booking_id) { const prev = await q('channel_bookings?select=id&provider=eq.channex&external_booking_id=eq.' + encodeURIComponent(a.booking_id) + '&status=eq.cancelled&limit=1'); if (prev && prev.length) a.status = 'cancelled'; }
   const rec = { provider: 'channex', external_booking_id: a.booking_id, revision_id: a.id || revisionId, unique_id: a.unique_id, ota_name: a.ota_name, ota_reservation_code: a.ota_reservation_code, status: a.status, payload: a };
   const rows = await q('channel_bookings?on_conflict=provider,revision_id', { method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify(rec) });
   const cb = rows[0];

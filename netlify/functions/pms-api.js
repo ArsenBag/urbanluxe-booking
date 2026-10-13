@@ -236,7 +236,7 @@ async function rateSet(body, user) {
   const rows = [];
   for (const id of ids) for (let i = 0; i < days; i++) {
     const r = { apartment_id: id, date: addDays(body.from, i), set_by: user.name || user.email, set_at: new Date().toISOString(), note: body.note || null };
-    if (body.price !== undefined && body.price !== null && body.price !== '') r.price = Math.round(Number(body.price));
+    if (body.price !== undefined && body.price !== null && body.price !== '') r.price = Math.round(Number(body.price) * 100) / 100; // цены с копейками (Channex)
     if (body.min_nights !== undefined && body.min_nights !== null && body.min_nights !== '') r.min_nights = Math.max(1, parseInt(body.min_nights));
     if (body.closed !== undefined) r.closed = !!body.closed;
     if (body.closed_to_arrival !== undefined) r.closed_to_arrival = body.closed_to_arrival === null ? null : !!body.closed_to_arrival;
