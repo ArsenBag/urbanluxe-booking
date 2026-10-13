@@ -206,11 +206,24 @@ async function showPop(e, s) {
     const pp = p.querySelector('#pp');
     if (pr && pr.total != null) pp.innerHTML = money(pr.total) + (pr.discount ? ` <span class="muted" style="font-size:11px;font-weight:400">${esc(pr.discount_label)} (−${money(pr.discount)})</span>` : '') + (pr.ok ? '' : ` <span style="color:var(--red);font-size:11px">${{ occupied: 'занято', closed: 'закрыто', closed_to_arrival: 'заезд запрещён', min_nights: 'мин. ' + pr.min_nights_required + ' ноч.', no_rate: 'нет цены' }[pr.reason] || pr.reason}</span>`);
     else pp.textContent = '—';
-    if (ME.can.write && allFree) { btns.innerHTML += `<button class="sm pri" id="pb">Бронь</button><button class="sm" id="pk">Блок</button>`; }
+    // 14.10.2026: сначала собираем все кнопки, потом вешаем обработчики — innerHTML += ниже сбрасывал onclick у «Бронь»/«Блок»
+    let html = '';
+    if (ME.can.write && allFree) html += `<button class="sm pri" id="pb">Бронь</button><button class="sm" id="pk">Блок</button>`;
+    if (ME.can.rates) html += `<button class="sm" id="pr">Цена / ограничения</button>`;
+    html += `<button class="sm" id="px">✕</button>`;
+    btns.innerHTML = html;
     if (ME.can.write && allFree) { p.querySelector('#pb').onclick = () => { hidePop(); openBooking(null, { apartment_id: a.id, check_in: s.from, check_out: s.to, total_price: pr && pr.total }); }; p.querySelector('#pk').onclick = async () => { const note = prompt('Блок: причина (ремонт / собственник / …)', ''); if (note === null) return; try { await api(null, { a: 'block', apartment_id: a.id, check_in: s.from, check_out: s.to, notes: note }); hidePop(); toast('Заблокировано'); load(true); } catch (err) { alert(err.message); } }; }
+    if (ME.can.rates) p.querySelector('#pr').onclick = () => { hidePop(); openRateEditor(s); };
+    p.querySelector('#px').onclick = hidePop;
+    return;
   }
-  if (ME.can.rates) { btns.innerHTML += `<button class="sm" id="pr">Цена / ограничения</button>`; p.querySelector('#pr').onclick = () => { hidePop(); openRateEditor(s); }; }
-  btns.innerHTML += `<button class="sm" id="px">✕</button>`; p.querySelector('#px').onclick = hidePop;
+  // несколько квартир (Shift-протяжка): только массовая правка цены
+  let html2 = '';
+  if (ME.can.rates) html2 += `<button class="sm" id="pr">Цена / ограничения</button>`;
+  html2 += `<button class="sm" id="px">✕</button>`;
+  btns.innerHTML = html2;
+  if (ME.can.rates) p.querySelector('#pr').onclick = () => { hidePop(); openRateEditor(s); };
+  p.querySelector('#px').onclick = hidePop;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { hidePop(); closeDrawer(); } });
 
