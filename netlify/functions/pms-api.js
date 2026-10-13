@@ -16,6 +16,12 @@
 // POST {a:'rate_clear', apartment_ids:[], from, to}     → снять ручные правки
 // POST {a:'rule_save', rule:{…}} | {a:'rule_delete', id}
 // POST {a:'guest_update', id, notes?, tags?, lang?, doc_verified?, blacklisted?, name?, phone?, email?, telegram?, whatsapp?, citizenship?}
+// Шаг 3 (13.10.2026):
+// POST {a:'guest_link', booking_id, guest_id|null}       → привязать / отвязать гостя от брони
+// POST {a:'guest_create', booking_id?, name, phone, …}   → новая карточка (дубль по телефону/TG → существующая) [+ привязка]
+// GET  ?a=users (admin)                                  → сотрудники app_users + staff (chat_id из ботов) + организации
+// POST {a:'user_save', user:{email,name,role,org_id,apartment_ids?,telegram_chat_id?,is_active,password?}} (admin) → создаёт auth-пользователя при первом сохранении
+// POST {a:'user_logout_all', email} (admin)              → снять все сессии
 
 const T = require('./_tg.js');
 const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
@@ -71,7 +77,7 @@ function stripPay(user, b) {
   let o = b;
   if (!fullApt(user, b.apartment_id) && user.role !== 'partner') { o = Object.assign({}, b, { guest_name: 'Занято · ' + (b.org_short || ''), guest_phone: null, guest_telegram: null, guest_whatsapp: null, guest_email: null, notes: null, admin_notes: null, client_notes: null, total_price: null, paid: null, debt: null, prepaid: null, deposit: null, pay_state: 'none', guest_id: null, external_id: null, occupancy_only: true }); return o; }
   if (b.org_id && user.org && b.org_id !== user.org.id) o = Object.assign({}, b, { foreign_org: true });
-  if (user.can.pay_full) return o; o = Object.assign({}, o); delete o.prepaid; delete o.deposit; return o;
+  if (user.can.pay_full) return o; o = Object.assign({}, o); delete o.prepaid; delete o.deposit; delete o.deposit_held; return o;
 }
 const needFull = (user, apt) => { if (!fullApt(user, apt)) { const e = new Error('Нет доступа к этой квартире'); e.status = 403; throw e; } };
 
@@ -256,6 +262,82 @@ async function ruleSave(body, user) {
   o.created_by = user.name || user.email; o.org_id = user.org.id;
   return (await q('rate_rules', { method: 'POST', body: JSON.stringify(o) }))[0];
 }
+// ---------- гости ↔ брони (шаг 3) ----------
+async function guestLink(body, user) {
+  if (!body.booking_id) throw new Error('booking_id');
+  const bk = (await q('bookings?select=id,apartment_id,guest_id,guest_name&id=eq.' + enc(body.booking_id)))[0]; if (!bk) throw new Error('not found'); needFull(user, bk.apartment_id);
+  const gid = body.guest_id || null;
+  if (gid) { const g = (await q('guests?select=id,name,phone,telegram&id=eq.' + enc(gid)))[0]; if (!g) throw new Error('Гость не найден'); }
+  await q('bookings?id=eq.' + enc(body.booking_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ guest_id: gid }) });
+  await logEvent(body.booking_id, gid ? 'guest_link' : 'guest_unlink', { from: bk.guest_id, to: gid }, user);
+  return booking(user, body.booking_id);
+}
+async function guestCreate(body, user) {
+  const o = {}; for (const f of ['name', 'phone', 'email', 'telegram', 'whatsapp', 'citizenship', 'lang', 'tags', 'notes']) if (body[f] !== undefined && body[f] !== '') o[f] = body[f];
+  if (!o.name && !o.phone && !o.telegram) throw new Error('Нужно имя, телефон или Telegram');
+  o.org_id = user.org.id;
+  // не плодим дубли: тот же телефон / Telegram → существующая карточка
+  const existing = await rpc('pms_guest_match', { p_name: o.name || null, p_phone: o.phone || null, p_telegram: o.telegram || null, p_email: o.email || null, p_create: false });
+  const g = existing ? (await q('guests?select=*&id=eq.' + enc(existing)))[0] : (await q('guests', { method: 'POST', body: JSON.stringify(o) }))[0];
+  if (body.booking_id) await guestLink({ booking_id: body.booking_id, guest_id: g.id }, user);
+  return Object.assign(await guest(g.id), { existed: !!existing });
+}
+
+// ---------- сотрудники (admin) ----------
+const ROLES = ['admin', 'booker', 'ops', 'partner'];
+const SERVICE = process.env.SUPABASE_SERVICE_KEY;
+const authAdmin = (path, opt) => fetch(SB_URL + '/auth/v1/admin/' + path, Object.assign({ headers: { apikey: SERVICE, Authorization: 'Bearer ' + SERVICE, 'Content-Type': 'application/json' } }, opt || {}));
+async function users(user) {
+  const [rows, staff, orgs] = await Promise.all([
+    q('app_users?select=email,name,role,org_id,apartment_ids,telegram_chat_id,is_active,auth_user_id,created_at&order=is_active.desc,role,name'),
+    q('staff?select=id,name,role,telegram_chat_id,is_active&order=role,name').catch(() => []),
+    q('organizations?select=id,name,short&order=id')
+  ]);
+  return { users: rows, staff, orgs, me: user.email };
+}
+async function authUserId(email) {
+  const rows = await rpc('pms_auth_user_id', { p_email: email }).catch(() => null);
+  return rows || null;
+}
+async function userSave(body, user) {
+  const u = body.user || {};
+  const email = String(u.email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Некорректный email');
+  if (!ROLES.includes(u.role)) throw new Error('Роль: admin / booker / ops / partner');
+  if (email === user.email && (u.role !== 'admin' || u.is_active === false)) throw new Error('Нельзя снять права с самого себя');
+  const cur = (await q('app_users?select=*&email=eq.' + enc(email)))[0];
+  const o = { email, name: String(u.name || '').trim() || email, role: u.role, org_id: Number(u.org_id) || 1, is_active: u.is_active !== false,
+    apartment_ids: u.role === 'partner' ? (Array.isArray(u.apartment_ids) ? u.apartment_ids.filter(Boolean) : null) : null,
+    telegram_chat_id: u.telegram_chat_id ? String(u.telegram_chat_id).trim() : null };
+  const pwd = u.password ? String(u.password) : '';
+  if (!cur) {
+    if (pwd.length < 6) throw new Error('Для нового сотрудника задайте пароль (от 6 символов)');
+    const r = await authAdmin('users', { method: 'POST', body: JSON.stringify({ email, password: pwd, email_confirm: true, user_metadata: { name: o.name } }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) o.auth_user_id = j.id;
+    else if (!/already|exists|registered/i.test(JSON.stringify(j))) throw new Error('Auth: ' + (j.msg || j.message || j.error_description || r.status));
+    else o.auth_user_id = await authUserId(email);
+    await q('app_users', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(o) });
+  } else {
+    if (pwd) {
+      if (pwd.length < 6) throw new Error('Пароль от 6 символов');
+      const id = cur.auth_user_id || await authUserId(email);
+      if (!id) { const r = await authAdmin('users', { method: 'POST', body: JSON.stringify({ email, password: pwd, email_confirm: true }) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Auth: ' + (j.msg || j.message || r.status)); o.auth_user_id = j.id; }
+      else { const r = await authAdmin('users/' + id, { method: 'PUT', body: JSON.stringify({ password: pwd }) }); if (!r.ok) throw new Error('Auth: не удалось сменить пароль (' + r.status + ')'); o.auth_user_id = id; }
+    }
+    await q('app_users?email=eq.' + enc(email), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(o) });
+    if (o.is_active === false) await rpc('pms_logout_all', { p_email: email }).catch(() => null);
+  }
+  await logEvent(null, 'user_save', { email, role: o.role, is_active: o.is_active, password_changed: !!pwd }, user);
+  return users(user);
+}
+async function userLogoutAll(body, user) {
+  const email = String(body.email || '').trim().toLowerCase(); if (!email) throw new Error('email');
+  const n = await rpc('pms_logout_all', { p_email: email });
+  await logEvent(null, 'user_logout_all', { email, sessions: n }, user);
+  return { ok: true, sessions: n };
+}
+
 async function guestUpdate(body, user) {
   if (!body.id) throw new Error('id');
   const o = {}; for (const f of ['name', 'phone', 'email', 'telegram', 'whatsapp', 'citizenship', 'lang', 'tags', 'doc_verified', 'blacklisted', 'needs_registration']) if (body[f] !== undefined) o[f] = body[f];
@@ -283,6 +365,7 @@ exports.handler = async (event) => {
         case 'guest': if (!user.can.guests) return out(403, { error: 'forbidden' }); return out(200, await guest(p.id));
         case 'debts': if (!user.can.pay) return out(403, { error: 'forbidden' }); return out(200, await debts(user));
         case 'rules': if (!user.can.rates) return out(403, { error: 'forbidden' }); return out(200, await q('rate_rules?select=*&org_id=eq.' + user.org.id + '&order=is_active.desc,priority.desc,date_from.desc.nullslast'));
+        case 'users': if (!user.can.users) return out(403, { error: 'forbidden' }); return out(200, await users(user));
         default: return out(400, { error: 'unknown action' });
       }
     }
@@ -300,6 +383,10 @@ exports.handler = async (event) => {
       case 'rule_save': need('rates'); return out(200, await ruleSave(body, user));
       case 'rule_delete': need('rates'); await q('rate_rules?id=eq.' + enc(body.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
       case 'guest_update': need('guests_write'); return out(200, await guestUpdate(body, user));
+      case 'guest_link': need('write'); return out(200, await guestLink(body, user));
+      case 'guest_create': need('guests_write'); return out(200, await guestCreate(body, user));
+      case 'user_save': need('users'); return out(200, await userSave(body, user));
+      case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
       default: return out(400, { error: 'unknown action' });
     }
   } catch (e) { return out(e.status || 400, { error: dbError(e) }); }

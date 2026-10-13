@@ -34,7 +34,8 @@ function parseListDate(s) {
 
 const HELP = '<b>Что свободно:</b> напишите даты — <code>5.10</code>, <code>5.10-7.10</code>, <code>сегодня</code>, <code>завтра</code>.\n' +
   '<b>Лист заездов:</b> кнопка «📋 Лист» внизу — таблица с календарём; или текстом <code>лист</code>, <code>лист завтра</code>.\n' +
-  'Поля текстом: <code>ю100 площадка bnb</code> · <code>100 заезд 18:00</code> · <code>100 оплата 100 из 230</code> · <code>100 гостей 2</code>';
+  'Поля текстом: <code>ю100 площадка bnb</code> · <code>100 заезд 18:00</code> · <code>100 оплата 100 из 230</code> · <code>100 гостей 2</code>\n' +
+  '<b>Шахматка:</b> <code>/pms</code> — одноразовая ссылка для входа без пароля.';
 
 async function notifyOps(fromStaff, text) {
   const rows = await T.sb('staff?select=telegram_chat_id&is_active=eq.true&role=eq.ops&telegram_chat_id=not.is.null').then(r => r.json()).catch(() => []);
@@ -128,6 +129,19 @@ exports.handler = async (event) => {
     return ok;
   }
   if (await bot.adminCommand(chatId, text, 'booker')) return ok;
+
+  // 13.10.2026: вход в шахматку /pms без пароля — одноразовая ссылка (Supabase magic link по telegram_chat_id из app_users)
+  if (/^\/?(pms|шахматка|календарь)$/i.test(text)) {
+    const au = await T.sb('app_users?select=email,name,role&is_active=eq.true&telegram_chat_id=eq.' + encodeURIComponent(chatId)).then(r => r.json()).catch(() => []);
+    if (!au.length) { await bot.send(chatId, 'Ваш Telegram не привязан к сотруднику шахматки. Попросите администратора указать ваш chat_id <code>' + chatId + '</code> в /pms → Сотрудники.'); return ok; }
+    const base = process.env.URL || 'https://urbanluxe.cc';
+    const r = await fetch((process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co') + '/auth/v1/admin/generate_link', { method: 'POST', headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'magiclink', email: au[0].email }) });
+    const j = await r.json().catch(() => ({}));
+    const th = j.hashed_token || (j.properties && j.properties.hashed_token);
+    if (!r.ok || !th) { await bot.send(chatId, 'Не удалось создать ссылку: ' + T.esc(j.msg || j.message || j.error_description || r.status)); return ok; }
+    await bot.send(chatId, '🔑 <b>' + T.esc(au[0].name || au[0].email) + '</b>, ссылка для входа в шахматку (одноразовая, действует 1 час):', { reply_markup: { inline_keyboard: [[{ text: '📅 Открыть шахматку', url: base + '/pms?tk=' + encodeURIComponent(th) }]] } });
+    return ok;
+  }
 
   const st = await bot.whoIs(chatId, ROLES);
   if (!st) { await bot.denied(chatId, msg.from, 'booker'); return ok; }

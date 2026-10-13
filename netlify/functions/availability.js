@@ -83,6 +83,11 @@ async function siteBookings(aptId) {
   if (!r.ok) return [];
   return r.json();
 }
+// «Синхронизирована с RC» = по квартире уже приходили брони из RC (source='rc'). 13.10.2026 ВАЖНО: 11 квартир
+// (modera_294/359, gardens_65, nest_168/179/609, utower_194/222/298/326/400) числятся в RC на аккаунте партнёра HighLife
+// (agency 75311): /v2/event_calendars под токеном Арсена по ним НИЧЕГО не отдаёт, в нашей bookings их броней нет —
+// занятость по ним берётся ТОЛЬКО из iCal RC. Не считать их «синхронизированными» по наличию RC-ссылки: тогда бот
+// покажет их свободными, когда они заняты. Пока HighLife не ведёт их у нас — iCal остаётся единственным источником.
 function rcSyncedSet(rows) { const s = new Set(); rows.forEach(b => { if (b.source === 'rc') s.add(b.apartment_id); }); return s; }
 
 function overlaps(events, ci, co) {
@@ -118,7 +123,7 @@ exports.handler = async (event) => {
         return { statusCode: 404, headers: HEADERS, body: JSON.stringify({ error: 'Apartment not found' }) };
       }
       const site = await siteBookings(apt.id);
-      const rc = (rcSyncedSet(site).has(apt.id) ? [] : await icalEvents(apt)) || [];
+      const rc = (rcSyncedSet(site, [apt]).has(apt.id) ? [] : await icalEvents(apt)) || [];
       const days = new Set();
       rc.concat(site).forEach(e => {
         for (let d = e.check_in; d < e.check_out; d = addDays(d, 1)) days.add(d);
@@ -139,7 +144,7 @@ exports.handler = async (event) => {
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
     const apts = await ar.json();
     const site = await siteBookings(null);
-    const siteByApt = {}; const synced = rcSyncedSet(site);
+    const siteByApt = {}; const synced = rcSyncedSet(site, apts);
     site.forEach(b => { (siteByApt[b.apartment_id] = siteByApt[b.apartment_id] || []).push(b); });
 
     const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
