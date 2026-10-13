@@ -206,8 +206,18 @@ async function setStatus(body, user) {
   }
   const o = { status: body.status, created_by: user.email };
   if (body.status === 'checked_in') o.checked_in = true; if (body.status === 'checked_out') o.checked_out = true; if (body.status === 'cancelled') o.cancelled_at = new Date().toISOString();
+  // 14.10.2026: заявка с сайта (request) подтверждается/отменяется из /pms так же, как из /admin — письмо гостю + TG
+  if (cur.status === 'request' && body.status === 'confirmed') { o.confirmed_at = new Date().toISOString(); o.confirmed_by = user.email; }
   await q('bookings?id=eq.' + enc(body.id), { method: 'PATCH', body: JSON.stringify(o) });
   if (body.close_with_debt) await logEvent(body.id, 'closed_with_debt', { debt: cur.debt, reason: body.reason || '' }, user);
+  if (cur.status === 'request' && (body.status === 'confirmed' || body.status === 'cancelled')) {
+    try {
+      const rows = await q('bookings?select=*,apartments(id,name,complex,floor)&id=eq.' + enc(body.id)); const b = rows[0] || {}; const apt = b.apartments || {}; delete b.apartments;
+      const MAIL = require('./_booking-mail.js'), NOTIFY = require('./notify.js');
+      if (body.status === 'confirmed') { await MAIL.mailConfirmed(b, apt); await NOTIFY.sendTg({ type: 'request_confirmed', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, total: b.total_price, ref: b.booking_ref, actor: user.name }); }
+      else { await MAIL.mailCancelled(b, apt, body.reason || ''); await NOTIFY.sendTg({ type: 'request_cancelled', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, ref: b.booking_ref, reason: body.reason || '', actor: user.name }); }
+    } catch (e) { /* письмо/TG не роняют смену статуса */ }
+  }
   return booking(user, body.id);
 }
 async function payment(body, user) {
@@ -391,3 +401,6 @@ exports.handler = async (event) => {
     }
   } catch (e) { return out(e.status || 400, { error: dbError(e) }); }
 };
+// 14.10.2026 (админка v4): admin-api.js переиспользует вход и «сегодня», чтобы не дублировать логику
+exports.authFor = auth;
+exports.todayFor = today;

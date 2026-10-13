@@ -24,20 +24,29 @@ function buildText(b) {
   const who = esc(b.guest_name || 'Гость');
   const dates = (b.check_in && b.check_out) ? '\n📅 ' + esc(b.check_in) + ' → ' + esc(b.check_out) : '';
 
-  if (t === 'new_booking') {
+  if (t === 'new_booking' || t === 'new_request') {
     // 22.09.2026: мессенджеры гостя (guest_telegram / guest_whatsapp) — кликабельные ссылки
+    // 14.10.2026: бронь с сайта теперь заявка (status=request) — подтверждает человек в /admin
     const tg = String(b.guest_telegram || '').trim();
     const wa = String(b.guest_whatsapp || '').trim();
     const tgLink = tg ? (tg.charAt(0) === '@' ? 'https://t.me/' + tg.slice(1) : 'https://t.me/+' + tg.replace(/\D/g, '')) : '';
     const waLink = wa ? 'https://wa.me/' + wa.replace(/\D/g, '') : '';
-    return '🆕 <b>Новая бронь!</b>' + apt + dates +
+    return '🆕 <b>Новая заявка с сайта</b>' + apt + dates +
       '\n👤 ' + who + (b.guest_phone ? ' · ' + esc(b.guest_phone) : '') +
       (tg ? '\n✈️ Telegram: <a href="' + tgLink + '">' + esc(tg) + '</a>' : '') +
       (wa ? '\n💬 WhatsApp: <a href="' + waLink + '">' + esc(wa) + '</a>' : '') +
       (b.total ? '\n💰 $' + esc(b.total) : '') +
       (b.nights ? ' · ' + esc(b.nights) + ' ноч.' : '') +
       (b.ref ? '\n#️⃣ ' + esc(b.ref) : '') +
-      '\n\nЧат по брони уже открыт: админка → Чат';
+      '\n\n⏳ Даты удержаны. Подтвердить или отменить: <a href="https://urbanluxe.cc/admin">urbanluxe.cc/admin</a>';
+  }
+  if (t === 'request_confirmed') {
+    return '✅ <b>Заявка подтверждена</b>' + apt + dates + '\n👤 ' + who + (b.total ? '\n💰 $' + esc(b.total) : '') +
+      (b.ref ? '\n#️⃣ ' + esc(b.ref) : '') + (b.actor ? '\n👨‍💼 ' + esc(b.actor) : '') + '\n\nГостю отправлено письмо.';
+  }
+  if (t === 'request_cancelled') {
+    return '❌ <b>Заявка отменена</b>' + apt + dates + '\n👤 ' + who + (b.ref ? '\n#️⃣ ' + esc(b.ref) : '') +
+      (b.reason ? '\n📝 ' + esc(b.reason) : '') + (b.actor ? '\n👨‍💼 ' + esc(b.actor) : '') + '\n\nГостю отправлено письмо.';
   }
   if (t === 'cancel' || t === 'cancelled' || t === 'cancellation') {
     return '❌ <b>Отмена брони</b>' + apt + dates + '\n👤 ' + who + (b.ref ? '\n#️⃣ ' + esc(b.ref) : '');
@@ -70,22 +79,27 @@ function buildText(b) {
     '\n👤 ' + who + (b.message ? '\n' + esc(String(b.message).slice(0, 300)) : '');
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: HEADERS, body: 'ok' };
-  if (event.httpMethod !== 'POST') return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
+// Серверная отправка (book.js, admin-api.js): тот же текст, та же группа. Никогда не бросает.
+async function sendTg(b) {
   try {
-    if (!TOKEN || !CHAT) throw new Error('TELEGRAM env is not set');
-    let b;
-    try { b = JSON.parse(event.body || '{}'); } catch (e) { b = {}; }
-    const text = buildText(b);
+    if (!TOKEN || !CHAT) return { ok: false, error: 'TELEGRAM env is not set' };
     const r = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: CHAT, text, parse_mode: 'HTML', disable_web_page_preview: true })
+      body: JSON.stringify({ chat_id: CHAT, text: buildText(b), parse_mode: 'HTML', disable_web_page_preview: true })
     });
     const out = await r.json();
-    return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: !!out.ok }) };
-  } catch (e) {
-    return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: false, error: String(e.message || e) }) };
-  }
+    return { ok: !!out.ok, error: out.ok ? undefined : out.description };
+  } catch (e) { return { ok: false, error: String(e.message || e) }; }
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: HEADERS, body: 'ok' };
+  if (event.httpMethod !== 'POST') return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
+  let b;
+  try { b = JSON.parse(event.body || '{}'); } catch (e) { b = {}; }
+  const out = await sendTg(b);
+  return { statusCode: 200, headers: HEADERS, body: JSON.stringify(out) };
 };
+exports.sendTg = sendTg;
+exports.buildText = buildText;

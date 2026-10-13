@@ -4,7 +4,9 @@
 // (is_active=true) + живому iCal RealtyCalendar. Контракт ответа совместим:
 //   { success:true, id, booking:{ booking_ref, apartment, total, check_in, check_out, guest_email } }
 // Бонус: если в env задан RESEND_API_KEY — гостю уходит письмо-подтверждение.
+// 14.10.2026 (админка v4): статус 'request' (заявка), письмо «заявка принята» из _booking-mail.js.
 
+const mail = require('./_booking-mail.js');
 const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
 const ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
@@ -221,7 +223,7 @@ exports.handler = async (event) => {
       SB_URL + '/rest/v1/bookings?select=id,booking_ref,total_price,guests_count,guest_email' +
       '&apartment_id=eq.' + encodeURIComponent(aptId) +
       '&check_in=eq.' + ci + '&check_out=eq.' + co +
-      '&guest_phone=eq.' + encodeURIComponent(phone) + '&status=eq.confirmed',
+      '&guest_phone=eq.' + encodeURIComponent(phone) + '&status=in.(request,confirmed)',
       { headers: h(READ_KEY) }
     );
     const dup = (dupR.ok ? await dupR.json() : [])[0];
@@ -244,7 +246,7 @@ exports.handler = async (event) => {
       }
     } catch (e) { /* фид упал — проверим хотя бы site-брони */ }
     const sbk = await fetch(
-      SB_URL + '/rest/v1/bookings?select=check_in,check_out&apartment_id=eq.' + encodeURIComponent(aptId) + '&status=eq.confirmed',
+      SB_URL + '/rest/v1/bookings?select=check_in,check_out&apartment_id=eq.' + encodeURIComponent(aptId) + '&status=in.(request,confirmed,checked_in,blocked)',
       { headers: h(READ_KEY) }
     );
     if (sbk.ok) busy = busy.concat(await sbk.json());
@@ -274,7 +276,9 @@ exports.handler = async (event) => {
       check_in: ci,
       check_out: co,
       guests_count: parseInt(b.guests_count, 10) || 2,
-      status: 'confirmed',
+      // 14.10.2026: бронь с сайта = заявка. Даты удерживаются сразу (request занимает даты в шахматке
+      // и на площадках), подтверждает человек в /admin → письмо «подтверждена» + TG. Отмена — там же.
+      status: 'request',
       source: 'website',
       notes: notes || null,
       nights: parseInt(b.nights, 10) || nights,
@@ -301,7 +305,8 @@ exports.handler = async (event) => {
     }
     const saved = (await ins.json())[0] || row;
 
-    await sendGuestEmail(saved, apt);
+    // Письмо «заявка принята» (шаблон в _booking-mail.js; sendGuestEmail ниже оставлен как запасной)
+    try { await mail.mailRequest(saved, apt); } catch (e) { /* письмо не роняет бронь */ }
 
     return {
       statusCode: 200, headers: HEADERS,
