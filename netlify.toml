@@ -60,6 +60,17 @@
   to = "/pms.html"
   status = 200
 
+# Админка v4 (14.10.2026): /admin → public/admin/index.html. Старые admin.html / admin2 / admin3 работают до этапа 7.
+[[redirects]]
+  from = "/admin"
+  to = "/admin/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/map"
+  to = "/map.html"
+  status = 200
+
 # Админка 3 — финансы и операции (04.10.2026)
 [[redirects]]
   from = "/admin3"
