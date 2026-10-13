@@ -53,7 +53,7 @@ function go(v, keepHash) {
   if (!keepHash && location.hash.replace('#', '').split('/')[0] !== v) history.replaceState(null, '', '#' + v);
   try { views[v](); } catch (e) { $('#main').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; }
 }
-function soon(name) { return () => { $('#main').innerHTML = '<div class="page"><h2>' + esc(name) + '</h2><div class="card empty">Раздел переносится из старой админки — следующий этап. Пока: <a href="/admin3">/admin3</a> (финансы) · <a href="/admin.html">/admin.html</a> (остальное).</div></div>'; }; }
+function soon(name) { return () => { $('#main').innerHTML = '<div class="page"><h2>' + esc(name) + '</h2><div class="card empty">Раздел переносится из старой админки — следующий этап. Пока: <a href="/admin3">/admin3</a> (финансы) · <a href="/admin-legacy.html">/admin-legacy.html</a> (остальное).</div></div>'; }; }
 ['analytics', 'finance', 'apartments', 'ops', 'chat', 'staff', 'users', 'strategy'].forEach(v => { views[v] = soon($('#top nav [data-v=' + v + ']').textContent); });
 
 async function boot() {

@@ -81,8 +81,9 @@ async function loadToday() {
     $('#today_d').textContent = ruD(t.date);
     const dirty = (t.cleaning || []).filter(c => c.status && !/done|clean|ok/i.test(c.status)).length;
     const debt = (t.debts || []).reduce((s, b) => s + (b.debt || 0), 0);
+    const debtIds = new Set((t.debts || []).map(b => b.id));   // долг показываем по тому же правилу, что сервер (RC без оплат — не долг)
     const line = (b, kind) => `<div class="li"><span class="no">${esc(b.catalog_no || '')}</span><div class="g"><div class="n">${esc(b.apartment_name || b.apartment_id)} <span class="muted" style="font-weight:400">· ${esc(b.guest_name || '')}</span></div>
-      <div class="s">${kind === 'in' ? 'заезд ' + esc(b.arrival_time || b.check_in_time || '15:00') + ' · до ' + ruD(b.check_out) : 'выезд ' + esc(b.departure_time || '12:00') + ' · с ' + ruD(b.check_in)} · ${b.nights} ноч. · ${esc(CH[b.channel] || CH[b.source] || '')}${b.debt > 0 ? ' · <span class="tag bad">долг ' + money(b.debt, b.currency) + '</span>' : ''}${b.status === 'request' ? ' · <span class="tag">заявка</span>' : ''}</div></div>
+      <div class="s">${kind === 'in' ? 'заезд ' + esc(b.arrival_time || b.check_in_time || '15:00') + ' · до ' + ruD(b.check_out) : 'выезд ' + esc(b.departure_time || '12:00') + ' · с ' + ruD(b.check_in)} · ${b.nights} ноч. · ${esc(CH[b.channel] || CH[b.source] || '')}${debtIds.has(b.id) ? ' · <span class="tag bad">долг ' + money(b.debt, b.currency) + '</span>' : ''}${b.status === 'request' ? ' · <span class="tag">заявка</span>' : ''}</div></div>
       <span class="st" style="background:${(A.ST[b.status] || ['', '#eee'])[1]}">${(A.ST[b.status] || [b.status])[0]}</span></div>`;
     $('#today_b').className = '';
     $('#today_b').innerHTML = `
