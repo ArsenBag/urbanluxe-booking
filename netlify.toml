@@ -61,10 +61,18 @@
   status = 200
 
 # Админка v4 (14.10.2026): /admin → public/admin/index.html. Старые admin.html / admin2 / admin3 работают до этапа 7.
+# force = true: иначе Netlify отдаёт старый admin.html по «красивому» URL /admin (файл побеждает редирект).
 [[redirects]]
   from = "/admin"
   to = "/admin/index.html"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin/"
+  to = "/admin/index.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/map"
