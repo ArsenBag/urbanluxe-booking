@@ -41,30 +41,42 @@ function ranges(rows, keyFn) {
   return out;
 }
 
-// Отправить ARI одной квартиры за диапазон (включительно)
-async function pushUnit(unit, from, to, kind, cache) {
-  const t0 = today(); if (from < t0) from = t0; if (to < from) return { skipped: true };
+// Значения ARI одной квартиры за диапазон (включительно) — без отправки
+async function unitValues(unit, from, to, kind, cache) {
+  const t0 = today(); if (from < t0) from = t0; if (to < from) return null;
   const prop = cache.props[unit.channel_property_id]; if (!prop || !prop.external_id) throw new Error('property без external_id');
   if (!unit.external_room_type_id || !unit.external_rate_plan_id) throw new Error('unit без room_type/rate_plan');
   const rows = await qAll('rate_calendar?select=date,price,min_nights,closed,closed_to_arrival,available&apartment_id=eq.' + encodeURIComponent(unit.apartment_id) + '&date=gte.' + from + '&date=lte.' + to + '&order=date');
-  if (!rows.length) return { skipped: 'no rows' };
-  const res = {};
+  if (!rows.length) return null;
+  const v = { availability: [], restrictions: [], days: rows.length };
   if ((kind === 'both' || kind === 'availability') && unit.push_availability) {
-    const values = ranges(rows, r => r.available ? '1' : '0').map(g => ({ property_id: prop.external_id, room_type_id: unit.external_room_type_id, date_from: g.from, date_to: g.to, availability: g.row.available ? 1 : 0 }));
-    res.availability = await cx('POST', '/availability', { values });
+    v.availability = ranges(rows, r => r.available ? '1' : '0').map(g => ({ property_id: prop.external_id, room_type_id: unit.external_room_type_id, date_from: g.from, date_to: g.to, availability: g.row.available ? 1 : 0 }));
   }
   if ((kind === 'both' || kind === 'rates') && unit.push_rates) {
     // наценка площадкам — не здесь: Standard = наш прайс, площадки получают производные тарифы Channex (+X %, см. ensureDerived)
     const m = unit.markup_pct != null ? Number(unit.markup_pct) : 0;
-    const values = ranges(rows, r => [Math.round(r.price * (1 + m / 100)), r.min_nights, r.closed ? 1 : 0, r.closed_to_arrival ? 1 : 0].join('|')).map(g => ({
+    v.restrictions = ranges(rows, r => [Math.round(r.price * (1 + m / 100)), r.min_nights, r.closed ? 1 : 0, r.closed_to_arrival ? 1 : 0].join('|')).map(g => ({
       property_id: prop.external_id, rate_plan_id: unit.external_rate_plan_id, date_from: g.from, date_to: g.to,
       rate: String(Math.max(1, Math.round(g.row.price * (1 + m / 100)))) + '.00',
       min_stay_arrival: Math.max(1, g.row.min_nights || 1), closed_to_arrival: !!g.row.closed_to_arrival, stop_sell: !!g.row.closed
     }));
-    res.restrictions = await cx('POST', '/restrictions', { values });
   }
+  return v;
+}
+// Отправить набор значений (одна property — один POST /availability и один POST /restrictions, как требует Channex)
+async function sendValues(v) {
+  const res = {};
+  if (v.availability.length) res.availability = await cx('POST', '/availability', { values: v.availability });
+  if (v.restrictions.length) res.restrictions = await cx('POST', '/restrictions', { values: v.restrictions });
   const warn = [].concat((res.availability && res.availability.meta && res.availability.meta.warnings) || [], (res.restrictions && res.restrictions.meta && res.restrictions.meta.warnings) || []);
-  return { ok: true, warnings: warn.length ? warn.slice(0, 5) : undefined, days: rows.length };
+  const taskOf = r => { if (!r || !r.data) return null; const d = Array.isArray(r.data) ? r.data[0] : r.data; return d && d.id || null; };
+  const tasks = { availability: taskOf(res.availability), restrictions: taskOf(res.restrictions) };
+  return { ok: true, warnings: warn.length ? warn.slice(0, 5) : undefined, tasks, days: v.days };
+}
+// Отправить ARI одной квартиры (push_full по квартире, проверки)
+async function pushUnit(unit, from, to, kind, cache) {
+  const v = await unitValues(unit, from, to, kind, cache); if (!v) return { skipped: true };
+  return sendValues(v);
 }
 
 async function loadCache() {
@@ -72,29 +84,43 @@ async function loadCache() {
   const cache = { props: {}, apts: {} }; props.forEach(p => cache.props[p.id] = p); apts.forEach(a => cache.apts[a.id] = a); return cache;
 }
 
-// Обработать очередь: сгруппировать по квартире, объединить диапазоны, отправить
+// Обработать очередь: квартиры → диапазоны, затем ЖК (property) → один запрос на занятость и один на цены/ограничения.
+// 13.10.2026: группировка по property (было по квартире) — требование сертификации Channex «несколько номеров = 1 API-вызов»;
+// task id ответа Channex пишется в channel_outbox.task_ids и channel_units.last_task.
 async function processOutbox(limit) {
   const pending = await q('channel_outbox?select=*&sent_at=is.null&attempts=lt.5&order=created_at&limit=' + (limit || 2000));
   if (!pending.length) return { sent: 0 };
   const units = await q('channel_units?select=*&is_active=eq.true'); const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
   const cache = await loadCache();
   const groups = {};
-  for (const o of pending) { const g = groups[o.apartment_id] = groups[o.apartment_id] || { ids: [], from: o.date_from, to: o.date_to, kind: o.kind }; g.ids.push(o.id); if (o.date_from < g.from) g.from = o.date_from; if (o.date_to > g.to) g.to = o.date_to; if (o.kind !== g.kind) g.kind = 'both'; }
-  const out = { sent: 0, errors: [] };
+  for (const o of pending) { const g = groups[o.apartment_id] = groups[o.apartment_id] || { ids: [], from: o.date_from, to: o.date_to, kind: o.kind, attempts: o.attempts || 0 }; g.ids.push(o.id); if (o.date_from < g.from) g.from = o.date_from; if (o.date_to > g.to) g.to = o.date_to; if (o.kind !== g.kind) g.kind = 'both'; }
+  const out = { sent: 0, errors: [], tasks: [] };
+  const now = () => new Date().toISOString();
+  const mark = (ids, patch) => q('channel_outbox?id=in.(' + ids.join(',') + ')', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
+  // по property
+  const byProp = {};
   for (const apt of Object.keys(groups)) {
     const g = groups[apt], u = byApt[apt];
-    const ids = 'id=in.(' + g.ids.join(',') + ')';
-    if (!u) { await q('channel_outbox?' + ids, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sent_at: new Date().toISOString(), error: 'unit inactive' }) }); continue; }
+    if (!u) { await mark(g.ids, { sent_at: now(), error: 'unit inactive' }); continue; }
+    (byProp[u.channel_property_id] = byProp[u.channel_property_id] || []).push({ apt, g, u });
+  }
+  for (const pid of Object.keys(byProp)) {
+    const items = byProp[pid];
+    const v = { availability: [], restrictions: [], days: 0 }; const okItems = [];
+    for (const it of items) {
+      try { const uv = await unitValues(it.u, it.g.from, it.g.to, it.g.kind, cache); if (!uv) { await mark(it.g.ids, { sent_at: now(), error: 'no rows' }); continue; } v.availability.push(...uv.availability); v.restrictions.push(...uv.restrictions); v.days += uv.days; okItems.push(it); }
+      catch (e) { const msg = String(e.message || e).slice(0, 500); await mark(it.g.ids, { attempts: it.g.attempts + 1, error: msg }); out.errors.push({ apt: it.apt, error: msg }); }
+    }
+    if (!okItems.length) continue;
     try {
-      const r = await pushUnit(u, g.from, g.to, g.kind, cache);
-      await q('channel_outbox?' + ids, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sent_at: new Date().toISOString(), error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null }) });
-      await q('channel_units?apartment_id=eq.' + encodeURIComponent(apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_pushed_at: new Date().toISOString(), last_error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null }) });
-      out.sent += g.ids.length;
+      const r = await sendValues(v);
+      const ids = okItems.flatMap(it => it.g.ids);
+      await mark(ids, { sent_at: now(), error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null, task_ids: r.tasks });
+      for (const it of okItems) await q('channel_units?apartment_id=eq.' + encodeURIComponent(it.apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_pushed_at: now(), last_error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null, last_task: r.tasks }) });
+      out.sent += ids.length; out.tasks.push(Object.assign({ property: (cache.props[pid] || {}).name, apartments: okItems.map(it => it.apt) }, r.tasks));
     } catch (e) {
       const msg = String(e.message || e).slice(0, 500);
-      await q('channel_outbox?' + ids, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ attempts: (pending.find(p => p.apartment_id === apt).attempts || 0) + 1, error: msg }) });
-      await q('channel_units?apartment_id=eq.' + encodeURIComponent(apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_error: msg }) });
-      out.errors.push({ apt, error: msg });
+      for (const it of okItems) { await mark(it.g.ids, { attempts: it.g.attempts + 1, error: msg }); await q('channel_units?apartment_id=eq.' + encodeURIComponent(it.apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_error: msg }) }); out.errors.push({ apt: it.apt, error: msg }); }
       if (e.status === 429) break;
     }
   }
