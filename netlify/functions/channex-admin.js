@@ -104,7 +104,13 @@ exports.handler = async (event) => {
       case 'setup_complex': return out(200, await setupComplex(body, user));
       case 'setup_webhook': return out(200, await setupWebhook());
       case 'reconcile_derived': { const props = await C.q('channel_properties?select=*&external_id=not.is.null&org_id=eq.' + user.org_id); const r = []; for (const p of props) r.push(Object.assign({ property: p.name }, await C.reconcileDerived(p.external_id))); return out(200, r); }
-      case 'push_full': { const q = await C.rpc('pms_outbox_full', { p_apt: body.apt || null }); const r = await C.processOutbox(); return out(200, { queued: q, pushed: r }); }
+      case 'push_full': {
+        // full sync: вся сеть / одна квартира / один ЖК (complex → все квартиры ЖК; Channex: 1 property = 2 запроса)
+        let q = 0;
+        if (body.complex) { const apts = await C.q('apartments?select=id&is_active=eq.true&complex=eq.' + enc(body.complex)); for (const a of apts) q += (await C.rpc('pms_outbox_full', { p_apt: a.id })) || 0; }
+        else q = await C.rpc('pms_outbox_full', { p_apt: body.apt || null });
+        const r = await C.processOutbox(); return out(200, { queued: q, pushed: r });
+      }
       case 'feed': return out(200, await C.ingestFeed());
       // Маппинг Airbnb через API: phase='unmap' снимает маппинги листингов со Standard; phase='map' (через ~40 с) ставит на производный тариф «Airbnb»
       case 'airbnb_remap': {
