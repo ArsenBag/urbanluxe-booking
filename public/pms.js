@@ -36,7 +36,7 @@ async function boot() {
   $('#login').classList.add('hide'); $('#app').classList.remove('hide');
   $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + ME.role;
   if (!ME.can.rates) $$('#top nav button[data-v=rules]').forEach(b => b.remove());
-  if (ME.role !== 'admin') $$('#top nav button[data-v=channels]').forEach(b => b.remove());
+  if (ME.role !== 'admin') $$('#top nav button[data-v=channels],#top nav button[data-v=users]').forEach(b => b.remove());
   if (!ME.can.guests) $$('button[data-v=guests]').forEach(b => b.remove());
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
@@ -257,6 +257,8 @@ function renderBooking() {
     <div>${b.guest_phone ? '<a href="tel:' + esc(b.guest_phone) + '">' + esc(b.guest_phone) + '</a>' : ''}${b.guest_telegram ? ' · <a target="_blank" href="https://t.me/' + esc(String(b.guest_telegram).replace(/^@/, '').replace(/^\+/, '')) + '">' + esc(b.guest_telegram) + '</a>' : ''}${b.guest_whatsapp ? ' · WA ' + esc(b.guest_whatsapp) : ''}</div>`;
   if (g && (g.blacklisted || (g.tags || []).length || g.total_bookings > 1)) h += `<div style="margin:6px 0">${g.blacklisted ? '<span class="tag bad">чёрный список</span>' : ''}${(g.tags || []).map(t => '<span class="tag ' + (t === 'VIP' ? 'vip' : '') + '">' + esc(t) + '</span>').join('')}${g.total_bookings > 1 ? '<span class="tag">' + g.total_bookings + ' броней · ' + money(g.total_spent) + '</span>' : ''} <a href="#" id="g_open">карточка гостя</a></div>`;
   else if (g) h += `<div style="margin:6px 0"><a href="#" id="g_open">карточка гостя</a></div>`;
+  else if (canW && ME.can.guests && b.status !== 'blocked') h += `<div style="margin:6px 0;font-size:12px" class="muted">Гость без карточки · <a href="#" id="g_link">привязать</a> · <a href="#" id="g_new">создать карточку</a></div>`;
+  if (g && canW && ME.can.guests) h = h.replace('id="g_open">карточка гостя</a>', 'id="g_open">карточка гостя</a> · <a href="#" id="g_unlink" class="muted" title="Отвязать карточку от этой брони">отвязать</a>');
   if (g && g.blacklisted) h += `<div class="warn">Гость в чёрном списке${g.notes ? ': ' + esc(g.notes.split('\n').pop()) : ''}</div>`;
   h += `<div class="sec">Проживание</div>
     <table class="t"><tr><td>Квартира</td><td class="b">${esc(apt.name)}${apt.catalog_no ? ' <span class="no tag">№' + apt.catalog_no + '</span>' : ''}</td></tr>
@@ -264,7 +266,7 @@ function renderBooking() {
     <tr><td>Гостей</td><td>${b.guests_count || 1}</td></tr>
     <tr><td>Цена</td><td class="b">${money(b.total_price, b.currency)}${nights ? ' <span class="muted">(' + money(b.total_price / nights, b.currency) + '/ночь)</span>' : ''}</td></tr>
     ${b.total_price > 0 ? (b.source === 'rc' && !(b.paid > 0) ? `<tr><td>Оплачено</td><td class="muted">учёт оплат — в RC (у нас платежей нет)</td></tr>` : `<tr><td>Оплачено</td><td><span class="b" style="color:${b.pay_state === 'paid' ? 'var(--green)' : b.pay_state === 'partial' ? '#b07a00' : 'var(--red)'}">${money(b.paid, b.currency)}</span>${b.debt > 0 ? ' · остаток <b style="color:var(--red)">' + money(b.debt, b.currency) + '</b>' : ' · ✓'}</td></tr>`) : ''}
-    ${b.deposit ? `<tr><td>Депозит</td><td>${money(b.deposit, b.currency)}</td></tr>` : ''}
+    ${b.deposit ? `<tr><td>Депозит</td><td>${money(b.deposit, b.currency)}</td></tr>` : ''}${b.deposit_held > 0 ? `<tr><td>Депозит на руках</td><td class="b">${money(b.deposit_held, b.currency)} <span class="muted">(взят, не возвращён)</span></td></tr>` : ''}
     ${b.notes ? `<tr><td>Заметки</td><td>${esc(b.notes)}</td></tr>` : ''}${b.admin_notes ? `<tr><td>Для своих</td><td>${esc(b.admin_notes)}</td></tr>` : ''}${b.client_notes ? `<tr><td>От гостя</td><td>${esc(b.client_notes)}</td></tr>` : ''}
     </table>`;
   if (ME.can.pay_full && b.status !== 'blocked') {
@@ -280,10 +282,21 @@ function renderBooking() {
   if (canW) foot += `<button id="b_edit">Изменить</button>` + (b.status !== 'checked_out' && b.status !== 'blocked' ? `<button class="danger" data-st="cancelled">Отменить</button>` : '') + (b.status === 'blocked' ? `<button class="danger" data-st="cancelled">Снять блок</button>` : '');
   openDrawer(b.status === 'blocked' ? 'Блок' : 'Бронь', h, foot);
   if ($('#g_open')) $('#g_open').onclick = e => { e.preventDefault(); openGuest(g.id); };
+  if ($('#g_unlink')) $('#g_unlink').onclick = async e => { e.preventDefault(); if (!confirm('Отвязать карточку гостя от брони?')) return; try { CUR = await api(null, { a: 'guest_link', booking_id: b.id, guest_id: null }); renderBooking(); } catch (er) { alert(er.message); } };
+  if ($('#g_new')) $('#g_new').onclick = async e => { e.preventDefault(); try { const r = await api(null, { a: 'guest_create', booking_id: b.id, name: b.guest_name, phone: b.guest_phone, telegram: b.guest_telegram, whatsapp: b.guest_whatsapp }); toast(r.existed ? 'Нашлась существующая карточка — привязана' : 'Карточка создана'); CUR = await api({ a: 'booking', id: b.id }); renderBooking(); } catch (er) { alert(er.message); } };
+  if ($('#g_link')) $('#g_link').onclick = e => { e.preventDefault(); linkGuestUI(b); };
   if ($('#p_add')) $('#p_add').onclick = () => addPayment(b);
   $$('#d_body [data-pd]').forEach(x => x.onclick = async () => { if (!confirm('Удалить платёж?')) return; try { CUR = await api(null, { a: 'payment_delete', id: x.dataset.pd }); renderBooking(); load(true); } catch (e) { alert(e.message); } });
   $$('#d_foot [data-st]').forEach(x => x.onclick = () => setStatus(b, x.dataset.st));
   if ($('#b_edit')) $('#b_edit').onclick = () => renderForm(b);
+}
+// привязка существующей карточки гостя к брони (шаг 3)
+function linkGuestUI(b) {
+  openDrawer('Привязать гостя · ' + b.guest_name, `<div class="f"><label class="w">Поиск <input id="lg_q" placeholder="имя, телефон или Telegram" autofocus></label></div><div id="lg_res" class="muted">минимум 3 символа</div>`, `<button id="lg_back">Назад</button>`);
+  $('#lg_back').onclick = renderBooking;
+  let t; const run = async () => { const q = $('#lg_q').value.trim(); if (q.length < 3) return; try { const rows = await api({ a: 'guest_search', q }); $('#lg_res').innerHTML = rows.length ? rows.map(g => `<div class="li" data-g="${g.id}"><div class="g"><div class="n">${esc(g.name || '—')}${g.blacklisted ? ' <span class="tag bad">ЧС</span>' : ''}</div><div class="s">${esc(g.phone || '')}${g.telegram ? ' · ' + esc(g.telegram) : ''} · ${g.total_bookings} бр.</div></div><button class="sm pri">Привязать</button></div>`).join('') : 'не найдено'; $$('#lg_res [data-g]').forEach(r => r.querySelector('button').onclick = async () => { try { CUR = await api(null, { a: 'guest_link', booking_id: b.id, guest_id: r.dataset.g }); toast('Гость привязан'); renderBooking(); } catch (e) { alert(e.message); } }); } catch (e) { $('#lg_res').textContent = e.message; } };
+  $('#lg_q').oninput = () => { clearTimeout(t); t = setTimeout(run, 250); };
+  $('#lg_q').value = (b.guest_phone || b.guest_name || '').slice(0, 30); run();
 }
 function evText(ev) {
   const p = ev.payload || {};
@@ -294,6 +307,8 @@ function evText(ev) {
     case 'price_manual': return 'цена ' + money(p.price) + ' при прайсе ' + money(p.list_price) + ' (' + (p.diff > 0 ? '+' : '') + money(p.diff) + ')';
     case 'moved': return 'перенос: ' + (p.from || []).join(' ') + ' → ' + (p.to || []).join(' ');
     case 'closed_with_debt': return 'закрыл с долгом ' + money(p.debt) + (p.reason ? ': ' + p.reason : '');
+    case 'guest_link': return 'привязал карточку гостя';
+    case 'guest_unlink': return 'отвязал карточку гостя';
     default: return ev.type + (p.status ? ' → ' + (ST[p.status] || [p.status])[0] : '') + (p.from && p.to && typeof p.from === 'string' ? ' ' + p.from + ' → ' + p.to : '');
   }
 }
@@ -460,6 +475,50 @@ VIEWS.rules = async () => {
 };
 
 // =====================================================================
+// СОТРУДНИКИ (admin) — шаг 3
+// =====================================================================
+const ROLE_RU = { admin: 'админ', booker: 'бронер', ops: 'опер-менеджер', partner: 'партнёр' };
+VIEWS.users = async () => {
+  $('#tools').innerHTML = `<button class="pri sm" id="nu">+ сотрудник</button><span class="muted">Роли: админ — всё; бронер — брони, платежи, цены; опер-менеджер — только заехал/выехал; партнёр — свои квартиры, только чтение. Вход в шахматку из бота: команда <code>/pms</code> (нужен chat_id).</span>`;
+  $('#main').innerHTML = '<div class="page"><div class="card" id="ul">загрузка…</div><div class="card" id="sl"></div></div>';
+  if (!G) try { G = await api({ a: 'grid', from: iso(Date.now()), to: addD(iso(Date.now()), 1) }); } catch (_) { G = { apartments: [] }; }
+  let D;
+  const list = async () => {
+    D = await api({ a: 'users' });
+    const orgName = id => (D.orgs.find(o => o.id === id) || {}).short || id;
+    $('#ul').innerHTML = `<h3>Сотрудники <span class="muted">${D.users.length}</span></h3><table class="t"><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Орг.</th><th>Telegram</th><th>Квартиры</th><th></th><th></th></tr>` +
+      D.users.map(u => `<tr style="${u.is_active ? '' : 'opacity:.45'}"><td class="b">${esc(u.name)}${u.email === D.me ? ' <span class="tag">вы</span>' : ''}${u.is_active ? '' : ' <span class="tag bad">выкл</span>'}</td><td>${esc(u.email)}</td><td>${ROLE_RU[u.role] || u.role}</td><td>${esc(orgName(u.org_id))}</td><td>${u.telegram_chat_id ? '<code>' + esc(u.telegram_chat_id) + '</code>' : '<span class="muted">—</span>'}</td><td class="muted">${u.role === 'partner' ? (u.apartment_ids || []).length + ' кв.' : 'все'}</td><td><button class="sm" data-e="${esc(u.email)}">Изменить</button></td><td>${u.email !== D.me ? `<button class="sm" data-lo="${esc(u.email)}" title="Снять все сессии на всех устройствах">выйти везде</button>` : ''}</td></tr>`).join('') + `</table>`;
+    const st = (D.staff || []).filter(s => s.telegram_chat_id);
+    $('#sl').innerHTML = `<h3>Chat_id из ботов <span class="muted">${st.length}</span></h3><div class="muted" style="font-size:11px;margin-bottom:6px">Сотрудник пишет боту /start — бот показывает его chat_id. Сюда попадают те, кому выдан доступ в ботах (/allow).</div>` + (st.length ? `<table class="t">` + st.map(s => `<tr><td class="b">${esc(s.name)}</td><td>${esc(s.role)}</td><td><code>${esc(s.telegram_chat_id)}</code></td></tr>`).join('') + `</table>` : '<div class="muted">—</div>');
+    $$('#ul [data-e]').forEach(b => b.onclick = () => edit(D.users.find(u => u.email === b.dataset.e)));
+    $$('#ul [data-lo]').forEach(b => b.onclick = async () => { if (!confirm('Снять все сессии ' + b.dataset.lo + '? Сотруднику придётся войти заново.')) return; try { const r = await api(null, { a: 'user_logout_all', email: b.dataset.lo }); toast('Сессий снято: ' + r.sessions); } catch (e) { alert(e.message); } });
+  };
+  const edit = (u) => { const isNew = !u; u = u || { role: 'booker', org_id: (ME.org || {}).id || 1, is_active: true, apartment_ids: [] };
+    const byC = {}; G.apartments.forEach(a => (byC[a.complex] = byC[a.complex] || []).push(a));
+    openDrawer(isNew ? 'Новый сотрудник' : 'Сотрудник', `<div class="f">
+      <label class="w">Email (логин) <input id="w_email" type="email" value="${esc(u.email || '')}" ${isNew ? '' : 'readonly'} autocomplete="off"></label>
+      <label class="w">Имя <input id="w_name" value="${esc(u.name || '')}" placeholder="как в журнале и уведомлениях"></label>
+      <label>Роль <select id="w_role">${Object.entries(ROLE_RU).map(([k, v]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Организация <select id="w_org">${(D.orgs || []).map(o => `<option value="${o.id}" ${u.org_id === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>
+      <label>Telegram chat_id <input id="w_tg" value="${esc(u.telegram_chat_id || '')}" placeholder="из /start в боте бронеров"></label>
+      <label>${isNew ? 'Пароль' : 'Новый пароль'} <input id="w_pw" type="password" autocomplete="new-password" placeholder="${isNew ? 'от 6 символов' : 'пусто — не менять'}"></label>
+      <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="w_act" ${u.is_active !== false ? 'checked' : ''}>активен (выключенный не может войти)</label>
+      <div class="w" id="w_apts" style="grid-column:1/3;${u.role === 'partner' ? '' : 'display:none'}"><div class="sec">Квартиры партнёра</div>${Object.keys(byC).map(c => `<div style="margin:4px 0"><b style="font-size:12px">${esc(c)}</b><br>${byC[c].map(a => `<label style="display:inline-flex;flex-direction:row;gap:3px;margin:2px 10px 2px 0;font-size:12px;color:var(--text)"><input type="checkbox" data-apt="${a.id}" ${(u.apartment_ids || []).includes(a.id) ? 'checked' : ''}>${esc(a.name)}</label>`).join('')}</div>`).join('')}</div>
+      </div>`,
+      `<button class="pri" id="w_ok">${isNew ? 'Создать' : 'Сохранить'}</button><button onclick="closeDrawer()">Отмена</button>`);
+    $('#w_role').onchange = () => { $('#w_apts').style.display = $('#w_role').value === 'partner' ? '' : 'none'; };
+    $('#w_ok').onclick = async () => {
+      const o = { email: $('#w_email').value.trim(), name: $('#w_name').value.trim(), role: $('#w_role').value, org_id: +$('#w_org').value, telegram_chat_id: $('#w_tg').value.trim(), is_active: $('#w_act').checked, password: $('#w_pw').value, apartment_ids: $$('#w_apts [data-apt]:checked').map(x => x.dataset.apt) };
+      if (!o.email) return alert('Email'); if (isNew && o.password.length < 6) return alert('Пароль от 6 символов');
+      if (o.role === 'partner' && !o.apartment_ids.length && !confirm('Партнёр без квартир ничего не увидит. Сохранить?')) return;
+      try { await api(null, { a: 'user_save', user: o }); closeDrawer(); toast(isNew ? 'Сотрудник создан' : 'Сохранено'); list(); } catch (e) { alert(e.message); }
+    };
+  };
+  $('#nu').onclick = () => edit(null);
+  try { await list(); } catch (e) { $('#ul').innerHTML = esc(e.message); }
+};
+
+// =====================================================================
 // КАНАЛЫ (admin) — channex-admin.js
 // =====================================================================
 async function capi(params, body) {
@@ -573,5 +632,14 @@ async function realtime() {
 }
 function setConn(ok) { const c = $('#conn'); if (!c) return; c.classList.toggle('off', !ok); c.textContent = ok ? 'online' : 'нет связи · данные на ' + new Date(lastOk).toTimeString().slice(0, 5); }
 
-sb.auth.getSession().then(({ data: { session } }) => session ? boot() : showLogin());
+// 13.10.2026: вход по одноразовой ссылке из бота бронеров (/pms → magic link): /pms?tk=<hashed_token>
+(async () => {
+  const tk = new URLSearchParams(location.search).get('tk');
+  if (tk) {
+    history.replaceState(null, '', location.pathname);
+    const { error } = await sb.auth.verifyOtp({ token_hash: tk, type: 'magiclink' });
+    if (error) { showLogin(); const er = $('#loginErr'); er.textContent = 'Ссылка не подошла (' + error.message + '). Запросите новую командой /pms в боте или войдите по паролю.'; er.style.display = 'block'; return; }
+  }
+  const { data: { session } } = await sb.auth.getSession(); session ? boot() : showLogin();
+})();
 })();
