@@ -60,10 +60,20 @@ async function kpi(monthIso) {
   return { month: ym(monthIso), current: series[series.length - 1], previous: series[series.length - 2] || {}, series };
 }
 
+// Загрузка на 14 дней по календарю цен (rate_calendar.available — та же правда, что уходит на площадки), не по iCal-снапшоту
+async function occ14() {
+  const d0 = T.tashToday(0), d1 = T.tashToday(14);
+  const [apts, rows] = await Promise.all([q('apartments?select=id&is_active=eq.true'), q('rate_calendar?select=date,apartment_id&available=eq.false&date=gte.' + d0 + '&date=lt.' + d1 + '&limit=5000')]);
+  const act = new Set(apts.map(a => a.id)); const by = {};
+  rows.forEach(r => { if (act.has(r.apartment_id)) by[r.date] = (by[r.date] || 0) + 1; });
+  return { active: act.size, days: Array.from({ length: 14 }, (_, i) => { const d = T.tashToday(i); return { date: d, busy: by[d] || 0, pct: act.size ? Math.round(100 * (by[d] || 0) / act.size) : 0 }; }) };
+}
+
 async function bookingWithApt(id) {
-  const rows = await q('bookings?select=*,apartments(id,name,complex,floor)&id=eq.' + encodeURIComponent(id));
+  const rows = await q('bookings?select=*&id=eq.' + encodeURIComponent(id));
   const b = rows[0]; if (!b) { const e = new Error('Бронь не найдена'); e.status = 404; throw e; }
-  const apt = b.apartments || {}; delete b.apartments; return { b, apt };
+  const apt = (await q('apartments?select=id,name,complex,floor&id=eq.' + encodeURIComponent(b.apartment_id)))[0] || {};   // FK bookings→apartments нет, embed не работает
+  return { b, apt };
 }
 async function logEvent(bookingId, type, payload, actor) {
   try { await T.sb('booking_events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ booking_id: bookingId, type, payload, actor }) }); } catch (e) { /* журнал не роняет действие */ }
@@ -388,6 +398,7 @@ exports.handler = async (event) => {
       case 'requests': return out(200, await requests());
       case 'kpi': return out(200, await kpi(month));
       case 'today': return out(200, await PMS.todayFor(user));
+      case 'occ14': return out(200, await occ14());
       case 'dashboard': return out(200, await dashboard());
       case 'pl': { const from = monthStart(qs.from || ym(addMonths(month, -11))), to = monthStart(qs.to || ym(month)); return out(200, await pl(from, to)); }
       case 'apartments': return out(200, await aptTable(month));

@@ -134,7 +134,7 @@ async function today(user) {
   ]);
   const L = living.map(b => stripPay(user, b));
   const inhouse = L.filter(b => b.check_in <= d && b.check_out > d);
-  return { date: d, checkins: L.filter(b => b.check_in === d), checkouts: L.filter(b => b.check_out === d), tomorrow: L.filter(b => b.check_in === d1), inhouse, cleaning, debts: L.filter(b => (b.debt || 0) > 0 && b.currency === 'USD' && b.status !== 'request') };
+  return { date: d, checkins: L.filter(b => b.check_in === d), checkouts: L.filter(b => b.check_out === d), tomorrow: L.filter(b => b.check_in === d1), inhouse, cleaning, debts: L.filter(b => (b.debt || 0) > 0 && b.currency === 'USD' && b.status !== 'request' && isRealDebt(b)) };
 }
 async function guestSearch(s, user) {
   s = String(s || '').trim(); if (s.length < 2) return [];
@@ -148,9 +148,11 @@ async function guest(id) {
   const bk = await q('v_bookings?select=id,apartment_id,apartment_name,complex,check_in,check_out,nights,status,total_price,currency,paid,debt,pay_state,channel&guest_id=eq.' + enc(id) + '&order=check_in.desc&limit=200');
   return { guest: g, bookings: bk };
 }
+const isRealDebt = b => b.status !== 'blocked' && !(b.source === 'rc' && !(b.paid > 0) && !(b.prepaid > 0));
 async function debts(user) {
   const rows = await q('v_bookings?select=*&status=in.(checked_in,checked_out)&debt=gt.0&check_out=gte.' + addDays(T.tashToday(0), -120) + aptIn(user) + '&order=check_out&limit=1000');
-  return rows.filter(b => b.total_price > 0).map(b => Object.assign(stripPay(user, b), { days: nightsOf(b.check_out, T.tashToday(0)) }));
+  // 14.10.2026: брони из RC без единого платежа у нас — не долг (RC не отдаёт оплаты; Арсен: «долг — только по нашим броням»)
+  return rows.filter(b => b.total_price > 0 && isRealDebt(b)).map(b => Object.assign(stripPay(user, b), { days: nightsOf(b.check_out, T.tashToday(0)) }));
 }
 
 // ---------- запись ----------
@@ -212,7 +214,7 @@ async function setStatus(body, user) {
   if (body.close_with_debt) await logEvent(body.id, 'closed_with_debt', { debt: cur.debt, reason: body.reason || '' }, user);
   if (cur.status === 'request' && (body.status === 'confirmed' || body.status === 'cancelled')) {
     try {
-      const rows = await q('bookings?select=*,apartments(id,name,complex,floor)&id=eq.' + enc(body.id)); const b = rows[0] || {}; const apt = b.apartments || {}; delete b.apartments;
+      const b = (await q('bookings?select=*&id=eq.' + enc(body.id)))[0] || {}; const apt = (await q('apartments?select=id,name,complex,floor&id=eq.' + enc(b.apartment_id)))[0] || {};
       const MAIL = require('./_booking-mail.js'), NOTIFY = require('./notify.js');
       if (body.status === 'confirmed') { await MAIL.mailConfirmed(b, apt); await NOTIFY.sendTg({ type: 'request_confirmed', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, total: b.total_price, ref: b.booking_ref, actor: user.name }); }
       else { await MAIL.mailCancelled(b, apt, body.reason || ''); await NOTIFY.sendTg({ type: 'request_cancelled', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, ref: b.booking_ref, reason: body.reason || '', actor: user.name }); }
