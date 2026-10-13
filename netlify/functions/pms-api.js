@@ -207,7 +207,7 @@ async function setStatus(body, user) {
     const e = new Error('DEBT:' + cur.debt); e.status = 409; throw e;   // интерфейс спросит «закрыть с долгом?» + причину
   }
   const o = { status: body.status, created_by: user.email };
-  if (body.status === 'checked_in') o.checked_in = true; if (body.status === 'checked_out') o.checked_out = true; if (body.status === 'cancelled') o.cancelled_at = new Date().toISOString();
+  if (body.status === 'checked_in') o.checked_in = true; if (body.status === 'checked_out') o.checked_out = true; if (body.status === 'cancelled') { o.cancelled_at = new Date().toISOString(); if (body.reason) o.cancel_reason = String(body.reason).slice(0, 300); }
   // 14.10.2026: заявка с сайта (request) подтверждается/отменяется из /pms так же, как из /admin — письмо гостю + TG
   if (cur.status === 'request' && body.status === 'confirmed') { o.confirmed_at = new Date().toISOString(); o.confirmed_by = user.email; }
   await q('bookings?id=eq.' + enc(body.id), { method: 'PATCH', body: JSON.stringify(o) });
