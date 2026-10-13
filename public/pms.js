@@ -219,7 +219,7 @@ function openRateEditor(s) {
   const names = s.apts.map(id => (G.apartments.find(a => a.id === id) || {}).name).join(', ');
   openDrawer('Цена и ограничения', `
     <div class="muted" style="margin-bottom:8px">${esc(names)}<br>${ruD(s.from)} – ${ruD(addD(s.to, -1))} включительно (${nightsOf(s.from, s.to)} дн.)</div>
-    <div class="f"><label>Цена за ночь, $ <input id="r_price" type="number" min="0" placeholder="не менять"></label>
+    <div class="f"><label>Цена за ночь, $ <input id="r_price" type="number" min="0" step="0.01" placeholder="не менять"></label>
       <label>Мин. ночей <input id="r_min" type="number" min="1" placeholder="не менять"></label>
       <label>Закрыть продажу <select id="r_closed"><option value="">не менять</option><option value="1">закрыть</option><option value="0">открыть</option></select></label>
       <label>Заезд в эти даты <select id="r_cta"><option value="">не менять</option><option value="1">запретить</option><option value="0">разрешить</option></select></label>
