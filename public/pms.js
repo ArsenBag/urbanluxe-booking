@@ -41,6 +41,11 @@ async function boot() {
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
   realtime();
+  // 14.10.2026: ссылки из админки — /pms#booking=<id> (открыть панель брони), /pms#today, /pms#free …
+  const h = location.hash.replace('#', '');
+  const m = h.match(/^booking=(.+)$/);
+  if (m) { history.replaceState(null, '', location.pathname); go('cal'); setTimeout(() => openBooking(m[1]), 300); return; }
+  if (h && VIEWS[h]) { history.replaceState(null, '', location.pathname); go(h); return; }
   go(innerWidth < 760 ? 'today' : 'cal');
 }
 const isMobile = () => innerWidth < 760;
