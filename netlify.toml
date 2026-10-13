@@ -74,6 +74,12 @@
   status = 200
   force = true
 
+# Старая админка переименована в admin-legacy.html (иначе файл admin.html перехватывал /admin). Закладки на /admin.html продолжают работать.
+[[redirects]]
+  from = "/admin.html"
+  to = "/admin-legacy.html"
+  status = 200
+
 [[redirects]]
   from = "/map"
   to = "/map.html"
