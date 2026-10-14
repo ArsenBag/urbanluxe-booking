@@ -92,6 +92,36 @@ async function setupWebhook() {
   const w = await C.cx('POST', '/webhooks', body); return { created: w.data.id };
 }
 
+
+// 14.10.2026: переход staging → production. Все внешние id (property / room type / rate plan / производные тарифы) у Channex
+// на проде другие, поэтому: сбрасываем id в channel_properties/channel_units (маппинг квартира→property сохраняем), чистим очередь,
+// затем setup_complex по каждому ЖК + setup_webhook. Защита: работает только если CHANNEX_BASE указывает на app.channex.io
+// и в базе ещё нет прод-id (settings.env = 'production').
+async function goProduction(body, user) {
+  const base = (process.env.CHANNEX_BASE || '').replace(/\/$/, '');
+  if (!/app\.channex\.io$/.test(base)) throw new Error('CHANNEX_BASE должен быть https://app.channex.io (сейчас ' + (base || 'не задан') + ')');
+  const props = await C.q('channel_properties?select=*&org_id=eq.' + user.org_id);
+  const already = props.filter(p => p.settings && p.settings.env === 'production');
+  if (already.length && !body.force) throw new Error('Уже на проде: ' + already.map(p => p.complex).join(', ') + ' (force:true — повторить сброс)');
+  // проверка ключа: должен открываться прод
+  const me = await C.cx('GET', '/properties?pagination[limit]=1');
+  const log = ['prod key ok, properties visible: ' + ((me.meta && me.meta.total) != null ? me.meta.total : (me.data || []).length)];
+  // 1. сброс id
+  for (const p of props) {
+    await C.q('channel_properties?id=eq.' + p.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_id: null, settings: Object.assign({}, p.settings || {}, { env: 'production', staging_id: p.external_id }), updated_at: new Date().toISOString() }) });
+    await C.q('channel_units?channel_property_id=eq.' + p.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_room_type_id: null, external_rate_plan_id: null, derived: null, last_task: null, last_error: null, last_pushed_at: null }) });
+  }
+  await C.q('channel_outbox?sent_at=is.null', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  log.push('reset ' + props.length + ' properties, outbox cleared');
+  // 2. заново создать property/комнаты/тарифы по каждому ЖК (последовательно — лимиты Channex)
+  const complexes = [...new Set(props.map(p => p.complex))];
+  const results = {};
+  for (const cx of complexes) { try { const r = await setupComplex({ complex: cx }, user); results[cx] = { property: r.property.external_id, units: r.log.length, queued: r.queued }; } catch (e) { results[cx] = { error: String(e.message).slice(0, 200) }; } }
+  // 3. вебхук
+  let webhook; try { webhook = await setupWebhook(); } catch (e) { webhook = { error: String(e.message).slice(0, 200) }; }
+  return { log, results, webhook };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
   try {
@@ -103,6 +133,7 @@ exports.handler = async (event) => {
     switch (body.a) {
       case 'setup_complex': return out(200, await setupComplex(body, user));
       case 'setup_webhook': return out(200, await setupWebhook());
+      case 'go_production': return out(200, await goProduction(body, user));
       case 'reconcile_derived': { const props = await C.q('channel_properties?select=*&external_id=not.is.null&org_id=eq.' + user.org_id); const r = []; for (const p of props) r.push(Object.assign({ property: p.name }, await C.reconcileDerived(p.external_id))); return out(200, r); }
       case 'push_full': {
         // full sync: вся сеть / одна квартира / один ЖК (complex → все квартиры ЖК; Channex: 1 property = 2 запроса)
