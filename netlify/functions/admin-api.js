@@ -81,7 +81,9 @@ async function occ14() {
 async function analytics(from, to) {
   const okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
   if (!okD(from) || !okD(to) || to <= from) throw Object.assign(new Error('Период: from/to в формате YYYY-MM-DD, to > from'), { status: 400 });
-  const months = []; for (let m = from.slice(0, 7) + '-01'; m < to && months.length < 24; m = addMonths(m, 1)) months.push(m);
+  // ряд по месяцам: 12 месяцев до конца периода (чтобы график был осмысленным и для «месяца»), но не меньше самого периода
+  const lastM = addDays(to, -1).slice(0, 7) + '-01'; const firstM = from.slice(0, 7) + '-01';
+  const months = []; for (let m = addMonths(lastM, -11) < firstM ? addMonths(lastM, -11) : firstM; m <= lastM && months.length < 24; m = addMonths(m, 1)) months.push(m);
   const [a, ...ms] = await Promise.all([q('rpc/adm_analytics', { method: 'POST', body: JSON.stringify({ p_from: from, p_to: to }) }), ...months.map(m => q('rpc/adm_month_kpi', { method: 'POST', body: JSON.stringify({ p_month: m }) }))]);
   const un = x => (Array.isArray(x) ? x[0] : x) || {};
   return Object.assign(un(a), { months: ms.map(un) });
