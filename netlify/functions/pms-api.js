@@ -36,7 +36,20 @@ const enc = encodeURIComponent;
 
 async function q(path, opt) { const r = await T.sb(path, opt); const t = await r.text(); if (!r.ok) { const e = new Error(t.slice(0, 300)); e.status = r.status; throw e; } if (!t) return null; try { return JSON.parse(t); } catch (_) { return null; } }
 // Supabase отдаёт максимум 1000 строк за запрос — читаем страницами
-async function qAll(path, page) { page = page || 1000; const all = []; for (let i = 0; i < 50; i++) { const r = await T.sb(path, { headers: { Range: (i * page) + '-' + ((i + 1) * page - 1), Prefer: 'count=none' } }); if (!r.ok && r.status !== 416) { const t = await r.text(); throw new Error(t.slice(0, 300)); } const rows = r.status === 416 ? [] : await r.json(); all.push(...rows); if (rows.length < page) break; } return all; }
+// 14.10.2026: страницы после первой грузятся параллельно (Content-Range даёт общее число строк) — шахматка на 3 месяца
+// (4–5 тыс. строк rate_calendar) раньше шла 5 последовательными запросами.
+async function qAll(path, page) {
+  page = page || 1000;
+  const first = await T.sb(path, { headers: { Range: '0-' + (page - 1), Prefer: 'count=exact' } });
+  if (!first.ok && first.status !== 416) { const t = await first.text(); throw new Error(t.slice(0, 300)); }
+  if (first.status === 416) return [];
+  const rows = await first.json();
+  const total = parseInt(String(first.headers.get('content-range') || '').split('/')[1], 10);
+  if (!(total > rows.length)) return rows;
+  const pages = []; for (let off = page; off < total && pages.length < 50; off += page) pages.push(off);
+  const rest = await Promise.all(pages.map(off => T.sb(path, { headers: { Range: off + '-' + (off + page - 1), Prefer: 'count=none' } }).then(r => r.ok ? r.json() : [])));
+  return rows.concat(...rest);
+}
 async function rpc(name, args) { return q('rpc/' + name, { method: 'POST', body: JSON.stringify(args || {}) }); }
 function dbError(e) {
   const m = String(e.message || e);
