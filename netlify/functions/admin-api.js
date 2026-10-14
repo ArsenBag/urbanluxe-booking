@@ -62,10 +62,10 @@ async function auth(event) {
 const requests = () => q('v_requests?select=*');
 
 async function kpi(monthIso) {
-  const months = []; for (let i = -12; i <= 0; i++) months.push(addMonths(monthIso, i));
-  const rows = await Promise.all(months.map(m => q('rpc/adm_month_kpi', { method: 'POST', body: JSON.stringify({ p_month: m }) })));
-  const series = rows.map(x => (Array.isArray(x) ? x[0] : x) || {});
-  return { month: ym(monthIso), current: series[series.length - 1], previous: series[series.length - 2] || {}, series };
+  // 14.10: один rpc на 13 месяцев вместо 13 параллельных (adm_kpi_series), ~90 мс в базе
+  const r = await q('rpc/adm_kpi_series', { method: 'POST', body: JSON.stringify({ p_to: monthIso, p_months: 13 }) });
+  const series = Array.isArray(r) ? r : (r || []);
+  return { month: ym(monthIso), current: series[series.length - 1] || {}, previous: series[series.length - 2] || {}, series };
 }
 
 // Загрузка на 14 дней по календарю цен (rate_calendar.available — та же правда, что уходит на площадки), не по iCal-снапшоту
@@ -83,10 +83,10 @@ async function analytics(from, to) {
   if (!okD(from) || !okD(to) || to <= from) throw Object.assign(new Error('Период: from/to в формате YYYY-MM-DD, to > from'), { status: 400 });
   // ряд по месяцам: 12 месяцев до конца периода (чтобы график был осмысленным и для «месяца»), но не меньше самого периода
   const lastM = addDays(to, -1).slice(0, 7) + '-01'; const firstM = from.slice(0, 7) + '-01';
-  const months = []; for (let m = addMonths(lastM, -11) < firstM ? addMonths(lastM, -11) : firstM; m <= lastM && months.length < 24; m = addMonths(m, 1)) months.push(m);
-  const [a, ...ms] = await Promise.all([q('rpc/adm_analytics', { method: 'POST', body: JSON.stringify({ p_from: from, p_to: to }) }), ...months.map(m => q('rpc/adm_month_kpi', { method: 'POST', body: JSON.stringify({ p_month: m }) }))]);
+  let n = 0; for (let m = firstM; m <= lastM && n < 24; m = addMonths(m, 1)) n++;
+  const [a, ms] = await Promise.all([q('rpc/adm_analytics', { method: 'POST', body: JSON.stringify({ p_from: from, p_to: to }) }), q('rpc/adm_kpi_series', { method: 'POST', body: JSON.stringify({ p_to: lastM, p_months: Math.max(n, 12) }) })]);
   const un = x => (Array.isArray(x) ? x[0] : x) || {};
-  return Object.assign(un(a), { months: ms.map(un) });
+  return Object.assign(un(a), { months: Array.isArray(ms) ? ms : [] });
 }
 
 
