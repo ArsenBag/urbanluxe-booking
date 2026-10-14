@@ -60,8 +60,8 @@
   to = "/pms.html"
   status = 200
 
-# Админка v4 (14.10.2026): /admin → public/admin/index.html. Старые admin.html / admin2 / admin3 работают до этапа 7.
-# force = true: иначе Netlify отдаёт старый admin.html по «красивому» URL /admin (файл побеждает редирект).
+# Админка v4 (14.10.2026): /admin → public/admin/index.html. Этап 7 (14.10): старые панели admin.html / admin2 / admin3
+# вынесены из public в legacy/ (не деплоятся), все их адреса ведут на /admin. force = true — чтобы файл не перехватывал адрес.
 [[redirects]]
   from = "/admin"
   to = "/admin/index.html"
@@ -74,21 +74,45 @@
   status = 200
   force = true
 
-# Старая админка переименована в admin-legacy.html (иначе файл admin.html перехватывал /admin). Закладки на /admin.html продолжают работать.
 [[redirects]]
   from = "/admin.html"
-  to = "/admin-legacy.html"
-  status = 200
+  to = "/admin"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin-legacy.html"
+  to = "/admin"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin2.html"
+  to = "/admin"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin2"
+  to = "/admin"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin3"
+  to = "/admin#finance"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/admin3.html"
+  to = "/admin#finance"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/map"
   to = "/map.html"
-  status = 200
-
-# Админка 3 — финансы и операции (04.10.2026)
-[[redirects]]
-  from = "/admin3"
-  to = "/admin3.html"
   status = 200
 
 # Страница бронера «что свободно» (28.09.2026)
