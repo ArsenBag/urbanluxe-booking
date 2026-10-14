@@ -64,9 +64,9 @@ function label() {
 }
 
 async function load() {
-  $('#p_lbl').textContent = label();
+  if (!$('#p_lbl')) return; $('#p_lbl').textContent = label();
   $('#an_kpi').innerHTML = '<div class="empty">Считаю…</div>';
-  try { DATA = await api({ a: 'analytics', from: FROM, to: TO }); } catch (e) { $('#an_kpi').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; return; }
+  try { DATA = await api({ a: 'analytics', from: FROM, to: TO }); if (!$('#an_kpi')) return; } catch (e) { if (!$('#an_kpi')) return; $('#an_kpi').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; return; }
   const t = DATA.totals || {};
   const isFuture = TO > today();
   $('#an_kpi').innerHTML = `

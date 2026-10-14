@@ -53,7 +53,8 @@ function go(v, keepHash) {
   if (!keepHash && location.hash.replace('#', '').split('/')[0] !== v) history.replaceState(null, '', '#' + v);
   try { views[v](); } catch (e) { $('#main').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; }
 }
-function soon(name) { return () => { $('#main').innerHTML = '<div class="page"><h2>' + esc(name) + '</h2><div class="card empty">Раздел переносится из старой админки — следующий этап. Пока: <a href="/admin3">/admin3</a> (финансы) · <a href="/admin-legacy.html">/admin-legacy.html</a> (остальное).</div></div>'; }; }
+// Раздел без модуля (на случай, если файл раздела не загрузился) — показываем подсказку вместо пустого экрана
+function soon(name) { return () => { $('#main').innerHTML = '<div class="page"><h2>' + esc(name) + '</h2><div class="card empty">Модуль раздела не загрузился — обновите страницу (Ctrl+F5).</div></div>'; }; }
 ['analytics', 'finance', 'apartments', 'ops', 'chat', 'staff', 'users', 'strategy'].forEach(v => { views[v] = soon($('#top nav [data-v=' + v + ']').textContent); });
 
 async function boot() {

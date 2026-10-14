@@ -34,7 +34,7 @@ A.onChange(() => { if (!$('#req')) return; clearTimeout(rt); rt = setTimeout(() 
 // ---------- заявки ----------
 async function loadRequests() {
   try {
-    const rows = await api({ a: 'requests' });
+    const rows = await api({ a: 'requests' }); if (!$('#req_b')) return;
     $('#req_n').textContent = rows.length ? rows.length : 'нет новых';
     document.title = (rows.length ? '(' + rows.length + ') ' : '') + 'Urban Luxe · Админка';
     if (!rows.length) { $('#req_b').innerHTML = '<div class="empty">Новых заявок нет. Бронь с сайта появится здесь — подтвердите или отмените одной кнопкой, гостю уйдёт письмо.</div>'; return; }
@@ -77,7 +77,7 @@ async function act(id, a, reason) {
 // ---------- сегодня ----------
 async function loadToday() {
   try {
-    const t = await api({ a: 'today' });
+    const t = await api({ a: 'today' }); if (!$('#today_b')) return;
     $('#today_d').textContent = ruD(t.date);
     const dirty = (t.cleaning || []).filter(c => c.status && !/done|clean|ok/i.test(c.status)).length;
     const debt = (t.debts || []).reduce((s, b) => s + (b.debt || 0), 0);
@@ -101,9 +101,9 @@ async function loadToday() {
 
 // ---------- месяц ----------
 async function loadKpi() {
-  $('#m_cur').textContent = ruMonth(MONTH);
+  if (!$('#m_cur')) return; $('#m_cur').textContent = ruMonth(MONTH);
   try {
-    const k = await api({ a: 'kpi', month: MONTH });
+    const k = await api({ a: 'kpi', month: MONTH }); if (!$('#kpi_b')) return;
     const c = k.current || {}, p = k.previous || {};
     const isCur = MONTH === A.iso(Date.now() + 5 * 36e5).slice(0, 7);
     $('#kpi_b').className = '';
@@ -121,7 +121,7 @@ async function loadKpi() {
         ${c.bookings} броней с заездом в месяце · ${c.nights} ночей · ${c.active} кв. с данными${c.active_all > c.active ? ' из ' + c.active_all + ' (остальные — RC партнёра, в базе только занятость)' : ''}${isCur ? ' · загрузка до конца месяца по календарю: <b>' + pct(c.occupancy_forward) + '</b>' : ''}
         ${c.sheet_n ? ' · по Google-таблице: <b>' + money(c.sheet_revenue) + '</b> (' + c.sheet_n + ' кв.)' + (c.accrued ? ', разница ' + money(c.sheet_revenue - c.accrued) : '') : ' · в Google-таблице за этот месяц записей нет'}
         · аренда ${money(c.rent)} + операционные ${money(c.opex)}${c.capex ? ' + капвложения ' + money(c.capex) + ' (не в EBITDA)' : ''}
-        · <a href="/admin3">P&amp;L по месяцам →</a>
+        · <a href="#finance/pl">P&amp;L по месяцам →</a>
       </div>`;
     drawChart(k.series || []);
   } catch (e) { $('#kpi_b').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; }
@@ -142,7 +142,7 @@ function drawChart(series) {
 // ---------- загрузка 14 дней ----------
 async function loadOcc14() {
   try {
-    const d = await api({ a: 'occ14' });
+    const d = await api({ a: 'occ14' }); if (!$('#occ14')) return;
     const arr = d.days || [];
     $('#occ14').className = 'occ14';
     $('#occ14').innerHTML = arr.map(o => { const dt = new Date(o.date + 'T00:00:00Z'), we = dt.getUTCDay() === 0 || dt.getUTCDay() === 6; return `<div><div class="bar" title="${o.date}: занято ${o.busy} из ${d.active}"><i style="height:${o.pct}%"></i></div><b>${o.pct}%</b><span class="${we ? 'we' : ''}">${DN[dt.getUTCDay()]} ${+o.date.slice(8, 10)}</span></div>`; }).join('');

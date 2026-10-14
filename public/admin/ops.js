@@ -5,6 +5,7 @@ const A = window.ADM, { $, $$, esc, money, toast, api, ruD, ruDM, CH, ST } = A;
 const today = () => A.iso(Date.now() + 5 * 36e5);
 let DATE = today(), D = null, rt = null;
 const SRC = { site: 'Сайт', tg: 'Telegram', wa: 'WhatsApp', booking: 'Booking', bnb: 'Airbnb', ig: 'Instagram', other: 'Другое', rc: 'RC', ota: 'OTA' };
+const HK = { assigned: 'назначена', in_progress: 'убирается', plan: 'план', done: 'убрано', completed: 'убрано', canceled: 'отменена', cancelled: 'отменена', pending: 'ожидает' };
 const FLAGS = [['passport', 'Паспорт'], ['access', 'Доступ'], ['registration', 'Регистр.'], ['confirm_checkin', 'Подтв.'], ['checked_in', 'Заехал'], ['paid_full', 'Оплачено'], ['deposit_received', 'Депозит'], ['review', 'Отзыв']];
 
 A.views.ops = function () {
@@ -21,7 +22,7 @@ A.views.ops = function () {
 A.onChange(() => { if (!$('#o_body')) return; clearTimeout(rt); rt = setTimeout(load, 800); });
 
 async function load() {
-  try { D = await api({ a: 'ops_day', date: DATE }); } catch (e) { $('#o_body').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; return; }
+  try { D = await api({ a: 'ops_day', date: DATE }); if (!$('#o_body')) return; } catch (e) { if (!$('#o_body')) return; $('#o_body').innerHTML = '<div class="warn">' + esc(e.message) + '</div>'; return; }
   const dirty = D.cleaning.filter(c => !c.done && !/done|clean|ok|готов/i.test(c.hk_status || '')).length;
   $('#o_sum').textContent = D.checkins.length + ' заезд. · ' + D.checkouts.length + ' выезд. · ' + D.inhouse.length + ' живут · уборок ' + D.cleaning.length + (dirty ? ' (не закрыто ' + dirty + ')' : '');
   $('#o_body').className = '';
@@ -38,7 +39,7 @@ async function load() {
         <td><span data-f="note" class="ed muted">${esc(r.note || '…')}</span></td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">заездов нет</div>'}</div>
     <div class="grid2">
       <div class="card"><h3>Выезды <span class="n">${D.checkouts.length}</span></h3>${D.checkouts.map(line).join('') || '<div class="empty">нет</div>'}</div>
-      <div class="card"><h3>Уборки <span class="n">из бота уборок</span></h3>${D.cleaning.length ? '<table class="t">' + D.cleaning.map(c => `<tr><td class="b">${esc(aptName(c.apartment_id))}</td><td>${esc(c.hk_maid || '—')}</td><td><span class="tag ${c.done ? '' : 'bad'}">${c.done ? 'убрано' + (c.done_at ? ' ' + c.done_at.slice(11, 16) : '') : esc(c.hk_status || 'ожидает')}</span></td></tr>`).join('') + '</table>' : '<div class="empty">задач на эту дату нет</div>'}
+      <div class="card"><h3>Уборки <span class="n">из бота уборок</span></h3>${D.cleaning.length ? '<table class="t">' + D.cleaning.map(c => `<tr><td class="b">${esc(aptName(c.apartment_id))}</td><td>${esc(c.hk_maid || '—')}</td><td><span class="tag ${c.done ? '' : c.hk_status === 'in_progress' ? 'vip' : 'bad'}">${c.done ? 'убрано' + (c.done_at ? ' ' + new Date(new Date(c.done_at).getTime() + 5 * 36e5).toISOString().slice(11, 16) : '') : esc(HK[c.hk_status] || c.hk_status || 'ожидает')}</span></td></tr>`).join('') + '</table>' : '<div class="empty">задач на эту дату нет</div>'}
         <div class="sec">Персонал</div>${D.staff.map(s => `<span class="tag">${esc(s.name)} · ${esc(s.role)}</span>`).join(' ') || '<span class="muted">нет</span>'}</div>
     </div>
     <div class="card"><h3>Живут <span class="n">${D.inhouse.length}</span></h3><div class="grid3">${D.inhouse.map(line).join('') || '<div class="empty">нет</div>'}</div></div>`;
