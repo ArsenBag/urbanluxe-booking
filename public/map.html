@@ -4,13 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Urban Luxe · Живой город (макет)</title>
+<title>Urban Luxe · Карта</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{color-scheme:dark;--panel:#161a20e6;--line:#2a3039;--text:#e8e6e1;--muted:#8a9099;--gold:#c9a45c}
 *{box-sizing:border-box}
 body{margin:0;color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f16;overflow-x:hidden}
 header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;flex-wrap:wrap}
 .logo{font:600 13px/1 serif;letter-spacing:.35em;color:var(--gold)}
+.apps{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.apps a{padding:4px 10px;font-size:12px;color:var(--text);text-decoration:none;border-right:1px solid var(--line)}.apps a:last-child{border-right:0}.apps a.on{background:var(--gold);color:#111;font-weight:600}
+#login{max-width:340px;margin:14vh auto;background:var(--panel);padding:28px;border-radius:12px;border:1px solid var(--line)}#login input{width:100%;margin:5px 0;padding:8px;background:#0f1216;border:1px solid var(--line);color:var(--text);border-radius:6px}#login button{width:100%;margin-top:10px;padding:9px}#loginErr{color:#ff8a80;font-size:12px;margin-top:8px}
+.live{color:#7fd39a}
 .clock{font:600 26px/1 "Segoe UI",monospace;letter-spacing:.04em;min-width:86px}.clock small{display:block;font:400 11px/1.2 sans-serif;color:var(--muted);letter-spacing:0}
 .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .btn{border:1px solid var(--line);background:#0f1216;color:var(--text);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px}
@@ -51,16 +55,18 @@ footer{padding:8px 16px;color:var(--muted);font-size:11px;border-top:1px solid v
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">URBAN LUXE</div>
+<div id="login" style="display:none"><h2 style="margin:0 0 12px">Urban Luxe · Карта</h2><input id="email" type="email" placeholder="email"><input id="pass" type="password" placeholder="пароль"><button class="btn" onclick="login()">Войти</button><div id="loginErr"></div><div style="font-size:11px;color:var(--muted);margin-top:10px">Та же сессия, что в /pms и /admin.</div></div>
+<header id="hdr">
+  <div class="logo">URBAN LUXE</div><div class="apps"><a href="/pms">PMS</a><a href="/admin">Админка</a><a class="on" href="/map">Карта</a></div>
   <div class="clock"><span id="clock">07:00</span><small id="clockd">—</small></div>
   <div class="ctl">
     <button class="btn on" id="play">⏸</button>
-    <button class="btn" data-sp="1">1×</button><button class="btn on" data-sp="3">3×</button><button class="btn" data-sp="10">10×</button>
+    <button class="btn on" data-sp="0">live</button><button class="btn" data-sp="1">1×</button><button class="btn" data-sp="3">3×</button><button class="btn" data-sp="10">10×</button>
     <button class="btn" id="now">сейчас</button>
     <button class="btn" id="snd">🔇 звук</button>
     <button class="btn" id="wx">☀ погода: авто</button>
-    <label class="btn" style="cursor:pointer"><input type="checkbox" id="demo" checked style="vertical-align:-2px"> демо</label>
+    <label class="btn" style="cursor:pointer" title="Дорисовать: такси, лиды из рекламы, монеты — для показа"><input type="checkbox" id="demo" style="vertical-align:-2px"> шоу</label>
+    <button class="btn" id="reload">⟳</button><span id="upd" class="live" style="font-size:11px"></span>
   </div>
   <div class="kpis" id="kpis"></div>
 </header>
@@ -69,49 +75,66 @@ footer{padding:8px 16px;color:var(--muted);font-size:11px;border-top:1px solid v
   <section class="scene" id="scene"><canvas id="cv"></canvas><div class="toasts" id="toasts"></div><div class="hint">клик по окну — карточка квартиры · колесо/перетаскивание — сдвиг города</div></section>
   <aside id="side"></aside>
 </main>
-<footer>Макет: занятость — RealtyCalendar (снимок 07.10.2026), гости/оплаты — лист заездов; жёлтым «(демо)» — дорисованное: имена, оплаты, горничные, лиды, погода. Сутки идут за минуту; лиды прилетают из Директа/Meta/Google и превращаются в брони с реальной долей конверсии ~30 %. Звук выключен по умолчанию.</footer>
+<footer>Живые данные: занятость и гости — наша база (PMS), квартиры RC партнёра — по iCal (без гостей); галочки и оплаты — лист дня; уборки и горничные — бот уборок. Обновление каждую минуту и по событиям. «live» — реальное время; 1×/3×/10× — прокрутка дня вперёд (прогноз по плану заездов/выездов); «шоу» дорисовывает такси, лиды и монеты для презентаций.</footer>
 <script>
-const DATA = {"d0":"2026-10-05","apts":[["gardens_65","65","Gardens Residence",3,125,135,"Студия","111111111111111"],["kislorod_6","6","Kislorod",2,155,165,"Студия","111101111000000"],["kislorod_31","31","Kislorod",7,105,115,"Студия","101111000000000"],["kislorod_49","49","Kislorod",10,105,115,"2+1","010001001110000"],["kislorod_58","58","Kislorod",11,115,125,"2+1","110001111110000"],["kislorod_128","128","Kislorod",13,115,125,"2+2","111111000000000"],["mirabad_111","111","Mirabad",8,115,125,"2+2","100000000000000"],["modera_294","294","Modera Towers",11,85,95,"Студия","111100001101100"],["modera_359","359","Modera Towers",16,85,95,"Студия","111011000000000"],["nest_15","15","Nest One",3,90,100,"Студия","110111000011100"],["nest_163","163","Nest One",9,140,150,"2+1+1","110111111110111"],["nest_166","166","Nest One",9,160,170,"Студия","111111111110000"],["nest_168","168","Nest One",9,160,170,"3+1","111111111111111"],["nest_179","179","Nest One",10,160,170,"3+1","111111111100111"],["nest_193","193","Nest One",10,135,145,"Студия","111111000000000"],["nest_233","233","Nest One",12,135,145,"3+1","111111111110100"],["nest_249","249","Nest One",13,110,120,"Студия","111111111011111"],["nest_325","325","Nest One",17,140,150,"Студия","011111111000000"],["nest_353","353","Nest One",18,105,115,"Студия","111111111110100"],["nest_477","477","Nest One",25,140,150,"2+2+1","111110011111000"],["nest_481","481","Nest One",25,125,135,"2+1","111011100000000"],["nest_609","609","Nest One",33,140,150,"2+1","111111110011100"],["utower2_5","5","U-Tower",3,115,125,"2+1","101111100000000"],["utower2_9","9","U-Tower",4,115,125,"2+1","111110101100000"],["utower_65","65","U-Tower",6,90,100,"Студия","111111111000000"],["utower_73","73","U-Tower",6,90,100,"Студия","111111110000001"],["utower2_79","79","U-Tower",7,105,115,"Студия","011111111111000"],["utower2_92","92","U-Tower",7,105,115,"Студия","110111100000011"],["utower_171","171","U-Tower",11,85,95,"Студия","110111100000000"],["utower_194","194","U-Tower",12,85,95,"Студия","111111111111110"],["utower_208","208","U-Tower",13,85,95,"Студия","110101001111001"],["utower_222","222","U-Tower",13,120,130,"2+1","011110000000000"],["utower2_207","207","U-Tower",13,135,145,"2+1","111110000000000"],["utower2_228","228","U-Tower",13,135,145,"2+1","100011000001000"],["utower_276","276","U-Tower",16,125,135,"2+2","111111111111111"],["utower_298","298","U-Tower",17,85,95,"Студия","111111111100000"],["utower2_296","296","U-Tower",17,120,125,"2+1","110011111111110"],["utower_310","310","U-Tower",18,85,95,"Студия","111101000000001"],["utower_326","326","U-Tower",19,85,95,"Студия","111111111000000"],["utower_400","400","U-Tower",23,150,165,"Студия","111110111111111"]],
- "ops":[["kislorod_49","2026-10-02","Андрей Овчиников",200,30,true,"done",true,"15:00","12:00",2],["kislorod_49","2026-09-30","Davron",105,105,true,"needed",true,"15:00","12:00",2],["utower_171","2026-10-02","Мансур",190,0,false,"needed",false,"","",2],["utower_171","2026-10-04","Vlagyimir",170,0,false,"needed",false,"","",1],["utower_171","2026-10-06","Бобур",85,0,false,"needed",false,"","",2]],
- "staff":["Хакима","Хамида","Хилола","Лобар"], "bookers":["Дилноза","Азиз"]};
-const TODAY='2026-10-07';
-const DAYS=[...Array(15)].map((_,i)=>{const d=new Date(DATA.d0+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10)});
+// ---------- живые данные (admin-api ?a=map) ----------
+const SB_URL='https://sebvfvtofiysbywxjqut.supabase.co', SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const tashNow=()=>new Date(Date.now()+5*3600e3);
+const TODAY=tashNow().toISOString().slice(0,10);
+let DATA={d0:TODAY,apts:[],bookings:[],cleaning:[],staff:[],ops:[],bookers:[]};
+let DAYS=[...Array(15)].map((_,i)=>{const d=new Date(TODAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10)});
+async function token(){const {data:{session}}=await sb.auth.getSession();return session?session.access_token:null}
+async function api(p){const t=await token();if(!t){showLogin();throw new Error('no session')}const r=await fetch('/.netlify/functions/admin-api?'+new URLSearchParams(p),{headers:{Authorization:'Bearer '+t}});const j=await r.json().catch(()=>({error:'bad json'}));if(!r.ok||j.error){if(r.status===401)showLogin();throw new Error(j.error||r.status)}return j}
+function showLogin(){document.getElementById('login').style.display='block';document.getElementById('hdr').style.display='none';document.querySelector('main').style.display='none'}
+async function login(){const er=document.getElementById('loginErr');er.textContent='';const {error}=await sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value});if(error){er.textContent='Не удалось войти: '+error.message;return}location.reload()}
+async function loadData(){
+  const j=await api({a:'map',d0:TODAY,days:15});
+  DATA={d0:j.d0,apts:j.apts.map(a=>[a.id,a.no,a.complex,a.floor,a.wd,a.we,a.rooms||'',a.bits,a.tracked,a.ical_ok]),bookings:j.bookings,cleaning:j.cleaning,staff:j.staff.map(s=>s.name),ops:j.ops,bookers:[]};
+  document.getElementById('upd').textContent='● данные '+tashNow().toISOString().slice(11,16);
+  layout(); renderSide(true);
+}
 const DN=['вс','пн','вт','ср','чт','пт','сб'];
 const fmt=d=>{const x=new Date(d+'T00:00:00Z');return x.getUTCDate()+'.'+String(x.getUTCMonth()+1).padStart(2,'0')+' '+DN[x.getUTCDay()]};
 const NAMES=['Алишер','Марина','Sardor','Елена','Timur','Ольга','Jasur','Дмитрий','Nilufar','Анна','Bekzod','Ирина','Farrux','Светлана','Otabek','Камила'];
 const h=s=>{let x=0;for(const c of s)x=(x*31+c.charCodeAt(0))>>>0;return x};
-const tm=s=>{const [a,b]=s.split(':');return (+a)*60+(+b)};
+const tm=(s,def)=>{const m=String(s||'').match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):(def==null?15*60:def)};
 const hm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(Math.floor(m%60)).padStart(2,'0');
 const lerp=(a,b,t)=>a+(b-a)*t, clamp=(x,a,b)=>Math.max(a,Math.min(b,x)), ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-let sel=null, di=DAYS.indexOf(TODAY), demo=true, T=7*60, playing=true, speed=3, sound=false, wxMode='auto', camX=0;
+let sel=null, di=0, demo=false, T=tashNow().getUTCHours()*60+tashNow().getUTCMinutes(), playing=true, speed=0, sound=false, wxMode='auto', camX=0;
 const CLEAN_MIN=75;
 
-/* ---------- состояние квартиры ---------- */
+/* ---------- состояние квартиры (по базе) ---------- */
 function state(a,i,t){
-  const bits=a[7]; const busy=bits[i]==='1', prev=i>0?bits[i-1]==='1':busy;
-  const checkin=busy&&!prev, checkout=!busy&&prev, turnover=checkout&&checkin;
-  let s=i,e=i; if(busy){while(s>0&&bits[s-1]==='1')s--; while(e<14&&bits[e+1]==='1')e++;}
-  const ops=DATA.ops.filter(o=>o[0]===a[0]&&o[1]<=DAYS[i]).sort((x,y)=>y[1]<x[1]?-1:1)[0];
-  const seed=h(a[0]+DAYS[s]); const nights=busy?e-s+1:0; const price=busy?Math.round(nights*((a[4]*5+a[5]*2)/7)):0;
+  const d=DAYS[i]; const bits=a[7]; const busy=bits[i]==='1', prev=i>0?bits[i-1]==='1':busy;
+  const bks=DATA.bookings.filter(b=>b.apartment_id===a[0]);
+  const cur=bks.find(b=>b.check_in<=d&&b.check_out>d)||null, outB=bks.find(b=>b.check_out===d)||null, inB=bks.find(b=>b.check_in===d)||null;
+  const checkin=busy&&(inB?true:!prev), checkout=(outB?true:(!busy&&prev)), turnover=checkout&&checkin;
+  let s=i,e=i; if(busy){while(s>0&&bits[s-1]==='1')s--; while(e<DAYS.length-1&&bits[e+1]==='1')e++;}
+  const nights=busy?(cur?cur.nights:e-s+1):0; const price=busy?(cur&&cur.total_price!=null&&(cur.currency||'USD')==='USD'?Math.round(cur.total_price):Math.round(nights*((a[4]*5+a[5]*2)/7))):0;
   let guest=null;
   if(busy){
-    if(ops&&ops[2]&&ops[1]>=DAYS[Math.max(0,s-1)]) guest={name:ops[2],total:ops[3],paid:ops[4],passport:ops[5],reg:ops[6],cit:ops[8]||'15:00',cot:ops[9]||'12:00',guests:ops[10],real:true};
-    else if(demo) guest={name:NAMES[seed%NAMES.length],total:price,paid:[price,price,Math.round(price*.5),0][seed%4],passport:seed%5!==0,reg:seed%4===0?'needed':'done',cit:['14:00','15:00','16:30','18:00'][seed%4],cot:'12:00',guests:1+seed%3,real:false};
-    else guest={name:'Гость (RC)',total:null,paid:null,passport:null,reg:null,cit:'15:00',cot:'12:00',guests:null,real:true};
+    if(cur){ const op=DATA.ops.find(o=>o.apartment_id===a[0]&&o.date===cur.check_in)||{};
+      guest={name:cur.guest_name||'Гость',total:(cur.currency||'USD')==='USD'?cur.total_price:null,paid:cur.paid||0,debt:cur.debt||0,passport:op.passport==null?null:!!op.passport,reg:op.registration||null,cit:cur.arrival_time||op.checkin_time||'15:00',cot:cur.departure_time||op.checkout_time||'12:00',guests:cur.guests_count||op.guests||null,real:true,status:cur.status,id:cur.id,src:cur.channel||cur.source,checked_in:cur.checked_in||op.checked_in||false}; }
+    else guest={name:a[8]===false?'Гость (RC партнёра)':'Гость (RC)',total:null,paid:null,debt:0,passport:null,reg:null,cit:'15:00',cot:'12:00',guests:null,real:true};
   }
-  const cot=checkout?11*60+(h(a[0]+DAYS[i]+'o')%4)*30:null, cit=checkin?(guest?tm(guest.cit):15*60):null;
-  const cstart=cot!=null?cot+10+(h(a[0]+'m')%40):null, cend=cstart!=null?cstart+CLEAN_MIN:null;
-  const maid=DATA.staff[h(a[0]+DAYS[i])%DATA.staff.length];
+  const cot=checkout?tm(outB&&outB.departure_time,12*60):null, cit=checkin?tm(guest&&guest.cit,15*60):null;
+  // уборка: задача HK-бота на дату выезда; без задачи — план через 10 минут после выезда
+  const task=DATA.cleaning.find(c=>c.apartment_id===a[0]&&c.date===d)||null;
+  const doneAt=task&&task.done&&task.done_at?tm(new Date(new Date(task.done_at).getTime()+5*3600e3).toISOString().slice(11,16)):null;
+  const inProg=task&&!task.done&&/progress|start|идет|идёт|уборк/i.test(task.hk_status||'');
+  const cstart=checkout?(doneAt!=null?Math.max(cot,doneAt-CLEAN_MIN):cot+10):null, cend=checkout?(doneAt!=null?doneAt:cstart+CLEAN_MIN):null;
+  const maid=task&&task.hk_maid?task.hk_maid:(DATA.staff.length?DATA.staff[h(a[0]+d)%DATA.staff.length]+' (план)':'—');
   let phase,sub,prog=0;
   if(checkout&&t<cot){phase='leaving';sub='выезд в '+hm(cot)}
-  else if(checkout&&t<cstart){phase='dirty';sub='ждёт уборку'}
-  else if(checkout&&t<cend){phase='cleaning';sub='убирает '+maid;prog=(t-cstart)/CLEAN_MIN}
+  else if(checkout&&doneAt==null&&!inProg&&t<cstart){phase='dirty';sub='ждёт уборку'}
+  else if(checkout&&doneAt==null&&(inProg||t<cend)){phase='cleaning';sub='убирает '+maid;prog=inProg?0.5:(t-cstart)/CLEAN_MIN}
   else if(checkin&&t<cit){phase='ready';sub='заезд в '+hm(cit)}
   else if(busy){phase='live';sub=checkin&&t<cit+60?'заехал':(e===i?'выезд завтра':nights+' н.')}
-  else if(checkout){phase='cleaned';sub='убрано'}
+  else if(checkout){phase='cleaned';sub='убрано'+(doneAt!=null?' '+hm(doneAt):'')}
   else{phase='free';sub='свободно'}
-  const checked=busy&&(!checkin||t>=cit);
-  return {busy,checkin,checkout,turnover,s,e,nights,price,guest,phase,sub,prog,cot,cit,cstart,cend,maid,checked};
+  const checked=busy&&(guest&&guest.checked_in||!checkin||t>=cit);
+  return {busy,checkin,checkout,turnover,s,e,nights,price,guest,phase,sub,prog,cot,cit,cstart,cend,maid,checked,task};
 }
 const PH={free:'#2f6f4e',live:'#3f7fc4',leaving:'#c47a2c',dirty:'#b3561e',cleaning:'#3ab0c4',ready:'#4fcf7a',cleaned:'#4fcf7a'};
 
@@ -182,8 +205,8 @@ function draw(){
   // земля и дорога
   ctx.fillStyle=mix('#1f2b22',S.top,.3); ctx.fillRect(0,GROUND(),W,H-GROUND()); ctx.fillStyle='#262a30'; ctx.fillRect(0,ROAD()-10,W,36); ctx.strokeStyle='#d7c26a'; ctx.setLineDash([18,16]); ctx.lineDashOffset=-(performance.now()/40)%34; ctx.beginPath(); ctx.moveTo(0,ROAD()+8); ctx.lineTo(W,ROAD()+8); ctx.stroke(); ctx.setLineDash([]);
   // источники лидов + CRM + касса
-  drawPill(70,24,'Директ','#f33',leadsCount.direct); drawPill(170,24,'Meta','#4a7cff',leadsCount.meta); drawPill(270,24,'Google','#34a853',leadsCount.google);
-  drawPill(W/2,34,'CRM · лиды → брони '+leadsCount.booked,'#c9a45c',null,true); drawPill(W-120,30,'Касса  $'+revenue.toLocaleString('ru'),'#4fcf7a',null,true);
+  if(demo){drawPill(70,24,'Директ','#f33',leadsCount.direct); drawPill(170,24,'Meta','#4a7cff',leadsCount.meta); drawPill(270,24,'Google','#34a853',leadsCount.google); drawPill(W/2,34,'CRM · лиды → брони '+leadsCount.booked,'#c9a45c',null,true);}
+  drawPill(W-130,30,'Оплачено сегодня  $'+dayCash().toLocaleString('ru'),'#4fcf7a',null,true);
   // здания
   WINS.length=0;
   for(const b of BUILD){ const x=bx(b); if(x+b.w+b.depth<0||x>W)continue; const top=GROUND()-b.h;
@@ -197,7 +220,7 @@ function draw(){
       ctx.fillStyle=lit?'#ffd27a':c; if(st.phase==='cleaning'){const k=.6+.4*Math.sin(performance.now()/180); ctx.fillStyle=mix('#3ab0c4','#bff3ff',k*.5);} if(st.phase==='ready'&&st.checkin){const k=.5+.5*Math.sin(performance.now()/300); ctx.fillStyle=mix('#4fcf7a','#dfffe9',k*.5);}
       if(lit){ctx.save();ctx.shadowBlur=10;ctx.shadowColor='#ffd27a';} ctx.fillRect(r.x,r.y,r.w,r.h); if(lit)ctx.restore();
       if(st.phase==='cleaning'){ctx.fillStyle='#fff';ctx.fillRect(r.x,r.y+r.h-2,r.w*st.prog,2);}
-      if(st.guest&&st.checked&&st.guest.total!=null&&st.guest.paid<st.guest.total){ctx.fillStyle='#ff5252';ctx.beginPath();ctx.arc(r.x+r.w-3,r.y+3,2.2+Math.sin(performance.now()/250),0,7);ctx.fill();}
+      if(st.guest&&st.checked&&st.guest.debt>0&&st.guest.src!=='rc'){ctx.fillStyle='#ff5252';ctx.beginPath();ctx.arc(r.x+r.w-3,r.y+3,2.2+Math.sin(performance.now()/250),0,7);ctx.fill();}
       else if(st.guest&&st.checked&&st.guest.reg==='needed'){ctx.fillStyle='#ffd54f';ctx.fillRect(r.x+r.w-5,r.y+1,4,4);}
       if(sel===a[0]){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(r.x-1.5,r.y-1.5,r.w+3,r.h+3);}
       ctx.fillStyle='rgba(255,255,255,.75)'; ctx.font='8px sans-serif'; ctx.textAlign='center'; ctx.fillText(a[1],r.x+r.w/2,r.y+r.h-2);
@@ -236,12 +259,13 @@ function drawFire(){ for(const f of fire){ for(const p of f.p){ ctx.globalAlpha=
 function fireEvents(a,st,b,r){
   const key=a[0]+DAYS[di]; const n=a[2].replace(' Residence','').replace(' Towers','')+' '+a[1];
   const once=(k,fn)=>{ if(!fired.has(key+k)){fired.add(key+k);fn();} };
-  if(st.checkout&&T>=st.cot) once('out',()=>{ spawnGuest(b,r,'out',st.guest?st.guest.name:'гость',false); announce('Выезд',n+' — ждёт уборку','out'); });
-  if(st.checkout&&T>=st.cstart) once('cl',()=>{ spawnMaid(b,r,st.maid); announce('Уборка',n+' — '+st.maid,'clean'); });
+  if(st.checkout&&T>=st.cot) once('out',()=>{ if(demo)spawnGuest(b,r,'out',st.guest?st.guest.name:'гость',false); announce('Выезд',n+' — ждёт уборку','out'); });
+  if(st.checkout&&T>=st.cstart) once('cl',()=>{ if(demo)spawnMaid(b,r,st.maid); announce('Уборка',n+' — '+st.maid,'clean'); });
   if(st.checkout&&T>=st.cend) once('cd',()=>{ announce('Убрано ✓',n+(st.checkin?' — готово к заезду в '+hm(st.cit):''),'clean'); ents=ents.filter(e=>!(e.kind==='maid'&&e.b===b&&e.name===st.maid)); });
-  if(st.checkin&&T>=st.cit) once('in',()=>{ const g=st.guest; spawnGuest(b,r,'in',g?g.name:'гость',true); const pay=g&&g.total!=null?g.paid:Math.round((a[4]*5+a[5]*2)/7); if(pay>0){spawnCoin(r.x,r.y,pay); revenue+=pay; beep('coin');} announce('Заезд',n+(g?' — '+g.name:'')+(g&&g.total!=null&&g.paid<g.total?' · <span class="demo">долг $'+(g.total-g.paid)+'</span>':''),'in'); });
+  if(st.checkin&&T>=st.cit) once('in',()=>{ const g=st.guest; if(demo)spawnGuest(b,r,'in',g?g.name:'гость',true); const pay=g&&g.total!=null?g.paid:Math.round((a[4]*5+a[5]*2)/7); if(demo&&pay>0){spawnCoin(r.x,r.y,pay); beep('coin');} announce('Заезд',n+(g?' — '+g.name:'')+(g&&g.debt>0&&g.src!=='rc'?' · <span class="demo">остаток $'+Math.round(g.debt)+'</span>':''),'in'); });
 }
 let leadTimer=0, recordDone=false;
+function dayCash(){ return Math.round(DATA.bookings.filter(b=>b.check_in===DAYS[di]&&(b.currency||'USD')==='USD').reduce((s,b)=>s+(b.paid||0),0)); }
 function simStep(dtMin){
   // лиды: с 9 до 23 — в среднем каждые 25 сим-минут
   leadTimer+=dtMin; const hr=T/60; if(demo&&hr>9&&hr<23&&leadTimer>18+Math.random()*14){leadTimer=0; spawnLead(); beep('lead');}
@@ -256,7 +280,7 @@ function simStep(dtMin){
   leads=leads.filter(l=>l.phase==='fly');
   for(const f of fire)f.t+=k*1.5; fire=fire.filter(f=>f.t<1);
   // рекорд загрузки → фейерверк
-  const live=DATA.apts.filter(a=>state(a,di,T).busy).length; if(!recordDone&&live/DATA.apts.length>=0.95){recordDone=true; for(let i=0;i<5;i++)setTimeout(()=>firework(),i*350); announce('Рекорд','загрузка '+Math.round(100*live/DATA.apts.length)+'% 🎉','fw');}
+  const live=DATA.apts.filter(a=>state(a,di,T).busy).length; if(demo&&!recordDone&&DATA.apts.length&&live/DATA.apts.length>=0.95){recordDone=true; for(let i=0;i<5;i++)setTimeout(()=>firework(),i*350); announce('Рекорд','загрузка '+Math.round(100*live/DATA.apts.length)+'% 🎉','fw');}
 }
 function firework(){ const x=100+Math.random()*(W-200), y=80+Math.random()*120; const cols=['#ffd54f','#ff7a7a','#7fd3ff','#c9a45c','#dfffe9']; fire.push({x,y,t:0,p:[...Array(36)].map((_,i)=>({vx:Math.cos(i/36*6.283)*(1+Math.random()),vy:Math.sin(i/36*6.283)*(1+Math.random()),c:cols[i%5]}))}); }
 
@@ -264,8 +288,8 @@ function firework(){ const x=100+Math.random()*(W-200), y=80+Math.random()*120; 
 const kprev={};
 function kpis(){
   let k={live:0,in:0,out:0,clean:0,ready:0,debt:0,reg:0,rev:0};
-  for(const a of DATA.apts){const st=state(a,di,T); if(st.busy)k.live++; if(st.checkin)k.in++; if(st.checkout)k.out++; if(st.phase==='cleaning')k.clean++; if(st.phase==='ready'||st.phase==='cleaned')k.ready++; if(st.guest&&st.checked&&st.guest.total!=null&&st.guest.paid<st.guest.total)k.debt++; if(st.guest&&st.checked&&st.guest.reg==='needed')k.reg++; if(st.busy)k.rev+=Math.round((a[4]*5+a[5]*2)/7);}
-  const kp=[['Загрузка',Math.round(100*k.live/DATA.apts.length)+'%',k.live+' из '+DATA.apts.length],['Заезды',k.in,'сегодня'],['Выезды',k.out,'сегодня'],['Убирается',k.clean,'сейчас'],['Готово',k.ready,'к заезду'],['Долги',k.debt,'гостей'],['Без регистр.',k.reg,'гостей'],['Лиды → брони',leadsCount.direct+leadsCount.meta+leadsCount.google+' → '+leadsCount.booked,'сегодня (демо)'],['Выручка/день','$'+k.rev,'по прайсу']];
+  for(const a of DATA.apts){const st=state(a,di,T); if(st.busy)k.live++; if(st.checkin)k.in++; if(st.checkout)k.out++; if(st.phase==='cleaning')k.clean++; if(st.phase==='ready'||st.phase==='cleaned')k.ready++; if(st.guest&&st.checked&&st.guest.debt>0&&st.guest.src!=='rc')k.debt++; if(st.guest&&st.checked&&st.guest.reg==='needed')k.reg++; if(st.busy)k.rev+=st.guest&&st.guest.total!=null&&st.nights?Math.round(st.guest.total/st.nights):Math.round((a[4]*5+a[5]*2)/7);}
+  const kp=[['Загрузка',Math.round(100*k.live/DATA.apts.length)+'%',k.live+' из '+DATA.apts.length],['Заезды',k.in,'сегодня'],['Выезды',k.out,'сегодня'],['Убирается',k.clean,'сейчас'],['Готово',k.ready,'к заезду'],['Долги',k.debt,'гостей'],['Без регистр.',k.reg,'гостей'],...(demo?[['Лиды → брони',leadsCount.direct+leadsCount.meta+leadsCount.google+' → '+leadsCount.booked,'сегодня (шоу)']]:[]),['Начислено/день','$'+k.rev,'по проданным ночам']];
   const kd=document.getElementById('kpis'); if(kd.children.length!==kp.length)kd.innerHTML=kp.map(()=>'<div class="kpi"><b></b><span></span></div>').join('');
   kp.forEach((x,i)=>{const c=kd.children[i]; if(c.querySelector('b').textContent!==String(x[1])){c.querySelector('b').textContent=x[1];c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');} c.querySelector('span').textContent=x[0]+' · '+x[2];});
 }
@@ -274,20 +298,20 @@ function renderSide(force){
   const key=sel+'|'+di+'|'+Math.floor(T/5)+'|'+demo; if(!force&&key===sideKey)return; sideKey=key;
   const side=document.getElementById('side'); const a=DATA.apts.find(x=>x[0]===sel); const R=(l,v)=>'<div class="row"><span>'+l+'</span><span>'+v+'</span></div>';
   let html='';
-  if(!a){ html='<h2>Город на '+fmt(DAYS[di])+'</h2><div class="sub">Клик по окну — карточка квартиры. Сутки идут сами: выезд → уборка → готово → заезд; лиды прилетают из рекламы и становятся бронями.</div>'; }
+  if(!a){ html='<h2>Город на '+fmt(DAYS[di])+'</h2><div class="sub">Клик по окну — карточка квартиры. Цвета: синий — живут, оранжевый — выезд/ждёт уборку, бирюзовый — убирается, зелёный — готово/свободно. Красная точка — остаток по оплате, жёлтый квадрат — нужна регистрация.</div>'; }
   else { const st=state(a,di,T), g=st.guest;
     html='<h2>'+a[2]+' · '+a[1]+'</h2><div class="sub">'+a[3]+' этаж · '+a[6]+' · '+a[4]+'$/'+a[5]+'$ · <a style="color:var(--gold)" href="https://urbanluxe.cc/apartments/'+a[0]+'" target="_blank">страница</a></div>';
     html+='<div class="tl">'+DAYS.map((d,i)=>'<i class="'+(a[7][i]==='1'?'b':'')+(i===di?' t':'')+'" title="'+fmt(d)+'"></i>').join('')+'</div><div class="sub">15 дней: синее — занято (RC)</div>'+R('Сейчас','<span class="chip">'+st.sub+'</span>');
-    if(st.busy&&g){const dm=g.real?'':' <span class="demo">(демо)</span>'; html+=R('Гость',g.name+dm)+R('Проживание',fmt(DAYS[st.s])+' → '+fmt(DAYS[Math.min(14,st.e+1)])+' · '+st.nights+' н.')+R('Гостей',g.guests??'—')+R('Заезд / выезд',g.cit+' / '+g.cot);
-      if(g.total!=null){const left=g.total-g.paid; html+=R('Стоимость','$'+g.total)+R('Оплачено','$'+g.paid+' '+(left>0?'<span class="chip bad">долг $'+left+'</span>':'<span class="chip ok">закрыто</span>'));} else html+=R('Оплата','<span class="chip">нет данных</span>');
+    if(st.busy&&g){const dm=g.id?' <a style="color:var(--gold)" href="/pms#booking='+g.id+'" target="_blank">в PMS</a>':''; html+=R('Гость',g.name+dm)+R('Проживание',fmt(DAYS[st.s])+' → '+fmt(DAYS[Math.min(14,st.e+1)])+' · '+st.nights+' н.')+R('Гостей',g.guests??'—')+R('Заезд / выезд',g.cit+' / '+g.cot);
+      if(g.total!=null){const left=Math.round(g.debt||0); html+=R('Стоимость','$'+Math.round(g.total))+R('Оплачено','$'+Math.round(g.paid)+' '+(left>0?(g.src==='rc'?'<span class="chip">остаток $'+left+' (RC)</span>':'<span class="chip bad">остаток $'+left+'</span>'):'<span class="chip ok">закрыто</span>'));} else html+=R('Оплата','<span class="chip">нет данных</span>');
       html+=R('Паспорт',g.passport==null?'—':(g.passport?'<span class="chip ok">получен</span>':'<span class="chip bad">нет</span>'))+R('Регистрация',g.reg==null?'—':(g.reg==='done'?'<span class="chip ok">сделана</span>':'<span class="chip warn">нужна</span>'))+R('Заселился',st.checked?'<span class="chip ok">да</span>':'<span class="chip warn">ждём '+hm(st.cit)+'</span>'); }
-    if(st.checkout) html+=R('Уборка',(st.phase==='cleaning'?'<span class="chip warn">идёт · '+Math.round(st.prog*100)+'%</span>':(st.phase==='leaving'||st.phase==='dirty')?'<span class="chip bad">план '+hm(st.cstart)+'</span>':'<span class="chip ok">убрано '+hm(st.cend)+'</span>')+' · '+st.maid+' <span class="demo">(демо)</span>');
+    if(st.checkout) html+=R('Уборка',(st.phase==='cleaning'?'<span class="chip warn">идёт · '+Math.round(st.prog*100)+'%</span>':(st.phase==='leaving'||st.phase==='dirty')?'<span class="chip bad">план '+hm(st.cstart)+'</span>':'<span class="chip ok">убрано '+hm(st.cend)+'</span>')+' · '+st.maid);
   }
   // команда
-  html+='<h4>Команда сейчас <span class="demo">(демо)</span></h4>';
-  for(const m of DATA.staff){ const job=DATA.apts.map(x=>[x,state(x,di,T)]).find(([x,s])=>s.phase==='cleaning'&&s.maid===m); const next=DATA.apts.map(x=>[x,state(x,di,T)]).filter(([x,s])=>s.checkout&&s.maid===m&&s.cstart>T).sort((p,q)=>p[1].cstart-q[1].cstart)[0];
-    html+='<div class="person"><div class="av'+(job?' busy':'')+'">🧹</div><div><b>'+m+'</b> <span class="say">'+(job?'убирает '+job[0][2].split(' ')[0]+' '+job[0][1]+' · '+Math.round(job[1].prog*100)+'%':next?'следующая: '+next[0][2].split(' ')[0]+' '+next[0][1]+' в '+hm(next[1].cstart):'свободна')+'</span></div></div>'; }
-  for(const bk of DATA.bookers){ const hr=T/60; html+='<div class="person"><div class="av'+(hr>9&&hr<22?' busy':'')+'">💬</div><div><b>'+bk+'</b> <span class="say">'+(hr>9&&hr<22?['отвечает лиду из Директа','подтверждает заезд','высылает код от двери','договаривается о позднем выезде'][Math.floor(T/37)%4]:'не в смене')+'</span></div></div>'; }
+  html+='<h4>Горничные (бот уборок)</h4>';
+  for(const m of DATA.staff){ const job=DATA.apts.map(x=>[x,state(x,di,T)]).find(([x,s])=>s.phase==='cleaning'&&String(s.maid).startsWith(m)); const next=DATA.apts.map(x=>[x,state(x,di,T)]).filter(([x,s])=>s.checkout&&String(s.maid).startsWith(m)&&s.cstart>T).sort((p,q)=>p[1].cstart-q[1].cstart)[0];
+    html+='<div class="person"><div class="av'+(job?' busy':'')+'">🧹</div><div><b>'+m+'</b> <span class="say">'+(job?'убирает '+job[0][2].split(' ')[0]+' '+job[0][1]:next?'следующая: '+next[0][2].split(' ')[0]+' '+next[0][1]+' в '+hm(next[1].cstart):'без задач')+'</span></div></div>'; }
+  for(const bk of (demo?['бронер']:[])){ const hr=T/60; html+='<div class="person"><div class="av'+(hr>9&&hr<22?' busy':'')+'">💬</div><div><b>'+bk+'</b> <span class="say">'+(hr>9&&hr<22?['отвечает лиду из Директа','подтверждает заезд','высылает код от двери','договаривается о позднем выезде'][Math.floor(T/37)%4]:'не в смене')+'</span></div></div>'; }
   // лента
   const items=[]; for(const x of (a?[a]:DATA.apts)){const st=state(x,di,T); const n=x[2].replace(' Residence','').replace(' Towers','')+' '+x[1]; if(st.checkout){items.push([st.cot,'выезд · '+n]);items.push([st.cstart,'уборка · '+n+' · '+st.maid]);items.push([st.cend,'убрано · '+n]);} if(st.checkin)items.push([st.cit,'заезд · '+n+(st.guest?' · '+st.guest.name:'')]);}
   items.sort((p,q)=>p[0]-q[0]); html+='<h4>Лента дня · '+fmt(DAYS[di])+'</h4>'+(items.length?items.map(i=>'<div class="ev'+(i[0]>T?' future':'')+'"><time>'+hm(i[0])+'</time><span>'+i[1]+'</span></div>').join(''):'<div class="ev">событий нет</div>');
@@ -296,25 +320,36 @@ function renderSide(force){
 
 /* ---------- цикл ---------- */
 let last=performance.now();
-function loop(now){ const dt=(now-last)/1000; last=now; if(playing){const dtMin=dt*speed*24; T+=dtMin; if(T>=1440){T-=1440; fired.clear(); recordDone=false; ents=[]; leadsCount={direct:0,meta:0,google:0,booked:0}; revenue=0;} simStep(dtMin);}
+function loop(now){ const dt=(now-last)/1000; last=now; if(playing){const dtMin=speed===0?dt/60:dt*speed*24; T+=dtMin; if(T>=1440){T-=1440; fired.clear(); recordDone=false; ents=[]; leadsCount={direct:0,meta:0,google:0,booked:0}; revenue=0; if(speed!==0&&di<DAYS.length-1){di++; document.querySelectorAll('.day').forEach(x=>x.classList.toggle('on',+x.dataset.i===di));}} simStep(dtMin);}
   document.getElementById('clock').textContent=hm(T); document.getElementById('clockd').textContent=fmt(DAYS[di])+(DAYS[di]===TODAY?' · сегодня':'');
   draw(); if(Math.floor(now/400)!==Math.floor((now-dt*1000)/400)){kpis(); renderSide(false);} requestAnimationFrame(loop); }
 function resetDay(){ fired.clear(); ents=[]; coins=[]; leads=[]; fire=[]; recordDone=false; leadsCount={direct:0,meta:0,google:0,booked:0}; revenue=0; T=7*60; }
 document.getElementById('days').innerHTML=DAYS.map((d,i)=>'<span class="day'+(i===di?' on':'')+(d===TODAY?' today':'')+'" data-i="'+i+'">'+fmt(d)+'</span>').join('');
 document.addEventListener('click',e=>{
-  const d=e.target.closest('.day'); if(d){di=+d.dataset.i; resetDay(); document.querySelectorAll('.day').forEach(x=>x.classList.toggle('on',+x.dataset.i===di)); loadWeather(); renderSide(true); return;}
-  const sp=e.target.closest('[data-sp]'); if(sp){speed=+sp.dataset.sp; document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('on',+x.dataset.sp===speed));}
+  const d=e.target.closest('.day'); if(d){di=+d.dataset.i; resetDay(); if(DAYS[di]===TODAY&&speed===0){const n=tashNow();T=n.getUTCHours()*60+n.getUTCMinutes();} document.querySelectorAll('.day').forEach(x=>x.classList.toggle('on',+x.dataset.i===di)); loadWeather(); renderSide(true); return;}
+  const sp=e.target.closest('[data-sp]'); if(sp){speed=+sp.dataset.sp; if(speed===0){const n=tashNow();di=DAYS.indexOf(TODAY);T=n.getUTCHours()*60+n.getUTCMinutes();document.querySelectorAll('.day').forEach(x=>x.classList.toggle('on',+x.dataset.i===di));} document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('on',+x.dataset.sp===speed));}
 });
 cv.addEventListener('click',e=>{ const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top; const w=WINS.find(q=>x>=q.x&&x<=q.x+q.w&&y>=q.y&&y<=q.y+q.h); sel=w?(sel===w.id?null:w.id):null; renderSide(true); });
 let drag=null; cv.addEventListener('mousedown',e=>{drag={x:e.clientX,c:camX}}); window.addEventListener('mousemove',e=>{if(drag){camX=clamp(drag.c+(e.clientX-drag.x),Math.min(0,W-SCENE_W),0);}}); window.addEventListener('mouseup',()=>drag=null);
 cv.addEventListener('wheel',e=>{camX=clamp(camX-e.deltaY*.6-e.deltaX,Math.min(0,W-SCENE_W),0); e.preventDefault();},{passive:false});
 document.getElementById('play').onclick=e=>{playing=!playing;e.target.textContent=playing?'⏸':'▶';e.target.classList.toggle('on',playing)};
-document.getElementById('now').onclick=()=>{const n=new Date(Date.now()+5*3600e3); resetDay(); T=n.getUTCHours()*60+n.getUTCMinutes();};
+document.getElementById('now').onclick=()=>{const n=tashNow(); resetDay(); di=DAYS.indexOf(TODAY); T=n.getUTCHours()*60+n.getUTCMinutes(); speed=0; document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('on',+x.dataset.sp===0)); document.querySelectorAll('.day').forEach(x=>x.classList.toggle('on',+x.dataset.i===di)); renderSide(true);};
+document.getElementById('reload').onclick=()=>loadData().catch(e=>announce('Ошибка',e.message,'out'));
 document.getElementById('snd').onclick=e=>{sound=!sound;e.target.textContent=sound?'🔊 звук':'🔇 звук';e.target.classList.toggle('on',sound); if(sound)beep('in');};
 document.getElementById('wx').onclick=()=>{wxMode={auto:'clear',clear:'cloud',cloud:'rain',rain:'auto'}[wxMode]; weather.p=[]; updWx();};
 document.getElementById('demo').addEventListener('change',e=>{demo=e.target.checked; renderSide(true);});
 window.addEventListener('resize',()=>{layout();}); new ResizeObserver(()=>{const w=cv.parentElement.getBoundingClientRect().width; if(Math.abs(w-W)>2)layout();}).observe(cv.parentElement);
-layout(); loadWeather(); renderSide(true); requestAnimationFrame(loop);
+(async()=>{
+  const tk=new URLSearchParams(location.search).get('tk'); if(tk){history.replaceState(null,'',location.pathname); await sb.auth.verifyOtp({token_hash:tk,type:'magiclink'}).catch(()=>{});}
+  const {data:{session}}=await sb.auth.getSession(); if(!session){showLogin();return}
+  layout(); loadWeather();
+  try{ await loadData(); }catch(e){ announce('Ошибка',e.message,'out'); }
+  renderSide(true); requestAnimationFrame(loop);
+  setInterval(()=>loadData().catch(()=>{}),60000);
+  const t=await token(); if(t)sb.realtime.setAuth(t);
+  let rt=null; const bump=()=>{clearTimeout(rt); rt=setTimeout(()=>loadData().catch(()=>{}),1500);};
+  sb.channel('map').on('postgres_changes',{event:'*',schema:'public',table:'bookings'},bump).on('postgres_changes',{event:'*',schema:'public',table:'cleaning_tasks'},bump).on('postgres_changes',{event:'*',schema:'public',table:'daily_ops'},bump).subscribe();
+})();
 </script>
 </body>
 </html>
