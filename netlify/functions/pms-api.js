@@ -53,19 +53,28 @@ const CAN = {
   ops: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 1, guests_write: 0, status_only: 1 },
   partner: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 0 }
 };
+// 14.10.2026: вход кэшируется на тёплом инстансе функции (токен → пользователь, 2 мин). Раньше каждый вызов API делал
+// 4 последовательных запроса к Supabase (auth → app_users → organizations → rpc) — при функциях в США и базе во Франкфурте
+// это ~1 с на каждый клик. Теперь 1 раз на 2 минуты; org и доступ к квартирам грузятся параллельно.
+const AUTH_CACHE = new Map(); const AUTH_TTL = 120000;
 async function auth(event) {
   const h = event.headers || {};
   const tok = ((h.authorization || h.Authorization || '').match(/^Bearer\s+(.+)$/i) || [])[1];
   if (!tok) return null;
+  const hit = AUTH_CACHE.get(tok); if (hit && hit.exp > Date.now()) return hit.user;
   const r = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: ANON, Authorization: 'Bearer ' + tok } });
   if (!r.ok) return null;
   const u = await r.json(); if (!u || !u.email) return null;
   const rows = await q('app_users?select=*&email=eq.' + enc(u.email.toLowerCase()));
   if (!rows.length || rows[0].is_active === false) return null;
   const me = rows[0];
-  const org = (await q('organizations?select=id,name,short,slug,logo_url&id=eq.' + (me.org_id || 1)))[0] || { id: 1, name: 'Urban Luxe', short: 'UL' };
-  const access = {}; (await q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: org.id }) })).forEach(x => access[x.apartment_id] = x.mode);
-  return { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {}, org, access };
+  const [orgRows, accRows] = await Promise.all([q('organizations?select=id,name,short,slug,logo_url&id=eq.' + (me.org_id || 1)), q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: me.org_id || 1 }) })]);
+  const org = orgRows[0] || { id: 1, name: 'Urban Luxe', short: 'UL' };
+  const access = {}; accRows.forEach(x => access[x.apartment_id] = x.mode);
+  const user = { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {}, org, access };
+  if (AUTH_CACHE.size > 200) AUTH_CACHE.clear();
+  AUTH_CACHE.set(tok, { user, exp: Date.now() + AUTH_TTL });
+  return user;
 }
 // Видимость квартир: партнёр-собственник — свой список; остальные — квартиры своей организации + общие (apartment_access)
 const canSeeApt = (user, id) => user.role === 'partner' ? (user.apartment_ids || []).includes(id) : !!user.access[id];
@@ -312,6 +321,7 @@ async function authUserId(email) {
   return rows || null;
 }
 async function userSave(body, user) {
+  AUTH_CACHE.clear();
   const u = body.user || {};
   const email = String(u.email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Некорректный email');
@@ -344,6 +354,7 @@ async function userSave(body, user) {
   return users(user);
 }
 async function userLogoutAll(body, user) {
+  AUTH_CACHE.clear();
   const email = String(body.email || '').trim().toLowerCase(); if (!email) throw new Error('email');
   const n = await rpc('pms_logout_all', { p_email: email });
   await logEvent(null, 'user_logout_all', { email, sessions: n }, user);
