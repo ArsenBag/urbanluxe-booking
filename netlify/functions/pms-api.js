@@ -406,3 +406,4 @@ exports.handler = async (event) => {
 // 14.10.2026 (админка v4): admin-api.js переиспользует вход и «сегодня», чтобы не дублировать логику
 exports.authFor = auth;
 exports.todayFor = today;
+exports.usersFor = users; exports.userSaveFor = userSave; exports.userLogoutAllFor = userLogoutAll;

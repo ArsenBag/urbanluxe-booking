@@ -10,6 +10,14 @@
 // POST {a:'request_cancel', id, reason}   → cancelled + письмо гостю + TG
 // GET  ?a=kpi&month=2026-10               → { current, previous, series[13] } из adm_month_kpi (касса, начислено, загрузка, ADR, RevPAR)
 // GET  ?a=today                           → то же, что pms-api?a=today (заезды/выезды/живут/уборки/долги)
+// GET  ?a=occ14                           → загрузка на 14 дней по rate_calendar
+// GET  ?a=analytics&from=YYYY-MM-DD&to=   → adm_analytics за период (загрузка по ЖК/квартирам, ADR/RevPAR, источники, дни недели, длина проживания) + months[]
+// GET  ?a=ops_day&date=                   → лист дня (daily_ops c галочками) + заезды/выезды/живут/уборки/персонал; POST ops_toggle {id,key}, ops_patch {id,patch}, ops_add {date, apartment}
+// GET  ?a=map&d0=&days=                   → данные для карты /map (квартиры с занятостью, брони окна, уборки, персонал, лист)
+// GET  ?a=chat_list | ?a=chat_msgs&id= ; POST chat_send {id, text, email}   → чат с гостями (messages, conversation_id = bookings.id)
+// GET  ?a=staff_month&month= ; POST staff_save / attendance {staff_id,date} / staff_payment / staff_payment_delete
+// GET  ?a=pms_users ; POST pms_user_save {user} / pms_user_logout_all {email}  → доступы (общие с /pms)
+// GET  ?a=apt_list | ?a=apt&id=            → карточки сайта (этап 4); POST apt_save {apt}, apt_photos {id, photos[]} (порядок/обложка/удаление + превью thumbs/), checkin_save {apartment_id, content_ru/en/uz}
 //
 // GET  ?a=me
 // GET  ?a=dashboard                       → KPI текущего месяца + ряд 13 месяцев
@@ -67,6 +75,196 @@ async function occ14() {
   const act = new Set(apts.map(a => a.id)); const by = {};
   rows.forEach(r => { if (act.has(r.apartment_id)) by[r.date] = (by[r.date] || 0) + 1; });
   return { active: act.size, days: Array.from({ length: 14 }, (_, i) => { const d = T.tashToday(i); return { date: d, busy: by[d] || 0, pct: act.size ? Math.round(100 * (by[d] || 0) / act.size) : 0 }; }) };
+}
+
+// Аналитика за период (этап 2): adm_analytics(from,to) + помесячный ряд adm_month_kpi по месяцам периода (≤ 24)
+async function analytics(from, to) {
+  const okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+  if (!okD(from) || !okD(to) || to <= from) throw Object.assign(new Error('Период: from/to в формате YYYY-MM-DD, to > from'), { status: 400 });
+  const months = []; for (let m = from.slice(0, 7) + '-01'; m < to && months.length < 24; m = addMonths(m, 1)) months.push(m);
+  const [a, ...ms] = await Promise.all([q('rpc/adm_analytics', { method: 'POST', body: JSON.stringify({ p_from: from, p_to: to }) }), ...months.map(m => q('rpc/adm_month_kpi', { method: 'POST', body: JSON.stringify({ p_month: m }) }))]);
+  const un = x => (Array.isArray(x) ? x[0] : x) || {};
+  return Object.assign(un(a), { months: ms.map(un) });
+}
+
+
+// ---------- квартиры: карточки сайта (этап 4) ----------
+const SB_SERVICE = process.env.SUPABASE_SERVICE_KEY;
+const APT_FIELDS = ['name', 'complex', 'floor', 'style', 'rooms', 'max_guests', 'weekday_price', 'weekend_price', 'discount_week', 'discount_month', 'min_nights', 'seasonal_prices',
+  'description', 'description_en', 'description_uz', 'amenities', 'ical_export_url', 'ical_import_url', 'is_active', 'catalog_no', 'tracked', 'org_id'];
+const parsePhotos = a => { let ph = []; try { const p = JSON.parse(a.photo_url); if (Array.isArray(p)) ph = p; } catch (e) { if (a.photo_url) ph = [a.photo_url]; } return ph.filter(Boolean); };
+async function aptList() {
+  const [apts, terms, ci] = await Promise.all([q('apartments?select=*&order=complex,catalog_no.nullslast,name'), termsAll(), q('checkin_instructions?select=apartment_id,updated_at')]);
+  const ciSet = new Set(ci.map(x => x.apartment_id)); const today = T.tashToday(0);
+  return apts.map(a => Object.assign({}, a, { photos: parsePhotos(a), photo_count: parsePhotos(a).length, term: termFor(terms, a.id, today), has_instructions: ciSet.has(a.id) }));
+}
+async function aptOne(id) {
+  const a = (await q('apartments?select=*&id=eq.' + encodeURIComponent(id)))[0];
+  if (!a) throw Object.assign(new Error('Квартира не найдена'), { status: 404 });
+  const [ci, terms, fin, exps] = await Promise.all([q('checkin_instructions?select=*&apartment_id=eq.' + encodeURIComponent(id)), q('apartment_terms?select=*,partners(id,name)&apartment_id=eq.' + encodeURIComponent(id) + '&order=valid_from.desc'),
+    q('finance_monthly?select=month,source,revenue,rent,nights,profit&apartment_id=eq.' + encodeURIComponent(id) + '&order=month.desc&limit=12'), q('expenses?select=*&apartment_id=eq.' + encodeURIComponent(id) + '&order=expense_date.desc&limit=30')]);
+  return { apartment: Object.assign({}, a, { photos: parsePhotos(a) }), instructions: ci[0] || null, terms, finance: fin, expenses: exps };
+}
+async function aptSave(body, user) {
+  const src = body.apt || {}; const id = String(src.id || '').trim();
+  if (!/^[a-z0-9_]{2,40}$/.test(id)) throw Object.assign(new Error('id квартиры: латиница/цифры/подчёркивание, например nest_15'), { status: 400 });
+  const rec = {}; APT_FIELDS.forEach(f => { if (src[f] !== undefined) rec[f] = src[f]; });
+  ['floor', 'max_guests', 'weekday_price', 'weekend_price', 'discount_week', 'discount_month', 'min_nights', 'catalog_no', 'org_id'].forEach(f => { if (rec[f] !== undefined) rec[f] = rec[f] === null || rec[f] === '' ? null : parseInt(rec[f], 10); });
+  if (rec.amenities && !Array.isArray(rec.amenities)) rec.amenities = String(rec.amenities).split(',').map(x => x.trim()).filter(Boolean);
+  if (typeof rec.seasonal_prices === 'string') { try { rec.seasonal_prices = rec.seasonal_prices ? JSON.parse(rec.seasonal_prices) : null; } catch (e) { throw Object.assign(new Error('seasonal_prices: некорректный JSON'), { status: 400 }); } }
+  if (!rec.name) throw Object.assign(new Error('Название обязательно'), { status: 400 });
+  rec.updated_at = new Date().toISOString();
+  const exists = (await q('apartments?select=id&id=eq.' + encodeURIComponent(id))).length > 0;
+  const r = exists ? await T.sb('apartments?id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(rec) })
+                   : await T.sb('apartments', { method: 'POST', body: JSON.stringify(Object.assign({ id, photo_url: '', is_active: false, tracked: true }, rec)) });
+  if (!r.ok) throw new Error('apartments: ' + (await r.text()).slice(0, 200));
+  return { ok: true, id, created: !exists };
+}
+// Превью 800px webp для карточек сайта: thumbs/<id>_thumb.webp (через images.weserv.nl → Storage, service key)
+async function aptThumb(id, coverUrl) {
+  if (!coverUrl || !SB_SERVICE) return { ok: false };
+  try {
+    const src = 'https://images.weserv.nl/?url=' + encodeURIComponent(String(coverUrl).replace(/^https?:\/\//, '')) + '&w=800&h=600&fit=cover&q=72&output=webp';
+    const img = await fetch(src); if (!img.ok) return { ok: false, reason: 'weserv ' + img.status };
+    const buf = Buffer.from(await img.arrayBuffer());
+    const up = await fetch(SB_URL + '/storage/v1/object/apartments/thumbs/' + encodeURIComponent(id) + '_thumb.webp', { method: 'POST', headers: { apikey: SB_SERVICE, Authorization: 'Bearer ' + SB_SERVICE, 'Content-Type': 'image/webp', 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' }, body: buf });
+    return { ok: up.ok, size: buf.length, reason: up.ok ? undefined : (await up.text()).slice(0, 120) };
+  } catch (e) { return { ok: false, reason: String(e.message || e) }; }
+}
+async function aptPhotos(body) {
+  const id = String(body.id || ''); const photos = (body.photos || []).map(String).filter(u => /^https?:\/\//.test(u));
+  const a = (await q('apartments?select=id,photo_url&id=eq.' + encodeURIComponent(id)))[0]; if (!a) throw Object.assign(new Error('Квартира не найдена'), { status: 404 });
+  const prev = parsePhotos(a);
+  const r = await T.sb('apartments?id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ photo_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || ''), updated_at: new Date().toISOString() }) });
+  if (!r.ok) throw new Error('apartments: ' + (await r.text()).slice(0, 200));
+  // удалённые из списка файлы — убрать из Storage (только наши объекты бакета apartments)
+  const removed = prev.filter(u => !photos.includes(u)); const deleted = [];
+  for (const u of removed) {
+    const m = u.match(/\/storage\/v1\/object\/public\/apartments\/(.+)$/); if (!m || !SB_SERVICE || /^(thumbs|hero)\//.test(m[1])) continue;
+    try { const d = await fetch(SB_URL + '/storage/v1/object/apartments/' + m[1], { method: 'DELETE', headers: { apikey: SB_SERVICE, Authorization: 'Bearer ' + SB_SERVICE } }); if (d.ok) deleted.push(m[1]); } catch (e) { /* не критично */ }
+  }
+  const thumb = prev[0] !== photos[0] || body.force_thumb ? await aptThumb(id, photos[0]) : { ok: true, skipped: true };
+  return { ok: true, photos, deleted, thumb };
+}
+async function checkinSave(body) {
+  const id = String(body.apartment_id || ''); if (!id) throw Object.assign(new Error('apartment_id'), { status: 400 });
+  const rec = { apartment_id: id, content_ru: body.content_ru || '', content_en: body.content_en || '', content_uz: body.content_uz || '', updated_at: new Date().toISOString() };
+  const r = await T.sb('checkin_instructions?on_conflict=apartment_id', { method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify(rec) });
+  if (!r.ok) throw new Error('checkin_instructions: ' + (await r.text()).slice(0, 200));
+  return { ok: true };
+}
+
+
+// ---------- операционка (этап 5): лист дня + карта ----------
+const OPS = require('./ops.js');
+const addDays = (iso, k) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
+const okDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+async function opsDay(date) {
+  if (!okDate(date)) date = T.tashToday(0);
+  await OPS.ensureDay(date);
+  const [rows, bk, cl, staff] = await Promise.all([
+    OPS.getRows(date),
+    q('v_bookings?select=id,apartment_id,apartment_name,complex,check_in,check_out,nights,status,source,channel,guest_name,guest_phone,guest_telegram,guests_count,total_price,currency,paid,debt,arrival_time,departure_time,checked_in,checked_out,notes&status=in.(confirmed,checked_in,checked_out,request)&check_in=lte.' + date + '&check_out=gte.' + date + '&order=apartment_id'),
+    q('cleaning_tasks?select=*&date=eq.' + date),
+    q('staff?select=id,name,role,phone,telegram_chat_id&is_active=eq.true&order=name')
+  ]);
+  const inhouse = bk.filter(b => b.check_in < date && b.check_out > date), checkouts = bk.filter(b => b.check_out === date), checkins = bk.filter(b => b.check_in === date);
+  return { date, rows, checkins, checkouts, inhouse, cleaning: cl, staff };
+}
+async function opsToggle(body, user) { const r = await OPS.applyToggle(body.id, body.key, user.email); if (!r) throw Object.assign(new Error('Строка не найдена'), { status: 404 }); if (r.error) throw Object.assign(new Error(r.error.replace(/<[^>]+>/g, '')), { status: 400 }); return r; }
+async function opsPatch(body, user) {
+  // прямая правка полей строки daily_ops из админки (время, гости, суммы, заметка, депозит)
+  const ALLOW = ['checkin_time', 'checkout_time', 'guests', 'guest_name', 'note', 'payment_total', 'payment_paid', 'source', 'deposit_amount', 'registration'];
+  const patch = { updated_by: user.email, updated_at: new Date().toISOString(), auto: false };
+  ALLOW.forEach(k => { if (body.patch && body.patch[k] !== undefined) patch[k] = body.patch[k]; });
+  const r = await T.sb('daily_ops?id=eq.' + encodeURIComponent(body.id), { method: 'PATCH', body: JSON.stringify(patch) });
+  if (!r.ok) throw new Error('daily_ops: ' + (await r.text()).slice(0, 200));
+  return { row: await OPS.getRow(body.id) };
+}
+async function opsAddRow(body, user) { const r = await OPS.addRow(body.date, body.apartment, user.email); if (r.error) throw Object.assign(new Error(r.error.replace(/<[^>]+>/g, '')), { status: 400 }); return r; }
+
+// Карта /map: квартиры с занятостью на 15 дней + брони окна + уборки + персонал. Для квартир tracked=false занятость берём из iCal RC.
+function parseICS(text) { const ev = []; String(text).split('BEGIN:VEVENT').slice(1).forEach(b => { const body = b.split('END:VEVENT')[0]; const g = re => { const m = body.match(re); return m ? m[1] : ''; }; const ds = g(/DTSTART(?:;VALUE=DATE)?[^:]*:(\d{8})/), de = g(/DTEND(?:;VALUE=DATE)?[^:]*:(\d{8})/); if (!ds || !de) return; const f = x => x.slice(0, 4) + '-' + x.slice(4, 6) + '-' + x.slice(6, 8); if (f(de) > f(ds)) ev.push({ check_in: f(ds), check_out: f(de) }); }); return ev; }
+async function mapData(d0, days) {
+  if (!okDate(d0)) d0 = T.tashToday(0); days = Math.min(Math.max(parseInt(days, 10) || 15, 7), 31);
+  const d1 = addDays(d0, days);
+  const [apts, bk, cl, staff, ops] = await Promise.all([
+    q('apartments?select=id,name,complex,floor,rooms,weekday_price,weekend_price,catalog_no,tracked,ical_export_url&is_active=eq.true&order=complex,floor,name'),
+    q('v_bookings?select=id,apartment_id,check_in,check_out,nights,status,source,channel,guest_name,guests_count,total_price,currency,paid,debt,arrival_time,departure_time,checked_in,checked_out&status=in.(confirmed,checked_in,checked_out,request,blocked)&check_in=lt.' + d1 + '&check_out=gt.' + addDays(d0, -1) + '&limit=3000'),
+    q('cleaning_tasks?select=*&date=gte.' + addDays(d0, -1) + '&date=lt.' + d1),
+    q('staff?select=id,name,role&is_active=eq.true&role=in.(cleaning,housekeeper,maid,supervisor)&order=name'),
+    q('daily_ops?select=id,date,apartment_id,passport,access,registration,confirm_checkin,confirm_checkout,checked_in,checked_out,payment_total,payment_paid,checkin_time,checkout_time,guests,guest_name&date=gte.' + addDays(d0, -1) + '&date=lt.' + d1)
+  ]);
+  // занятость по дням: tracked — из броней базы; untracked — iCal RC (параллельно, 8 с, без падения)
+  const ical = {};
+  await Promise.all(apts.filter(a => a.tracked === false && /^https?:\/\//.test(a.ical_export_url || '')).map(async a => {
+    try { const c = new AbortController(); const t = setTimeout(() => c.abort(), 8000); const r = await fetch(a.ical_export_url, { signal: c.signal }); clearTimeout(t); const txt = await r.text(); if (r.ok && txt.includes('BEGIN:VCALENDAR')) ical[a.id] = parseICS(txt); } catch (e) { /* фид недоступен — пусто */ }
+  }));
+  const out = apts.map(a => {
+    const ev = a.tracked === false ? (ical[a.id] || []) : bk.filter(b => b.apartment_id === a.id && b.status !== 'cancelled');
+    let bits = ''; for (let i = 0; i < days; i++) { const d = addDays(d0, i); bits += ev.some(e => e.check_in <= d && e.check_out > d) ? '1' : '0'; }
+    return { id: a.id, no: String(a.name || '').replace(/\D/g, '') || a.name, complex: a.complex, floor: a.floor, wd: a.weekday_price, we: a.weekend_price, rooms: a.rooms, bits, tracked: a.tracked !== false, catalog_no: a.catalog_no, ical_ok: a.tracked === false ? !!ical[a.id] : null };
+  });
+  return { d0, days, apts: out, bookings: bk.filter(b => b.status !== 'blocked'), cleaning: cl, staff, ops };
+}
+
+
+// ---------- чат с гостями (этап 6) ----------
+const CARD = '🆕 Новая бронь';
+async function chatList() { return q('v_chat_threads?select=*&order=unread.desc,last_at.desc&limit=300'); }
+async function chatMsgs(id) {
+  if (!id) throw Object.assign(new Error('id'), { status: 400 });
+  const [msgs, th] = await Promise.all([q('messages?select=*&conversation_id=eq.' + encodeURIComponent(id) + '&order=created_at&limit=500'), q('v_chat_threads?select=*&conversation_id=eq.' + encodeURIComponent(id))]);
+  await T.sb('messages?conversation_id=eq.' + encodeURIComponent(id) + '&sender_role=eq.guest&is_read=is.false', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_read: true }) }).catch(() => { });
+  return { thread: th[0] || null, messages: msgs };
+}
+async function chatSend(body, user) {
+  const id = String(body.id || ''), text = String(body.text || '').trim(); if (!id || !text) throw Object.assign(new Error('Пустое сообщение'), { status: 400 });
+  const r = await T.sb('messages', { method: 'POST', body: JSON.stringify({ conversation_id: id, sender_role: 'admin', content: text, is_read: true }) });
+  if (!r.ok) throw new Error('messages: ' + (await r.text()).slice(0, 200));
+  let mail = { sent: false, reason: 'off' };
+  if (body.email !== false) {
+    const th = (await q('v_chat_threads?select=*&conversation_id=eq.' + encodeURIComponent(id)))[0];
+    const key = process.env.RESEND_API_KEY || process.env.RESEND_KEY;
+    if (th && th.guest_email && key) {
+      try {
+        const subj = 'Urban Luxe · ответ по брони ' + (th.booking_ref || '');
+        const html = '<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#222"><div style="color:#b8923f;letter-spacing:.3em;font-size:14px;margin-bottom:14px">URBAN LUXE</div><p style="white-space:pre-wrap;font-size:15px;line-height:1.6">' + String(text).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) + '</p><p style="color:#777;font-size:12px">Бронь ' + (th.booking_ref || '') + ' · ' + (th.apartment_name || '') + ' · ' + (th.check_in || '') + ' → ' + (th.check_out || '') + '<br>Ответить можно в личном кабинете <a href="https://urbanluxe.cc/guest.html">urbanluxe.cc/guest.html</a> или в Telegram <a href="https://t.me/Arsen_bnb">@Arsen_bnb</a></p></div>';
+        const rr = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.RESEND_FROM || 'Urban Luxe <booking@urbanluxe.cc>', to: [th.guest_email], subject: subj, html, text }) });
+        mail = rr.ok ? { sent: true } : { sent: false, reason: 'resend ' + rr.status };
+      } catch (e) { mail = { sent: false, reason: String(e.message || e) }; }
+    } else mail = { sent: false, reason: th && th.guest_email ? 'no RESEND_API_KEY' : 'у гостя нет email' };
+  }
+  return { ok: true, mail };
+}
+
+// ---------- персонал (этап 6): staff, табель, выплаты, расчёт за месяц ----------
+async function staffMonth(monthIso) {
+  const m1 = addMonths(monthIso, 1);
+  const [staff, att, pay, cl] = await Promise.all([
+    q('staff?select=*&order=is_active.desc,name'),
+    q('staff_attendance?select=*&work_date=gte.' + monthIso + '&work_date=lt.' + m1),
+    q('staff_payments?select=*&payment_date=gte.' + monthIso + '&payment_date=lt.' + m1 + '&order=payment_date'),
+    q('cleaning_tasks?select=date,hk_maid,done&date=gte.' + monthIso + '&date=lt.' + m1 + '&done=eq.true')
+  ]);
+  return { month: ym(monthIso), staff, attendance: att, payments: pay, cleanings: cl };
+}
+async function staffWrite(body, user) {
+  const a = body.a;
+  if (a === 'staff_save') {
+    const rec = { name: String(body.name || '').trim(), role: body.role || 'cleaning', daily_rate: body.daily_rate == null || body.daily_rate === '' ? null : parseInt(body.daily_rate, 10), phone: body.phone || null, telegram_chat_id: body.telegram_chat_id ? String(body.telegram_chat_id) : null, is_active: body.is_active !== false };
+    if (!rec.name) throw Object.assign(new Error('Имя обязательно'), { status: 400 });
+    const r = body.id ? await T.sb('staff?id=eq.' + encodeURIComponent(body.id), { method: 'PATCH', body: JSON.stringify(rec) }) : await T.sb('staff', { method: 'POST', body: JSON.stringify(rec) });
+    if (!r.ok) throw new Error('staff: ' + (await r.text()).slice(0, 200)); return r.json();
+  }
+  if (a === 'attendance') { // переключить день
+    const rows = await q('staff_attendance?select=id,present&staff_id=eq.' + encodeURIComponent(body.staff_id) + '&work_date=eq.' + body.date);
+    if (rows.length) { const r = await T.sb('staff_attendance?id=eq.' + rows[0].id, { method: 'PATCH', body: JSON.stringify({ present: body.present == null ? !rows[0].present : !!body.present, notes: body.notes || null }) }); return r.json(); }
+    const r = await T.sb('staff_attendance', { method: 'POST', body: JSON.stringify({ staff_id: body.staff_id, work_date: body.date, present: body.present == null ? true : !!body.present, notes: body.notes || null }) }); return r.json();
+  }
+  if (a === 'staff_payment') { const r = await T.sb('staff_payments', { method: 'POST', body: JSON.stringify({ staff_id: body.staff_id, amount: parseInt(body.amount, 10) || 0, payment_date: body.payment_date || T.tashToday(0), notes: body.notes || null }) }); if (!r.ok) throw new Error('staff_payments: ' + (await r.text()).slice(0, 200)); return r.json(); }
+  if (a === 'staff_payment_delete') { await T.sb('staff_payments?id=eq.' + encodeURIComponent(body.id), { method: 'DELETE' }); return { ok: true }; }
+  throw Object.assign(new Error('unknown staff action'), { status: 400 });
 }
 
 async function bookingWithApt(id) {
@@ -380,7 +578,16 @@ exports.handler = async (event) => {
       // Заявки: admin, booker и ops. Остальная запись — только admin и booker.
       if (body.a === 'request_confirm') { if (!['admin', 'booker', 'ops'].includes(user.role)) return out(403, { error: 'Нет прав' }); return out(200, await requestConfirm(body, user)); }
       if (body.a === 'request_cancel') { if (!['admin', 'booker', 'ops'].includes(user.role)) return out(403, { error: 'Нет прав' }); return out(200, await requestCancel(body, user)); }
+      if (body.a === 'chat_send') { if (!['admin', 'booker', 'ops'].includes(user.role)) return out(403, { error: 'Нет прав' }); return out(200, await chatSend(body, user)); }
+      if (body.a === 'attendance') { if (!['admin', 'booker', 'ops'].includes(user.role)) return out(403, { error: 'Нет прав' }); return out(200, await staffWrite(body, user)); }
+      if (['staff_save', 'staff_payment', 'staff_payment_delete'].includes(body.a)) { if (user.role !== 'admin') return out(403, { error: 'Нет прав' }); return out(200, await staffWrite(body, user)); }
+      if (body.a === 'pms_user_save') { if (user.role !== 'admin') return out(403, { error: 'Нет прав' }); return out(200, await PMS.userSaveFor(body, user)); }
+      if (body.a === 'pms_user_logout_all') { if (user.role !== 'admin') return out(403, { error: 'Нет прав' }); return out(200, await PMS.userLogoutAllFor(body, user)); }
+      if (['ops_toggle', 'ops_patch', 'ops_add'].includes(body.a)) { if (!['admin', 'booker', 'ops'].includes(user.role)) return out(403, { error: 'Нет прав' }); return out(200, body.a === 'ops_toggle' ? await opsToggle(body, user) : body.a === 'ops_patch' ? await opsPatch(body, user) : await opsAddRow(body, user)); }
       if (['viewer', 'ops', 'partner'].includes(user.role)) return out(403, { error: 'Только чтение' });
+      if (body.a === 'apt_save') return out(200, await aptSave(body, user));
+      if (body.a === 'apt_photos') return out(200, await aptPhotos(body));
+      if (body.a === 'checkin_save') return out(200, await checkinSave(body));
       return out(200, await write(body, user));
     }
     const a = qs.a || 'me';
@@ -399,6 +606,15 @@ exports.handler = async (event) => {
       case 'kpi': return out(200, await kpi(month));
       case 'today': return out(200, await PMS.todayFor(user));
       case 'occ14': return out(200, await occ14());
+      case 'analytics': return out(200, await analytics(qs.from, qs.to));
+      case 'chat_list': return out(200, await chatList());
+      case 'chat_msgs': return out(200, await chatMsgs(qs.id));
+      case 'staff_month': { const r = await staffMonth(month); if (user.role !== 'admin') { r.payments = []; r.staff = r.staff.map(x => Object.assign({}, x, { daily_rate: null })); } return out(200, r); }
+      case 'pms_users': if (user.role !== 'admin') return out(403, { error: 'Нет прав' }); return out(200, await PMS.usersFor(user));
+      case 'ops_day': return out(200, await opsDay(qs.date));
+      case 'map': return out(200, await mapData(qs.d0, qs.days));
+      case 'apt_list': return out(200, await aptList());
+      case 'apt': return out(200, await aptOne(qs.id));
       case 'dashboard': return out(200, await dashboard());
       case 'pl': { const from = monthStart(qs.from || ym(addMonths(month, -11))), to = monthStart(qs.to || ym(month)); return out(200, await pl(from, to)); }
       case 'apartments': return out(200, await aptTable(month));
