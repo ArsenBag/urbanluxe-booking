@@ -118,7 +118,7 @@ async function loadKpi() {
         ${kpiTile('EBITDA ≈ начислено − расходы', c.ebitda, p.ebitda)}
       </div>
       <div class="muted" style="font-size:11px">
-        ${c.bookings} броней с заездом в месяце · ${c.nights} ночей · ${c.active} активных квартир${isCur ? ' · загрузка до конца месяца по календарю: <b>' + pct(c.occupancy_forward) + '</b>' : ''}
+        ${c.bookings} броней с заездом в месяце · ${c.nights} ночей · ${c.active} кв. с данными${c.active_all > c.active ? ' из ' + c.active_all + ' (остальные — RC партнёра, в базе только занятость)' : ''}${isCur ? ' · загрузка до конца месяца по календарю: <b>' + pct(c.occupancy_forward) + '</b>' : ''}
         ${c.sheet_n ? ' · по Google-таблице: <b>' + money(c.sheet_revenue) + '</b> (' + c.sheet_n + ' кв.)' + (c.accrued ? ', разница ' + money(c.sheet_revenue - c.accrued) : '') : ' · в Google-таблице за этот месяц записей нет'}
         · аренда ${money(c.rent)} + операционные ${money(c.opex)}${c.capex ? ' + капвложения ' + money(c.capex) + ' (не в EBITDA)' : ''}
         · <a href="/admin3">P&amp;L по месяцам →</a>
