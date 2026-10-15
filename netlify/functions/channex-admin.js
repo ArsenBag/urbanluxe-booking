@@ -144,8 +144,7 @@ async function bookingConnect(body, user) {
   const pairs = body.pairs || {}; if (!Object.keys(pairs).length) throw new Error('pairs');
   const settings = { hotel_id };
   if (!body.skip_test) { const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings }); if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data)); }
-  const m = await C.cx('POST', '/channels/mapping_details', { channel: code, settings });
-  const md = m.data || {}; const pricing = md.pricing_type || 'Standard';
+  const md = body.mapping || (await C.cx('POST', '/channels/mapping_details', { channel: code, settings })).data || {}; const pricing = md.pricing_type || 'Standard';
   const units = await C.q('channel_units?select=*&is_active=eq.true');
   const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
   const log = []; const rate_plans = []; const propIds = new Set();
@@ -165,8 +164,8 @@ async function bookingConnect(body, user) {
   if (!rate_plans.length) throw new Error('нечего мапить: ' + log.join('; '));
   if (propIds.size !== 1) throw new Error('номера карточки из разных property Channex: ' + [...propIds].join(','));
   const prop = (await C.q('channel_properties?select=*&id=eq.' + [...propIds][0]))[0];
-  const groups = await C.cx('GET', '/groups?pagination[limit]=10'); const group_id = ((groups.data || [])[0] || {}).id; if (!group_id) throw new Error('нет group в Channex');
-  const existing = (await C.cx('GET', '/channels?pagination[limit]=100')).data || [];
+  const group_id = body.group_id || ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id; if (!group_id) throw new Error('нет group в Channex');
+  const existing = body.no_dup_check ? [] : ((await C.cx('GET', '/channels?pagination[limit]=100')).data || []);
   const dup = existing.find(c => c.attributes && c.attributes.channel === code && String((c.attributes.settings || {}).hotel_id) === hotel_id);
   let ch;
   if (dup) { ch = await C.cx('PUT', '/channels/' + dup.id, { channel: { title: body.title || dup.attributes.title, properties: [prop.external_id], settings, rate_plans } }); log.unshift('updated existing channel ' + dup.id); }
