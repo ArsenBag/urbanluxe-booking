@@ -127,21 +127,25 @@ async function goProduction(body, user) {
 // booking_connect {hotel_id, title?, pairs:{<booking_room_id>:<apartment_id>}, activate?:true}
 //   → канал BookingCom с маппингом: каждый номер карточки → производный тариф «Booking.com» квартиры; все parent-тарифы номера
 //   на один наш тариф (одинаковая цена), primary — первый тариф и максимальная occupancy; OBP — по одному маппингу на каждую occupancy.
+// 15.10: обобщено — adapter: 'BookingCom' (тариф booking) | 'Ostrovok' (ETG, тариф ostrovok). Ostrovok: 1 объект ETG = 1 квартира, OBP — одна наша цена на все occupancy.
+const ADAPTERS = { BookingCom: { derived: 'booking', readonly: true }, Ostrovok: { derived: 'ostrovok', readonly: false } };
 async function bookingProbe(body) {
+  const code = body.adapter || 'BookingCom'; if (!ADAPTERS[code]) throw new Error('adapter');
   const settings = { hotel_id: String(body.hotel_id) };
-  const t = await C.cx('POST', '/channels/test_connection', { channel: 'BookingCom', settings });
-  const m = await C.cx('POST', '/channels/mapping_details', { channel: 'BookingCom', settings });
-  let cd = null; try { cd = await C.cx('POST', '/channels/connection_details', { channel: 'BookingCom', settings }); } catch (e) { cd = { error: String(e.message).slice(0, 120) }; }
-  return { test: t.data, mapping: m.data, connection: cd && cd.data };
+  const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings });
+  let m = null; try { m = await C.cx('POST', '/channels/mapping_details', { channel: code, settings }); } catch (e) { m = { data: { error: String(e.message).slice(0, 200) } }; }
+  let cd = null; try { cd = await C.cx('POST', '/channels/connection_details', { channel: code, settings }); } catch (e) { cd = { data: { error: String(e.message).slice(0, 120) } }; }
+  return { adapter: code, test: t.data, mapping: m.data, connection: cd && cd.data };
 }
 
 async function bookingConnect(body, user) {
+  const code = body.adapter || 'BookingCom'; const AD = ADAPTERS[code]; if (!AD) throw new Error('adapter');
   const hotel_id = String(body.hotel_id || ''); if (!hotel_id) throw new Error('hotel_id');
   const pairs = body.pairs || {}; if (!Object.keys(pairs).length) throw new Error('pairs');
   const settings = { hotel_id };
-  const t = await C.cx('POST', '/channels/test_connection', { channel: 'BookingCom', settings });
+  const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings });
   if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data));
-  const m = await C.cx('POST', '/channels/mapping_details', { channel: 'BookingCom', settings });
+  const m = await C.cx('POST', '/channels/mapping_details', { channel: code, settings });
   const md = m.data || {}; const pricing = md.pricing_type || 'Standard';
   const units = await C.q('channel_units?select=*&is_active=eq.true');
   const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
@@ -149,13 +153,13 @@ async function bookingConnect(body, user) {
   for (const room of (md.rooms || [])) {
     const apt = pairs[String(room.id)]; if (!apt) { log.push('skip room ' + room.id + ' ' + room.title + ' (нет пары)'); continue; }
     const u = byApt[apt]; if (!u) { log.push('no unit ' + apt); continue; }
-    const d = (u.derived || {}).booking; if (!d || !d.rate_plan_id) { log.push('no derived Booking.com plan for ' + apt); continue; }
+    const d = (u.derived || {})[AD.derived]; if (!d || !d.rate_plan_id) { log.push('no derived ' + AD.derived + ' plan for ' + apt); continue; }
     propIds.add(u.channel_property_id);
     const rates = (room.rates || []).filter(r => !r.readonly);
     if (!rates.length) { log.push('room ' + room.id + ' без тарифов'); continue; }
     rates.forEach((r, ri) => {
       const occs = (pricing === 'OBP' && r.occupancies && r.occupancies.length) ? [...r.occupancies].sort((a, b) => b - a) : [r.max_persons || 2];
-      occs.forEach((occ, oi) => rate_plans.push({ rate_plan_id: d.rate_plan_id, settings: { room_type_code: room.id, rate_plan_code: r.id, occupancy: occ, pricing_type: r.pricing || pricing, primary_occ: oi === 0, readonly: !!r.readonly } }));
+      occs.forEach((occ, oi) => { const st = { room_type_code: room.id, rate_plan_code: r.id, occupancy: occ, pricing_type: r.pricing || pricing, primary_occ: oi === 0 }; if (AD.readonly) st.readonly = !!r.readonly; rate_plans.push({ rate_plan_id: d.rate_plan_id, settings: st }); });
       log.push(room.title + ' / ' + r.title + ' → ' + apt + ' (occ ' + occs.join(',') + ')');
     });
   }
@@ -164,16 +168,16 @@ async function bookingConnect(body, user) {
   const prop = (await C.q('channel_properties?select=*&id=eq.' + [...propIds][0]))[0];
   const groups = await C.cx('GET', '/groups?pagination[limit]=10'); const group_id = ((groups.data || [])[0] || {}).id; if (!group_id) throw new Error('нет group в Channex');
   const existing = (await C.cx('GET', '/channels?pagination[limit]=100')).data || [];
-  const dup = existing.find(c => c.attributes && c.attributes.channel === 'BookingCom' && String((c.attributes.settings || {}).hotel_id) === hotel_id);
+  const dup = existing.find(c => c.attributes && c.attributes.channel === code && String((c.attributes.settings || {}).hotel_id) === hotel_id);
   let ch;
   if (dup) { ch = await C.cx('PUT', '/channels/' + dup.id, { channel: { title: body.title || dup.attributes.title, properties: [prop.external_id], settings, rate_plans } }); log.unshift('updated existing channel ' + dup.id); }
-  else ch = await C.cx('POST', '/channels', { channel: { channel: 'BookingCom', group_id, title: body.title || ('Booking ' + hotel_id), properties: [prop.external_id], settings: Object.assign({}, settings, { send_email_notifications: false }), rate_plans } });
+  else ch = await C.cx('POST', '/channels', { channel: { channel: code, group_id, title: body.title || (code + ' ' + hotel_id), properties: [prop.external_id], settings: Object.assign({}, settings, { send_email_notifications: false }), rate_plans } });
   const id = ch.data.id; let activated = null, loaded = null;
   if (body.activate !== false) {
     try { await C.cx('POST', '/channels/' + id + '/activate'); activated = true; } catch (e) { activated = String(e.message).slice(0, 200); }
-    try { loaded = (await C.cx('POST', '/channels/' + id + '/execute/load_future_reservations')).data || true; } catch (e) { loaded = String(e.message).slice(0, 200); }
+    if (code === 'BookingCom') { try { loaded = (await C.cx('POST', '/channels/' + id + '/execute/load_future_reservations')).data || true; } catch (e) { loaded = String(e.message).slice(0, 200); } }
   }
-  return { channel_id: id, property: prop.complex, pricing, mappings: rate_plans.length, activated, loaded, log };
+  return { adapter: code, channel_id: id, property: prop.complex, pricing, mappings: rate_plans.length, activated, loaded, log };
 }
 
 exports.handler = async (event) => {
@@ -190,6 +194,8 @@ exports.handler = async (event) => {
       case 'go_production': return out(200, await goProduction(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));
+      case 'ostrovok_probe': return out(200, await bookingProbe(Object.assign({}, body, { adapter: 'Ostrovok' })));
+      case 'ostrovok_connect': return out(200, await bookingConnect(Object.assign({}, body, { adapter: 'Ostrovok' }), user));
       case 'reconcile_derived': { const props = await C.q('channel_properties?select=*&external_id=not.is.null&org_id=eq.' + user.org_id); const r = []; for (const p of props) r.push(Object.assign({ property: p.name }, await C.reconcileDerived(p.external_id))); return out(200, r); }
       case 'push_full': {
         // full sync: вся сеть / одна квартира / один ЖК (complex → все квартиры ЖК; Channex: 1 property = 2 запроса)
