@@ -521,7 +521,7 @@ async function orgDelete(body, user) {
   const us = await q('app_users?select=email,auth_user_id&org_id=eq.' + id);
   for (const u of us) { const aid = u.auth_user_id || await authUserId(u.email); if (aid) { try { await authAdmin('users/' + aid, { method: 'DELETE' }); } catch (_) { } } }
   await q('app_users?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); log.push('users ' + us.length);
-  for (const t of ['invitations', 'org_partners', 'channel_markups', 'rate_rules', 'selections']) await q(t + '?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  for (const t of ['invitations', 'org_partners', 'channel_markups', 'channel_accounts', 'rate_rules', 'selections', 'payments', 'guests']) await q(t + '?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
   await q('org_partners?partner_org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
   await q('organizations?id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   AUTH_CACHE.clear(); await logEvent(null, 'org_deleted', { id, name: org.name, log }, user);
