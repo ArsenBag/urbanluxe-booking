@@ -109,7 +109,7 @@ async function goProduction(body, user) {
   // 1. сброс id
   for (const p of props) {
     await C.q('channel_properties?id=eq.' + p.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_id: null, settings: Object.assign({}, p.settings || {}, { env: 'production', staging_id: p.external_id }), updated_at: new Date().toISOString() }) });
-    await C.q('channel_units?channel_property_id=eq.' + p.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_room_type_id: null, external_rate_plan_id: null, derived: null, last_task: null, last_error: null, last_pushed_at: null }) });
+    await C.q('channel_units?channel_property_id=eq.' + p.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_room_type_id: null, external_rate_plan_id: null, derived: {}, last_task: null, last_error: null, last_pushed_at: null }) });
   }
   await C.q('channel_outbox?sent_at=is.null', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   log.push('reset ' + props.length + ' properties, outbox cleared');
