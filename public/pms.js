@@ -37,6 +37,7 @@ async function boot() {
   $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + ME.role;
   if (!ME.can.rates) $$('#top nav button[data-v=rules]').forEach(b => b.remove());
   if (ME.role !== 'admin') $$('#top nav button[data-v=channels],#top nav button[data-v=users]').forEach(b => b.remove());
+  if (!ME.can.objects) $$('#top nav button[data-v=objects]').forEach(b => b.remove());
   if (!ME.can.guests) $$('button[data-v=guests]').forEach(b => b.remove());
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
@@ -45,7 +46,7 @@ async function boot() {
   const h = location.hash.replace('#', '');
   const m = h.match(/^booking=(.+)$/);
   if (m) { history.replaceState(null, '', location.pathname); go('cal'); setTimeout(() => openBooking(m[1]), 300); return; }
-  if (h && VIEWS[h]) { history.replaceState(null, '', location.pathname); go(h); return; }
+  if (h && VIEWS[h]) { history.replaceState(null, '', location.pathname + location.search); go(h); return; }
   go(innerWidth < 760 ? 'today' : 'cal');
 }
 const isMobile = () => innerWidth < 760;
@@ -291,7 +292,7 @@ function renderBooking() {
     h += `<div class="sec">Платежи<span class="sp"></span>${canW ? '<button class="sm" id="p_add">+ платёж</button>' : ''}</div>`;
     h += CUR.payments.length ? `<table class="t">` + CUR.payments.map(p => `<tr><td>${ruD(p.paid_at.slice(0, 10))}</td><td class="b">${p.kind === 'refund' ? '−' : ''}${money(p.amount, p.currency)}</td><td>${{ payment: 'оплата', prepayment: 'предоплата', deposit: 'депозит', refund: 'возврат', deposit_return: 'возврат депозита' }[p.kind] || p.kind} · ${{ cash: 'нал', card: 'карта', transfer: 'перевод', payme: 'Payme', click: 'Click', ota: 'площадка' }[p.method] || p.method}</td><td class="muted">${esc(p.received_by || '')}${p.note ? ' · ' + esc(p.note) : ''}</td><td>${canW ? '<button class="sm danger" data-pd="' + p.id + '">✕</button>' : ''}</td></tr>`).join('') + `</table>` : `<div class="muted">${b.prepaid ? 'Предоплата из RC: ' + money(b.prepaid, b.currency) : 'платежей нет'}</div>`;
   }
-  h += `<div class="sec">Журнал</div>` + (CUR.events.length ? CUR.events.slice().reverse().map(ev => `<div class="ev"><span class="muted">${ev.created_at.slice(0, 16).replace('T', ' ')}</span> <b>${esc(ev.actor || '')}</b> ${esc(evText(ev))}</div>`).join('') : '<div class="muted">пусто</div>');
+  h += `<div class="sec">История</div><div id="jr">` + (CUR.events.length ? CUR.events.slice().reverse().map(ev => `<div class="ev"><span class="muted">${ev.created_at.slice(0, 16).replace('T', ' ')}</span> <b>${esc(ev.actor || '')}</b> ${esc(evText(ev))}</div>`).join('') : '<div class="muted">пусто</div>') + `</div>`;
   let foot = '';
   if (canW || (ME.can.status_only && b.status !== 'blocked')) {
     const nx = { request: ['confirmed', 'Подтвердить'], confirmed: ['checked_in', 'Заехал'], checked_in: ['checked_out', 'Выехал'] }[b.status];
@@ -307,7 +308,10 @@ function renderBooking() {
   $$('#d_body [data-pd]').forEach(x => x.onclick = async () => { if (!confirm('Удалить платёж?')) return; try { CUR = await api(null, { a: 'payment_delete', id: x.dataset.pd }); renderBooking(); load(true); } catch (e) { alert(e.message); } });
   $$('#d_foot [data-st]').forEach(x => x.onclick = () => setStatus(b, x.dataset.st));
   if ($('#b_edit')) $('#b_edit').onclick = () => renderForm(b);
+  // 16.10.2026: полная история (booking_events + события площадок из channel_bookings), время по Ташкенту
+  api({ a: 'booking_history', id: b.id }).then(r => { const el = $('#jr'); if (!el || !CUR || CUR.booking.id !== b.id) return; const ev = r.events || []; el.innerHTML = ev.length ? ev.slice().reverse().map(e => `<div class="ev"><span class="muted">${tashT(e.at)}</span> <b>${esc(e.actor || '')}</b> ${esc(evText({ type: e.type, payload: e.payload }))}</div>`).join('') : '<div class="muted">пусто</div>'; }).catch(() => { });
 }
+const tashT = t => { if (!t) return ''; const d = new Date(t); if (isNaN(d)) return String(t).slice(0, 16); const z = new Date(d.getTime() + 5 * 36e5); return z.toISOString().slice(0, 16).replace('T', ' '); };
 // привязка существующей карточки гостя к брони (шаг 3)
 function linkGuestUI(b) {
   openDrawer('Привязать гостя · ' + b.guest_name, `<div class="f"><label class="w">Поиск <input id="lg_q" placeholder="имя, телефон или Telegram" autofocus></label></div><div id="lg_res" class="muted">минимум 3 символа</div>`, `<button id="lg_back">Назад</button>`);
@@ -327,6 +331,14 @@ function evText(ev) {
     case 'closed_with_debt': return 'закрыл с долгом ' + money(p.debt) + (p.reason ? ': ' + p.reason : '');
     case 'guest_link': return 'привязал карточку гостя';
     case 'guest_unlink': return 'отвязал карточку гостя';
+    case 'created': return 'создал бронь' + (p.source ? ' (' + p.source + ')' : '');
+    case 'status_changed': return 'статус → ' + (ST[p.to || p.status] || [p.to || p.status])[0] + (p.reason ? ': ' + p.reason : '');
+    case 'request_confirmed': return 'подтвердил заявку с сайта';
+    case 'import_conflict': return 'конфликт при импорте' + (p.with ? ' с ' + p.with : '');
+    case 'rc_removed': return 'бронь исчезла из RC';
+    case 'ota_new': return 'пришла с площадки' + (p.code ? ' · № ' + p.code : '') + (p.conflict ? ' · КОНФЛИКТ' : '') + (p.error ? ' · ' + p.error : '');
+    case 'ota_modified': return 'изменена на площадке' + (p.code ? ' · № ' + p.code : '') + (p.conflict ? ' · КОНФЛИКТ' : '');
+    case 'ota_cancelled': return 'отменена на площадке' + (p.code ? ' · № ' + p.code : '');
     default: return ev.type + (p.status ? ' → ' + (ST[p.status] || [p.status])[0] : '') + (p.from && p.to && typeof p.from === 'string' ? ' ' + p.from + ' → ' + p.to : '');
   }
 }
@@ -446,10 +458,12 @@ VIEWS.today = async () => {
 };
 VIEWS.free = async () => {
   const t0 = G ? G.today : iso(Date.now() + 5 * 36e5);
-  $('#tools').innerHTML = `<input type="date" id="q1" value="${t0}"><input type="date" id="q2" value="${addD(t0, 1)}"><input type="number" id="qg" placeholder="гостей" style="width:80px" min="1"><button class="pri sm" id="qgo">Показать</button><button class="sm" id="qcopy">Скопировать список</button>`;
+  const qp = new URLSearchParams(location.search); const q1v = qp.get('from') || t0, q2v = qp.get('to') || addD(q1v, 1); if (qp.get('from')) history.replaceState(null, '', location.pathname);   // 16.10: переход из /free с датами
+  $('#tools').innerHTML = `<input type="date" id="q1" value="${q1v}"><input type="date" id="q2" value="${q2v}"><input type="number" id="qg" placeholder="гостей" style="width:80px" min="1"><button class="pri sm" id="qgo">Показать</button><button class="sm" id="qcopy">Скопировать список</button><button class="sm" id="qsel" title="Ссылка для гостя: фото, цены и кнопка «Забронировать» по выбранным квартирам">🔗 Подборка для гостя</button>`;
   $('#main').innerHTML = '<div class="page"><div class="card" id="fl2"><div class="muted">выберите даты</div></div></div>';
-  const run = async () => { const ci = $('#q1').value, co = $('#q2').value; if (!ci || !co || co <= ci) return; $('#fl2').innerHTML = '<div class="muted">считаю…</div>'; try { const d = await api({ a: 'free', check_in: ci, check_out: co, guests: $('#qg').value || '' }); window._free = d; $('#fl2').innerHTML = `<h3>Свободно ${ruD(ci)} → ${ruD(co)} · ${d.nights} ноч. · ${d.free.length} кв.</h3>` + (d.free.length ? d.free.map(a => `<div class="li" data-a="${a.id}"><span class="no">${a.catalog_no || '—'}</span><div class="g"><div class="n">${esc(a.name)}</div><div class="s">${a.floor ? a.floor + ' эт. · ' : ''}${esc(a.rooms || '')}${a.max_guests ? ' · до ' + a.max_guests : ''}${a.discount_label ? ' · ' + esc(a.discount_label) : ''}</div></div><div class="b nowrap">${money(a.total)}</div>${ME.can.write ? '<button class="sm pri">Бронь</button>' : ''}</div>`).join('') : '<div class="muted">всё занято</div>'); $$('#fl2 .li').forEach(x => { const a = d.free.find(y => y.id === x.dataset.a); const bt = x.querySelector('button'); if (bt) bt.onclick = () => openBooking(null, { apartment_id: a.id, check_in: ci, check_out: co, total_price: a.total }); }); } catch (e) { $('#fl2').innerHTML = esc(e.message); } };
+  const run = async () => { const ci = $('#q1').value, co = $('#q2').value; if (!ci || !co || co <= ci) return; $('#fl2').innerHTML = '<div class="muted">считаю…</div>'; try { const d = await api({ a: 'free', check_in: ci, check_out: co, guests: $('#qg').value || '' }); window._free = d; $('#fl2').innerHTML = `<h3>Свободно ${ruD(ci)} → ${ruD(co)} · ${d.nights} ноч. · ${d.free.length} кв.</h3>` + (d.free.length ? d.free.map(a => `<div class="li" data-a="${a.id}"><input type="checkbox" data-selapt="${a.id}" title="в подборку" style="margin-right:4px"><span class="no">${a.catalog_no || '—'}</span><div class="g"><div class="n">${esc(a.name)}</div><div class="s">${a.floor ? a.floor + ' эт. · ' : ''}${esc(a.rooms || '')}${a.max_guests ? ' · до ' + a.max_guests : ''}${a.discount_label ? ' · ' + esc(a.discount_label) : ''}</div></div><div class="b nowrap">${money(a.total)}</div>${ME.can.write ? '<button class="sm pri">Бронь</button>' : ''}</div>`).join('') : '<div class="muted">всё занято</div>'); $$('#fl2 .li').forEach(x => { const a = d.free.find(y => y.id === x.dataset.a); const bt = x.querySelector('button'); if (bt) bt.onclick = () => openBooking(null, { apartment_id: a.id, check_in: ci, check_out: co, total_price: a.total }); }); } catch (e) { $('#fl2').innerHTML = esc(e.message); } };
   $('#qgo').onclick = run; $('#q1').onchange = $('#q2').onchange = run;
+  $('#qsel').onclick = () => { const d = window._free; if (!d) return; const ids = $$('#fl2 [data-selapt]:checked').map(x => x.dataset.selapt); if (!ids.length) return alert('Отметьте квартиры галочками'); PMS.makeSelection({ check_in: d.check_in, check_out: d.check_out, apartment_ids: ids }); };
   $('#qcopy').onclick = () => { const d = window._free; if (!d) return; const txt = 'Свободно ' + ruD(d.check_in) + '–' + ruD(d.check_out) + ' (' + d.nights + ' ноч.):\n' + d.free.map(a => (a.catalog_no ? '№' + a.catalog_no + ' ' : '') + a.name + ' — ' + money(a.total)).join('\n'); navigator.clipboard.writeText(txt).then(() => toast('Скопировано')); };
   run();
 };
@@ -544,7 +558,7 @@ async function capi(params, body) {
   const j = await r.json().catch(() => ({ error: 'bad json' })); if (!r.ok || j.error) throw new Error(j.error || r.status); return j;
 }
 VIEWS.channels = async () => {
-  $('#tools').innerHTML = `<button class="pri sm" id="c_full">⟳ Отправить всё на площадки</button><button class="sm" id="c_feed">⬇ Забрать брони</button><button class="sm" id="c_hook">Вебхук Channex</button><select id="c_cx"><option value="">+ подключить ЖК…</option></select><button class="sm" id="c_ical">⟳ iCal</button><span class="muted" id="c_msg"></span>`;
+  $('#tools').innerHTML = `<button class="pri sm" id="c_full">⟳ Отправить всё на площадки</button><button class="sm" id="c_feed">⬇ Забрать брони</button><button class="sm" id="c_hook">Вебхук Channex</button><select id="c_cx"><option value="">+ подключить ЖК…</option></select><button class="sm" id="c_ical">⟳ iCal</button><button class="sm" id="c_scan" title="Сверить маппинги квартир с Channex (статусы ячеек)">⟲ Скан маппингов</button><span class="muted" id="c_msg"></span>`;
   $('#main').innerHTML = '<div class="page" id="ch"><div class="muted">загрузка…</div></div>';
   const say = (m, bad) => { const e = $('#c_msg'); e.textContent = m; e.style.color = bad ? 'var(--red)' : ''; };
   const run = async (fn, label) => { say(label + '…'); try { const r = await fn(); say('готово'); console.log(label, r); load(); } catch (e) { say(e.message, true); } };
@@ -570,6 +584,7 @@ VIEWS.channels = async () => {
     const byCx = {}; S.apartments.filter(a => a.is_active).forEach(a => (byCx[a.complex] = byCx[a.complex] || []).push(a));
     h += `<div class="card"><h3>Менеджер каналов <span class="muted" style="font-weight:400;font-size:12px">· клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex</span></h3>
       <table class="t"><tr><th>Квартира</th><th>Channex</th>${OTAS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}${ICALS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}<th>Цены отпр.</th><th>Ошибка</th></tr>`;
+    h = h.replace('клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex', 'клик по ячейке площадки — вкл/выкл, наценка, закрытия, лог; ✓ подключена · ● выключена нами · ✓? не сканировано');
     for (const cx of Object.keys(byCx)) {
       const hasProp = S.properties.some(p => p.complex === cx && p.external_id);
       h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
@@ -577,7 +592,16 @@ VIEWS.channels = async () => {
         const u = unitOf(a.id);
         h += `<tr data-apt="${a.id}" style="cursor:pointer"><td class="b">${a.catalog_no ? '<span class="no tag">' + a.catalog_no + '</span> ' : ''}${esc(a.name)}</td>`;
         h += cell(u && u.external_room_type_id ? true : (hasProp ? false : null), 'не создана', u ? 'room ' + (u.external_room_type_id || '').slice(0, 8) : '');
-        for (const o of OTAS) { const c = chanFor(u, o[2]); h += cell(u && u.external_room_type_id ? !!c : null, 'подключить', c ? c.title : ''); }
+        for (const o of OTAS) { const c = chanFor(u, o[2]); const st = (u && u.channels && u.channels[o[0]]) || {}; const err24 = u && (u.last_error || S.failed.some(f => f.apartment_id === a.id)); let inner;
+          if (!u || !u.external_room_type_id) inner = '<span class="muted">—</span>';
+          else if (st.enabled === false) inner = '<span class="muted" title="выключена нами">●</span>';
+          else if (st.mapped && st.mapped.n) inner = '<span style="color:' + (err24 ? 'var(--red)' : 'var(--green)') + ';font-weight:700" title="' + esc((err24 ? 'ошибка: ' + (u.last_error || '') : 'подключена · ' + st.mapped.n + ' маппинг')) + '">✓</span>';
+          else if (st.mapped === null && st.checked_at) inner = '<span class="muted" style="font-size:11px">нет</span>';
+          else if (c) inner = '<span style="color:var(--green);opacity:.5" title="канал есть, маппинг не сканирован — нажмите «Скан маппингов»">✓?</span>';
+          else inner = '<span class="muted" style="font-size:11px">нет</span>';
+          if (st.markup_pct != null) inner += '<sup style="font-size:9px;color:var(--muted)"> +' + st.markup_pct + '%</sup>';
+          if (S.restrictions.some(r => r.apartment_id === a.id && r.channel === o[0])) inner += '<sup style="font-size:9px;color:#b07a00" title="есть закрытия/мин. ночи по площадке"> ⛔</sup>';
+          h += `<td style="text-align:center;cursor:pointer" data-cell="${a.id}|${o[0]}">${inner}</td>`; }
         for (const o of ICALS) { const i = icalFor(a.id, o[0]); h += cell(i ? !i.error : false, 'ссылка', i ? (i.error || ('проверено ' + dt(i.last_ok_at))) : ''); }
         h += `<td class="nowrap">${u ? dt(u.last_pushed_at) : '—'}${u && !u.is_active ? ' <span class="tag bad">выкл</span>' : ''}</td><td style="color:var(--red);font-size:11px">${esc(((u && u.last_error) || '').slice(0, 60))}</td></tr>`;
       }
@@ -594,6 +618,7 @@ VIEWS.channels = async () => {
     $$('#ch [data-mkup]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'markup_set', channel: x.dataset.mkup, pct: x.value }), 'Наценка ' + x.dataset.mkup));
     $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
+    $$('#ch [data-cell]').forEach(x => x.onclick = e => { e.stopPropagation(); const [apt, ch] = x.dataset.cell.split('|'); PMS.channelPanel(S, apt, ch, load); });
     $$('#ch [data-push]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'push_full', apt: x.dataset.push }), 'Отправляю'));
     $$('#ch [data-pushcx]').forEach(x => x.onclick = e => { e.stopPropagation(); run(() => capi(null, { a: 'push_full', complex: x.dataset.pushcx }), 'Полная отправка ' + x.dataset.pushcx); });
     $$('#ch [data-act]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.act, is_active: x.dataset.on === '1' }), 'Сохраняю'));
@@ -628,6 +653,7 @@ VIEWS.channels = async () => {
   $('#c_feed').onclick = () => run(() => capi(null, { a: 'feed' }), 'Забираю брони');
   $('#c_hook').onclick = () => run(() => capi(null, { a: 'setup_webhook' }), 'Вебхук');
   $('#c_ical').onclick = () => run(() => capi(null, { a: 'ical_pull' }), 'iCal');
+  $('#c_scan').onclick = () => run(async () => { let off = 0, r; while (off != null) { r = await capi(null, { a: 'mapping_scan', offset: off, limit: 8 }); say('скан ' + r.done + '/' + r.total + '…'); off = r.next; } return r; }, 'Скан маппингов');
   $('#c_cx').onchange = e => { const c = e.target.value; if (!c) return; e.target.value = ''; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); };
   load();
 };
@@ -650,6 +676,9 @@ async function realtime() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && VIEW === 'cal' && G) load(true); });
 }
 function setConn(ok) { const c = $('#conn'); if (!c) return; c.classList.toggle('off', !ok); c.textContent = ok ? 'online' : 'нет связи · данные на ' + new Date(lastOk).toTimeString().slice(0, 5); }
+
+// 16.10.2026: мост для pms-v2.js (Объекты, панель площадки, подборки)
+window.PMS = Object.assign(window.PMS || {}, { $, $$, esc, api, capi, openDrawer, closeDrawer: () => closeDrawer(), toast, money, ruD, iso, addD, VIEWS, me: () => ME, grid: () => G, openBooking, statusBadge });
 
 // 13.10.2026: вход по одноразовой ссылке из бота бронеров (/pms → magic link): /pms?tk=<hashed_token>
 (async () => {

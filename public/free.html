@@ -44,6 +44,7 @@ textarea{width:100%;min-height:360px;background:var(--bg2);border:1px solid var(
   <button id="copy">Скопировать</button>
   <a id="tg" href="#" target="_blank">Отправить в Telegram</a>
   <button class="ghost" id="short">Только номера</button>
+  <a id="sel" class="ghost" href="/pms#free" style="display:inline-block;background:transparent;color:var(--gold);border:1px solid var(--gold-d);padding:12px 18px;border-radius:8px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none" title="Ссылка гостю с фото, ценами и кнопкой «Забронировать» (нужен вход в PMS)">Подборка с фото</a>
 </div>
 <div class="st" id="st"></div>
 <script>
@@ -63,6 +64,7 @@ textarea{width:100%;min-height:360px;background:var(--bg2);border:1px solid var(
       last=d; out.value=d.text; setTg(d.text);
       st.textContent='Свободно '+d.available_count+' из '+d.total_apartments+'. Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
       history.replaceState(null,'','?from='+ci.value+'&to='+co.value);
+      document.getElementById('sel').href='/pms?from='+ci.value+'&to='+co.value+'#free';
     }catch(e){st.textContent='Ошибка: '+e.message}
   }
   document.getElementById('go').addEventListener('click',load);
