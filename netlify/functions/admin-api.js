@@ -275,6 +275,7 @@ async function bookingWithApt(id) {
   const apt = (await q('apartments?select=id,name,complex,floor&id=eq.' + encodeURIComponent(b.apartment_id)))[0] || {};   // FK bookings→apartments нет, embed не работает
   return { b, apt };
 }
+const actorOf = user => (user.name || user.email) + (user.org && user.org.short ? ' (' + user.org.short + ')' : '');
 async function logEvent(bookingId, type, payload, actor) {
   try { await T.sb('booking_events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ booking_id: bookingId, type, payload, actor }) }); } catch (e) { /* журнал не роняет действие */ }
 }
@@ -283,11 +284,11 @@ async function requestConfirm(body, user) {
   if (b.status !== 'request') { const e = new Error('Заявка уже обработана: ' + b.status); e.status = 409; throw e; }
   const now = new Date().toISOString();
   // Условие status=eq.request в самом PATCH — защита от двойного клика двух менеджеров: второй получит 0 строк
-  const r = await T.sb('bookings?id=eq.' + encodeURIComponent(b.id) + '&status=eq.request', { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ status: 'confirmed', confirmed_at: now, confirmed_by: user.email, updated_at: now }) });
+  const r = await T.sb('bookings?id=eq.' + encodeURIComponent(b.id) + '&status=eq.request', { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ status: 'confirmed', confirmed_at: now, confirmed_by: user.email, updated_by: actorOf(user), updated_at: now }) });
   const upd = r.ok ? await r.json() : [];
   if (!upd.length) { const e = new Error('Заявка уже обработана'); e.status = 409; throw e; }
   const saved = Object.assign(b, upd[0]);
-  await logEvent(b.id, 'request_confirmed', { by: user.email }, user.email);
+  await logEvent(b.id, 'request_confirmed', { by: user.email }, actorOf(user));
   const mail = await MAIL.mailConfirmed(saved, apt);
   const tg = await NOTIFY.sendTg({ type: 'request_confirmed', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, total: b.total_price, ref: b.booking_ref, actor: user.name });
   return { ok: true, id: b.id, status: 'confirmed', mail, tg };
@@ -297,10 +298,10 @@ async function requestCancel(body, user) {
   if (b.status !== 'request') { const e = new Error('Заявка уже обработана: ' + b.status); e.status = 409; throw e; }
   const reason = String(body.reason || '').trim().slice(0, 300);
   const now = new Date().toISOString();
-  const r = await T.sb('bookings?id=eq.' + encodeURIComponent(b.id) + '&status=eq.request', { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ status: 'cancelled', cancelled_at: now, cancel_reason: reason || null, updated_at: now }) });
+  const r = await T.sb('bookings?id=eq.' + encodeURIComponent(b.id) + '&status=eq.request', { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ status: 'cancelled', cancelled_at: now, cancel_reason: reason || null, updated_by: actorOf(user), updated_at: now }) });
   const upd = r.ok ? await r.json() : [];
   if (!upd.length) { const e = new Error('Заявка уже обработана'); e.status = 409; throw e; }
-  await logEvent(b.id, 'request_cancelled', { by: user.email, reason }, user.email);
+  await logEvent(b.id, 'request_cancelled', { by: user.email, reason }, actorOf(user));
   const mail = await MAIL.mailCancelled(b, apt, reason);
   const tg = await NOTIFY.sendTg({ type: 'request_cancelled', apartment: apt.name, guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, ref: b.booking_ref, reason, actor: user.name });
   return { ok: true, id: b.id, status: 'cancelled', mail, tg };

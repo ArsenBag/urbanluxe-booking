@@ -181,7 +181,9 @@ async function debts(user) {
 const FIELDS = ['apartment_id', 'check_in', 'check_out', 'guest_name', 'guest_phone', 'guest_email', 'guest_telegram', 'guest_whatsapp', 'guests_count', 'total_price', 'currency', 'channel', 'notes', 'admin_notes', 'client_notes', 'arrival_time', 'departure_time', 'prepaid', 'deposit', 'color', 'status', 'guest_id'];
 function pick(body) { const o = {}; for (const f of FIELDS) if (body[f] !== undefined) o[f] = body[f]; return o; }
 function ref() { const d = new Date(); return 'UL-' + d.toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(); }
-const logEvent = (booking_id, type, payload, user) => q('booking_events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ booking_id, type, payload, actor: user.name || user.email }) }).catch(() => null);
+// 16.10: автор действия в журнале — «Имя (UL)» / «Имя (HL)»: видно, какой сотрудник какой организации что сделал
+const actorOf = user => (user.name || user.email) + (user.org && user.org.short ? ' (' + user.org.short + ')' : '');
+const logEvent = (booking_id, type, payload, user) => q('booking_events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ booking_id, type, payload, actor: actorOf(user) }) }).catch(() => null);
 
 async function create(body, user) {
   const o = pick(body);
@@ -196,7 +198,7 @@ async function create(body, user) {
   if (!(Number(o.total_price) > 0) && list && list.total) o.total_price = list.total;
   o.total_price = Math.round(Number(o.total_price) || 0);
   needFull(user, o.apartment_id);
-  o.created_by = user.email; o.booking_ref = ref(); o.org_id = user.org.id;
+  o.created_by = actorOf(user); o.updated_by = actorOf(user); o.booking_ref = ref(); o.org_id = user.org.id;
   const b = (await q('bookings', { method: 'POST', body: JSON.stringify(o) }))[0];
   if (b.guest_id) q('guests?id=eq.' + enc(b.guest_id) + '&org_id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ org_id: user.org.id }) }).catch(() => null);
   if (list && list.total && Math.abs(list.total - o.total_price) > 1) await logEvent(b.id, 'price_manual', { list_price: list.total, price: o.total_price, diff: o.total_price - list.total }, user);
@@ -213,7 +215,7 @@ async function update(body, user) {
   if (co <= ci) throw new Error('Выезд должен быть позже заезда');
   if (o.check_in || o.check_out) o.nights = nightsOf(ci, co);
   if (o.total_price !== undefined) o.total_price = Math.round(Number(o.total_price) || 0);
-  o.created_by = user.email; o.updated_at = new Date().toISOString();
+  o.updated_by = actorOf(user); o.updated_at = new Date().toISOString();
   await q('bookings?id=eq.' + enc(body.id), { method: 'PATCH', body: JSON.stringify(o) });
   if (o.total_price !== undefined && o.total_price !== cur.total_price) await logEvent(body.id, 'price_change', { from: cur.total_price, to: o.total_price }, user);
   if ((o.apartment_id && o.apartment_id !== cur.apartment_id) || (o.check_in && o.check_in !== cur.check_in) || (o.check_out && o.check_out !== cur.check_out))
@@ -228,7 +230,7 @@ async function setStatus(body, user) {
   if (body.status === 'checked_out' && cur.total_price > 0 && (cur.debt || 0) > 0 && !body.close_with_debt) {
     const e = new Error('DEBT:' + cur.debt); e.status = 409; throw e;   // интерфейс спросит «закрыть с долгом?» + причину
   }
-  const o = { status: body.status, created_by: user.email };
+  const o = { status: body.status, updated_by: actorOf(user) };
   if (body.status === 'checked_in') o.checked_in = true; if (body.status === 'checked_out') o.checked_out = true; if (body.status === 'cancelled') { o.cancelled_at = new Date().toISOString(); if (body.reason) o.cancel_reason = String(body.reason).slice(0, 300); }
   // 14.10.2026: заявка с сайта (request) подтверждается/отменяется из /pms так же, как из /admin — письмо гостю + TG
   if (cur.status === 'request' && body.status === 'confirmed') { o.confirmed_at = new Date().toISOString(); o.confirmed_by = user.email; }
@@ -302,7 +304,7 @@ async function guestLink(body, user) {
   const bk = (await q('bookings?select=id,apartment_id,guest_id,guest_name&id=eq.' + enc(body.booking_id)))[0]; if (!bk) throw new Error('not found'); needFull(user, bk.apartment_id);
   const gid = body.guest_id || null;
   if (gid) { const g = (await q('guests?select=id,name,phone,telegram&id=eq.' + enc(gid)))[0]; if (!g) throw new Error('Гость не найден'); }
-  await q('bookings?id=eq.' + enc(body.booking_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ guest_id: gid }) });
+  await q('bookings?id=eq.' + enc(body.booking_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ guest_id: gid, updated_by: actorOf(user) }) });
   await logEvent(body.booking_id, gid ? 'guest_link' : 'guest_unlink', { from: bk.guest_id, to: gid }, user);
   return booking(user, body.booking_id);
 }
@@ -388,13 +390,17 @@ async function guestUpdate(body, user) {
 const APT_FIELDS = ['name', 'complex', 'floor', 'max_guests', 'rooms', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no', 'tracked', 'org_id', 'is_active'];
 async function objects(user) {
   const org = '&org_id=eq.' + user.org.id;
-  const [cx, apts, units] = await Promise.all([
+  const [cx, apts, units, access, orgs] = await Promise.all([
     q('complexes?select=*' + org + '&order=name'),
     q('apartments?select=id,name,complex,floor,max_guests,rooms,weekday_price,weekend_price,min_nights,catalog_no,tracked,org_id,is_active,photo_url,updated_at' + org + '&order=complex,catalog_no.nullslast,name'),
-    q('channel_units?select=apartment_id,channel_property_id,external_room_type_id,external_rate_plan_id,is_active,derived,channels,last_error,last_pushed_at')
+    q('channel_units?select=apartment_id,channel_property_id,external_room_type_id,external_rate_plan_id,is_active,derived,channels,last_error,last_pushed_at'),
+    q('apartment_access?select=apartment_id,org_id,mode'),
+    q('organizations?select=id,name,short&is_active=eq.true&order=id')
   ]);
   const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
-  return { complexes: cx, apartments: apts.map(a => Object.assign(a, { unit: byApt[a.id] || null })) };
+  const acc = {}; access.forEach(x => (acc[x.apartment_id] = acc[x.apartment_id] || []).push({ org_id: x.org_id, mode: x.mode }));
+  // партнёрские квартиры (16.10): одна запись в bookings/rate_calendar, видна и ведётся обеими организациями через apartment_access
+  return { complexes: cx, orgs, apartments: apts.map(a => Object.assign(a, { unit: byApt[a.id] || null, partners: acc[a.id] || [] })) };
 }
 async function complexSave(body, user) {
   const o = { name: String(body.name || '').trim(), address: body.address || null, city: body.city || 'Tashkent', timezone: body.timezone || 'Asia/Tashkent', notes: body.notes || null, is_active: body.is_active !== false };
@@ -420,6 +426,14 @@ async function aptSave(body, user) {
   if (!o.complex) throw new Error('Выберите ЖК');
   const cx = await q('complexes?select=id&name=eq.' + enc(o.complex) + '&org_id=eq.' + o.org_id); if (!cx.length) throw new Error('ЖК «' + o.complex + '» не найден');
   const cur = (await q('apartments?select=id,org_id&id=eq.' + enc(id)))[0];
+  // партнёр (одна организация-партнёр на квартиру): partner_org_id null = убрать, иначе apartment_access с mode full|occupancy
+  if (body.partner_org_id !== undefined) {
+    const pid = body.partner_org_id ? Number(body.partner_org_id) : null; const mode = body.partner_mode === 'occupancy' ? 'occupancy' : 'full';
+    if (pid && pid === (o.org_id || user.org.id)) throw new Error('Партнёр не может совпадать с владельцем');
+    await q('apartment_access?apartment_id=eq.' + enc(id) + (pid ? '&org_id=neq.' + pid : ''), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+    if (pid) await q('apartment_access?on_conflict=apartment_id,org_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ apartment_id: id, org_id: pid, mode }) });
+    AUTH_CACHE.clear();
+  }
   if (cur) {
     if (cur.org_id && cur.org_id !== user.org.id && user.role !== 'admin') throw new Error('Чужая квартира');
     o.updated_at = new Date().toISOString();

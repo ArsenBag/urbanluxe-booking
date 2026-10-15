@@ -13,6 +13,7 @@
 // POST {a:'unit_markup', apartment_id, channel, pct|null}     → наценка квартиры на площадке (null = общая)
 // POST {a:'restriction_save', id?, apartment_id, channel, date_from, date_to, stop_sell, min_nights, note} | {a:'restriction_delete', id}
 // POST {a:'unit_log', apartment_id}                           → очередь/брони/правила квартиры
+// POST {a:'channel_account_set', channel_id, org_id}        → канал Channex принадлежит аккаунту организации (партнёрские квартиры)
 // POST {a:'mapping_scan', channel?}                          → channels[ch].mapped по факту маппингов в Channex (одна площадка за вызов, next = следующая)
 const C = require('./_channex.js');
 const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
@@ -50,8 +51,12 @@ async function status(user) {
   else channex = { ok: false, error: 'CHANNEX_API_KEY не задан' };
   const mine = new Set(apts.map(a => a.id));
   const restrictions = (await C.q('channel_restrictions?select=*&date_to=gte.' + C.today() + '&order=date_from')).filter(r => mine.has(r.apartment_id));
+  // 16.10: партнёрские квартиры и принадлежность каналов аккаунтам организаций (Airbnb HighLife — отдельный канал в нашем Channex)
+  const [access, accounts, orgs] = await Promise.all([C.q('apartment_access?select=apartment_id,org_id,mode'), C.q('channel_accounts?select=*'), C.q('organizations?select=id,name,short&is_active=eq.true&order=id')]);
+  const accByCh = {}; accounts.forEach(a => accByCh[a.channel_id] = a.org_id);
+  channels.forEach(c => c.org_id = accByCh[c.id] || 1);
   const markups = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => markups[m.channel] = Number(m.pct));
-  return { channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+  return { channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, access: access.filter(x => mine.has(x.apartment_id)), accounts, orgs, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
 }
 
 // Комната + тариф Standard одной квартиры в property ЖК → channel_units. Возвращает строку лога.
@@ -204,11 +209,12 @@ async function mappingScan(body) {
   const list = ((await C.cx('GET', '/channels?pagination[limit]=100')).data || []).filter(c => (c.attributes || {}).channel === code);
   const units = await C.q('channel_units?select=*');
   const byPlan = {}; units.forEach(u => { const d = (u.derived || {})[ch]; if (d && d.rate_plan_id) byPlan[d.rate_plan_id] = u; });
+  const accByCh = {}; (await C.q('channel_accounts?select=channel_id,org_id')).forEach(a => accByCh[a.channel_id] = a.org_id);
   const found = {}; let details = 0;
   for (const c of list) {
     const a0 = c.attributes || {};
     let maps = a0.rate_plans || a0.mappings; if (!maps) { details++; const d = (await C.cx('GET', '/channels/' + c.id)).data; const a = d.attributes || {}; maps = a.rate_plans || a.mappings || []; }
-    for (const m of maps) { const u = byPlan[m.rate_plan_id]; if (!u) continue; const g = (found[u.apartment_id] = found[u.apartment_id] || { channel_ids: [], n: 0, active: !!a0.is_active }); if (!g.channel_ids.includes(c.id)) g.channel_ids.push(c.id); g.n++; }
+    for (const m of maps) { const u = byPlan[m.rate_plan_id]; if (!u) continue; const g = (found[u.apartment_id] = found[u.apartment_id] || { channel_ids: [], org_ids: [], n: 0, active: !!a0.is_active }); if (!g.channel_ids.includes(c.id)) { g.channel_ids.push(c.id); g.org_ids.push(accByCh[c.id] || 1); } g.n++; }
   }
   const now = new Date().toISOString(); let updated = 0;
   for (const u of units) {
@@ -361,6 +367,15 @@ exports.handler = async (event) => {
       case 'restriction_delete': return out(200, await restrictionDelete(body, user));
       case 'unit_log': return out(200, await unitLog(body, user));
       case 'mapping_scan': return out(200, await mappingScan(body));
+      case 'channel_account_set': {
+        // чей аккаунт площадки у канала Channex: org_id организации (1 = Urban Luxe). Нужно для партнёрских квартир (Airbnb HighLife).
+        const id = String(body.channel_id || ''); const org = Number(body.org_id) || 1; if (!id) return out(400, { error: 'channel_id' });
+        const ch = (await C.cx('GET', '/channels/' + id)).data; const a = ch.attributes || {};
+        await C.q('channel_accounts?on_conflict=channel_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ channel_id: id, org_id: org, channel: a.channel, title: a.title, updated_at: new Date().toISOString() }) });
+        const codeToCh = {}; Object.keys(C.CHANNEL_CODES).forEach(k => codeToCh[C.CHANNEL_CODES[k]] = k);
+        const r = codeToCh[a.channel] ? await mappingScan({ channel: codeToCh[a.channel] }) : null;
+        return out(200, { ok: true, channel_id: id, org_id: org, rescan: r });
+      }
       case 'go_production': return out(200, await goProduction(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));
