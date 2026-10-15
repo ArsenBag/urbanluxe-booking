@@ -331,7 +331,9 @@ function evText(ev) {
     case 'closed_with_debt': return 'закрыл с долгом ' + money(p.debt) + (p.reason ? ': ' + p.reason : '');
     case 'guest_link': return 'привязал карточку гостя';
     case 'guest_unlink': return 'отвязал карточку гостя';
-    case 'created': return 'создал бронь' + (p.source ? ' (' + p.source + ')' : '');
+    case 'created': return 'создал бронь' + (p.source ? ' (' + (CH[p.source] || p.source) + ')' : '') + (p.status === 'request' ? ' — заявка' : '');
+    case 'edited': return 'изменил: ' + ((p.fields || []).join(', ') || 'данные');
+    case 'request_cancelled': return 'отклонил заявку' + (p.reason ? ': ' + p.reason : '');
     case 'status_changed': return 'статус → ' + (ST[p.to || p.status] || [p.to || p.status])[0] + (p.reason ? ': ' + p.reason : '');
     case 'request_confirmed': return 'подтвердил заявку с сайта';
     case 'import_conflict': return 'конфликт при импорте' + (p.with ? ' с ' + p.with : '');
@@ -590,7 +592,8 @@ VIEWS.channels = async () => {
       h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
       for (const a of byCx[cx]) {
         const u = unitOf(a.id);
-        h += `<tr data-apt="${a.id}" style="cursor:pointer"><td class="b">${a.catalog_no ? '<span class="no tag">' + a.catalog_no + '</span> ' : ''}${esc(a.name)}</td>`;
+        const pts = (S.access || []).filter(x => x.apartment_id === a.id).map(x => { const o = (S.orgs || []).find(y => y.id === x.org_id) || {}; return '<span class="tag" style="background:#e3ecff" title="партнёрская квартира: ' + esc(o.name || x.org_id) + '">' + esc(o.short || x.org_id) + '</span>'; }).join('');
+        h += `<tr data-apt="${a.id}" style="cursor:pointer"><td class="b">${a.catalog_no ? '<span class="no tag">' + a.catalog_no + '</span> ' : ''}${esc(a.name)} ${pts}</td>`;
         h += cell(u && u.external_room_type_id ? true : (hasProp ? false : null), 'не создана', u ? 'room ' + (u.external_room_type_id || '').slice(0, 8) : '');
         for (const o of OTAS) { const c = chanFor(u, o[2]); const st = (u && u.channels && u.channels[o[0]]) || {}; const err24 = u && (u.last_error || S.failed.some(f => f.apartment_id === a.id)); let inner;
           if (!u || !u.external_room_type_id) inner = '<span class="muted">—</span>';
@@ -599,6 +602,7 @@ VIEWS.channels = async () => {
           else if (st.mapped === null && st.checked_at) inner = '<span class="muted" style="font-size:11px">нет</span>';
           else if (c) inner = '<span style="color:var(--green);opacity:.5" title="канал есть, маппинг не сканирован — нажмите «Скан маппингов»">✓?</span>';
           else inner = '<span class="muted" style="font-size:11px">нет</span>';
+          if (st.mapped && st.mapped.org_ids && st.mapped.org_ids.some(x => x !== 1)) inner += ' <span class="tag" style="background:#e3ecff;font-size:9px;padding:0 3px" title="аккаунт площадки партнёра">' + esc([...new Set(st.mapped.org_ids.filter(x => x !== 1))].map(x => ((S.orgs || []).find(y => y.id === x) || {}).short || x).join(',')) + '</span>';
           if (st.markup_pct != null) inner += '<sup style="font-size:9px;color:var(--muted)"> +' + st.markup_pct + '%</sup>';
           if (S.restrictions.some(r => r.apartment_id === a.id && r.channel === o[0])) inner += '<sup style="font-size:9px;color:#b07a00" title="есть закрытия/мин. ночи по площадке"> ⛔</sup>';
           h += `<td style="text-align:center;cursor:pointer" data-cell="${a.id}|${o[0]}">${inner}</td>`; }
