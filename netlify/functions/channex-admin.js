@@ -13,7 +13,7 @@
 // POST {a:'unit_markup', apartment_id, channel, pct|null}     → наценка квартиры на площадке (null = общая)
 // POST {a:'restriction_save', id?, apartment_id, channel, date_from, date_to, stop_sell, min_nights, note} | {a:'restriction_delete', id}
 // POST {a:'unit_log', apartment_id}                           → очередь/брони/правила квартиры
-// POST {a:'mapping_scan', offset?, limit?}                    → channels[ch].mapped по факту маппингов в Channex (порциями)
+// POST {a:'mapping_scan', channel?}                          → channels[ch].mapped по факту маппингов в Channex (одна площадка за вызов, next = следующая)
 const C = require('./_channex.js');
 const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
@@ -119,9 +119,23 @@ async function channelToggle(body, user) {
   }
   // включить
   if (!cur.saved || !cur.saved.length) { await saveChannels(unit, { [ch]: Object.assign({}, cur, { enabled: true }) }); return { ok: true, enabled: true, need_manual: true, log: ['маппинга нет — замапить в Channex: ' + C.BASE + '/channels'] }; }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   for (const sv of cur.saved) {
     const c = (await C.cx('GET', '/channels/' + sv.channel_id)).data; const a = c.attributes || {}; const maps = a.rate_plans || a.mappings || [];
-    if (ch === 'airbnb') { for (const m of sv.mappings) { await C.cx('POST', '/channels/' + sv.channel_id + '/mappings', { mapping: { rate_plan_id: m.rate_plan_id, settings: m.settings } }); log.push('mapped ' + sv.title + ' listing ' + (m.settings || {}).listing_id); } }
+    if (ch === 'airbnb') {
+      // Channex снимает маппинг Airbnb асинхронно: POST сразу после DELETE «проходит», но маппинг не появляется — проверяем и повторяем
+      for (const m of sv.mappings) {
+        let ok = false;
+        for (let i = 0; i < 3 && !ok; i++) {
+          if (i) await sleep(7000);
+          await C.cx('POST', '/channels/' + sv.channel_id + '/mappings', { mapping: { rate_plan_id: m.rate_plan_id, settings: m.settings } });
+          await sleep(1500);
+          const c2 = (await C.cx('GET', '/channels/' + sv.channel_id)).data; const a2 = c2.attributes || {}; ok = (a2.rate_plans || a2.mappings || []).some(x => x.rate_plan_id === m.rate_plan_id);
+        }
+        if (!ok) throw new Error('Channex не принял маппинг листинга ' + (m.settings || {}).listing_id + ' — попробуйте «Включить» ещё раз через минуту');
+        log.push('mapped ' + sv.title + ' listing ' + (m.settings || {}).listing_id);
+      }
+    }
     else { const all = maps.map(m => ({ rate_plan_id: m.rate_plan_id, settings: m.settings })).concat(sv.mappings); await C.cx('PUT', '/channels/' + sv.channel_id, { channel: { rate_plans: all } }); log.push('mapped ' + sv.title + ' (' + sv.mappings.length + ')'); }
   }
   await saveChannels(unit, { [ch]: Object.assign({}, cur, { enabled: true, saved: null, mapped: { channel_ids: cur.saved.map(x => x.channel_id), n: cur.saved.reduce((s, x) => s + x.mappings.length, 0), checked_at: new Date().toISOString() }, toggled_at: new Date().toISOString(), toggled_by: user.name }) });
@@ -183,36 +197,28 @@ async function unitLog(body, user) {
   return { unit, outbox, bookings: bookings.map(b => { const p = b.payload || {}; const r = (p.rooms || [])[0] || {}; const c = p.customer || {}; return { id: b.id, ota: b.ota_name, code: b.ota_reservation_code, status: b.status, received_at: b.received_at, error: b.error, conflict: b.conflict, booking_id: b.booking_id, check_in: r.checkin_date, check_out: r.checkout_date, guest: [c.name, c.surname].filter(Boolean).join(' '), amount: p.amount, currency: p.currency }; }), rules };
 }
 
-// Скан маппингов: какие квартиры реально привязаны к каким каналам (channels[ch].mapped). Порциями: {offset, limit} → next.
-// Вызывается из UI («Обновить статусы») и раз в час из booking-pull.
-async function mappingScan(body, user) {
-  const list = (await C.cx('GET', '/channels?pagination[limit]=100')).data || [];
-  const off = Number(body.offset) || 0, lim = Number(body.limit) || 8;
-  const part = list.slice(off, off + lim);
+// Скан маппингов: какие квартиры реально привязаны к каналам площадки (channels[ch].mapped). Один вызов = одна площадка
+// ({channel:'airbnb'|'booking'|...}; без channel — первая, в ответе next = следующая). UI и booking-pull (раз в час) идут по всем.
+async function mappingScan(body) {
+  const codes = Object.keys(C.CHANNEL_CODES); const ch = body.channel || codes[0]; const code = C.CHANNEL_CODES[ch]; if (!code) throw new Error('channel');
+  const list = ((await C.cx('GET', '/channels?pagination[limit]=100')).data || []).filter(c => (c.attributes || {}).channel === code);
   const units = await C.q('channel_units?select=*');
-  const byPlan = {}; units.forEach(u => { for (const ch of Object.keys(u.derived || {})) { const d = u.derived[ch]; if (d && d.rate_plan_id) byPlan[d.rate_plan_id] = { u, ch }; } });
-  const codeToCh = {}; Object.keys(C.CHANNEL_CODES).forEach(k => codeToCh[C.CHANNEL_CODES[k]] = k);
-  const found = {}; // apt → ch → {channel_ids, n}
-  for (const c of part) {
-    const a0 = c.attributes || {}; const ch = codeToCh[a0.channel]; if (!ch) continue;
-    let maps = a0.rate_plans || a0.mappings; if (!maps) { const d = (await C.cx('GET', '/channels/' + c.id)).data; const a = d.attributes || {}; maps = a.rate_plans || a.mappings || []; }
-    for (const m of maps) { const hit = byPlan[m.rate_plan_id]; if (!hit || hit.ch !== ch) continue; const f = (found[hit.u.apartment_id] = found[hit.u.apartment_id] || {}); const g = (f[ch] = f[ch] || { channel_ids: [], n: 0, active: a0.is_active }); if (!g.channel_ids.includes(c.id)) g.channel_ids.push(c.id); g.n++; }
+  const byPlan = {}; units.forEach(u => { const d = (u.derived || {})[ch]; if (d && d.rate_plan_id) byPlan[d.rate_plan_id] = u; });
+  const found = {}; let details = 0;
+  for (const c of list) {
+    const a0 = c.attributes || {};
+    let maps = a0.rate_plans || a0.mappings; if (!maps) { details++; const d = (await C.cx('GET', '/channels/' + c.id)).data; const a = d.attributes || {}; maps = a.rate_plans || a.mappings || []; }
+    for (const m of maps) { const u = byPlan[m.rate_plan_id]; if (!u) continue; const g = (found[u.apartment_id] = found[u.apartment_id] || { channel_ids: [], n: 0, active: !!a0.is_active }); if (!g.channel_ids.includes(c.id)) g.channel_ids.push(c.id); g.n++; }
   }
   const now = new Date().toISOString(); let updated = 0;
-  // обновляем только каналы, попавшие в эту порцию (по коду площадки)
-  const chsInPart = new Set(part.map(c => codeToCh[(c.attributes || {}).channel]).filter(Boolean));
-  const full = off + lim >= list.length && off === 0;
   for (const u of units) {
-    const cur = Object.assign({}, u.channels || {}); let dirty = false;
-    for (const ch of chsInPart) {
-      const m = (found[u.apartment_id] || {})[ch];
-      const prev = cur[ch] || {};
-      if (m) { cur[ch] = Object.assign({}, prev, { mapped: Object.assign(m, { checked_at: now }) }); dirty = true; }
-      else if (full || (prev.mapped && prev.mapped.channel_ids && prev.mapped.channel_ids.some(id => part.some(c => c.id === id)))) { cur[ch] = Object.assign({}, prev, { mapped: null, checked_at: now }); dirty = true; }
-    }
-    if (dirty) { await C.q('channel_units?apartment_id=eq.' + enc(u.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ channels: cur }) }); updated++; }
+    const prev = (u.channels || {})[ch] || {}; const m = found[u.apartment_id] || null;
+    const next = Object.assign({}, prev, { mapped: m ? Object.assign(m, { checked_at: now }) : null, checked_at: now });
+    if (JSON.stringify(Object.assign({}, prev, { checked_at: 0, mapped: prev.mapped && Object.assign({}, prev.mapped, { checked_at: 0 }) })) === JSON.stringify(Object.assign({}, next, { checked_at: 0, mapped: next.mapped && Object.assign({}, next.mapped, { checked_at: 0 }) }))) continue;
+    await C.q('channel_units?apartment_id=eq.' + enc(u.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ channels: Object.assign({}, u.channels || {}, { [ch]: next }) }) }); updated++;
   }
-  return { total: list.length, offset: off, done: off + lim, next: off + lim < list.length ? off + lim : null, updated };
+  const idx = codes.indexOf(ch);
+  return { channel: ch, channels: list.length, details, mapped: Object.keys(found).length, updated, next: idx + 1 < codes.length ? codes[idx + 1] : null };
 }
 
 async function setupComplex(body, user) {
@@ -354,7 +360,7 @@ exports.handler = async (event) => {
       case 'restriction_save': return out(200, await restrictionSave(body, user));
       case 'restriction_delete': return out(200, await restrictionDelete(body, user));
       case 'unit_log': return out(200, await unitLog(body, user));
-      case 'mapping_scan': return out(200, await mappingScan(body, user));
+      case 'mapping_scan': return out(200, await mappingScan(body));
       case 'go_production': return out(200, await goProduction(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));

@@ -429,9 +429,12 @@ async function aptSave(body, user) {
   }
   o.id = id; if (o.is_active === undefined) o.is_active = true; if (o.tracked === undefined) o.tracked = true;
   const rows = await q('apartments', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+  AUTH_CACHE.clear();   // чтобы новая квартира сразу была в access (шахматка, архив)
   await logEvent(null, 'apartment_created', { apartment_id: id }, user);
   return rows[0];
 }
+// квартира принадлежит организации пользователя (по базе, а не по кэшу доступа — новая квартира попадает в кэш только через 2 мин)
+async function ownApt(user, id) { const a = (await q('apartments?select=org_id&id=eq.' + enc(id)))[0]; return !!a && ((a.org_id || 1) === user.org.id || user.role === 'admin'); }
 async function selectionCreate(body, user) {
   const ids = (body.apartment_ids || []).filter(id => canSeeApt(user, id)); if (!ids.length) throw new Error('Выберите квартиры');
   if (!body.check_in || !body.check_out || body.check_out <= body.check_in) throw new Error('Даты');
@@ -486,14 +489,14 @@ exports.handler = async (event) => {
       case 'apt_save': need('objects'); return out(200, await aptSave(body, user));
       case 'apt_archive': need('objects_archive'); {
         // закрыть 500 дней (rate_overrides → пересчёт → очередь) → отправить в Channex сейчас → только потом выключить квартиру и unit
-        if (!canSeeApt(user, body.id)) return out(403, { error: 'не ваша квартира' });
+        if (!(await ownApt(user, body.id))) return out(403, { error: 'не ваша квартира' });
         const r = await rpc('pms_apt_archive', { p_apt: body.id, p_actor: user.name });
         let pushed = null; try { pushed = await require('./_channex.js').processOutbox(); } catch (e) { pushed = { error: String(e.message).slice(0, 200) }; }
         await q('apartments?id=eq.' + enc(body.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() }) });
         await q('channel_units?apartment_id=eq.' + enc(body.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() }) });
         await logEvent(null, 'apartment_archived', { apartment_id: body.id }, user); return out(200, Object.assign({}, r, { pushed }));
       }
-      case 'apt_restore': need('objects_archive'); { if (!canSeeApt(user, body.id)) return out(403, { error: 'не ваша квартира' }); const r = await rpc('pms_apt_restore', { p_apt: body.id }); await logEvent(null, 'apartment_restored', { apartment_id: body.id }, user); return out(200, r); }
+      case 'apt_restore': need('objects_archive'); { if (!(await ownApt(user, body.id))) return out(403, { error: 'не ваша квартира' }); AUTH_CACHE.clear(); const r = await rpc('pms_apt_restore', { p_apt: body.id }); await logEvent(null, 'apartment_restored', { apartment_id: body.id }, user); return out(200, r); }
       case 'selection_create': return out(200, await selectionCreate(body, user));
       default: return out(400, { error: 'unknown action' });
     }
