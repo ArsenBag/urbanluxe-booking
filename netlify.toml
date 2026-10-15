@@ -22,6 +22,11 @@
 [functions."ical-pull"]
   schedule = "*/2 * * * *"
 
+# Booking.com на проде Channex (15.10.2026): пока Booking не пушит новые брони новому провайдеру — опрашиваем
+# load_future_reservations по всем Booking-каналам каждые 10 минут (booking-pull.js). Убрать, когда push заработает.
+[functions."booking-pull"]
+  schedule = "*/10 * * * *"
+
 # Брони из RealtyCalendar → своя таблица bookings (07.10.2026). Нужен RC_TOKEN.
 [functions."rc-sync"]
   schedule = "7,22,37,52 * * * *"
