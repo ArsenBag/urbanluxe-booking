@@ -653,7 +653,7 @@ VIEWS.channels = async () => {
   $('#c_feed').onclick = () => run(() => capi(null, { a: 'feed' }), 'Забираю брони');
   $('#c_hook').onclick = () => run(() => capi(null, { a: 'setup_webhook' }), 'Вебхук');
   $('#c_ical').onclick = () => run(() => capi(null, { a: 'ical_pull' }), 'iCal');
-  $('#c_scan').onclick = () => run(async () => { let off = 0, r; while (off != null) { r = await capi(null, { a: 'mapping_scan', offset: off, limit: 8 }); say('скан ' + r.done + '/' + r.total + '…'); off = r.next; } return r; }, 'Скан маппингов');
+  $('#c_scan').onclick = () => run(async () => { let ch = 'airbnb', r; const all = []; while (ch) { say('скан ' + ch + '…'); r = await capi(null, { a: 'mapping_scan', channel: ch }); all.push(r.channel + ': ' + r.mapped); ch = r.next; } return all; }, 'Скан маппингов');
   $('#c_cx').onchange = e => { const c = e.target.value; if (!c) return; e.target.value = ''; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); };
   load();
 };
