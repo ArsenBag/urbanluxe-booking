@@ -451,7 +451,7 @@ async function aptSave(body, user) {
     await logEvent(null, 'apartment_updated', { apartment_id: id, fields: Object.keys(o) }, user);
     return rows[0];
   }
-  o.id = id; if (o.is_active === undefined) o.is_active = true; if (o.tracked === undefined) o.tracked = true;
+  o.id = id; if (o.is_active === undefined) o.is_active = true; if (o.tracked === undefined) o.tracked = true; if (o.floor == null) o.floor = 1; if (o.max_guests == null) o.max_guests = 2;   // NOT NULL в apartments
   if (user.org.plan_limit) { const n = (await q('apartments?select=id&is_active=eq.true&org_id=eq.' + o.org_id)).length; if (n >= user.org.plan_limit) throw new Error('Лимит тарифа: ' + user.org.plan_limit + ' активных квартир. Обратитесь к администратору платформы'); }
   const rows = await q('apartments', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
   AUTH_CACHE.clear();   // чтобы новая квартира сразу была в access (шахматка, архив)
@@ -497,6 +497,35 @@ async function orgPartnerSet(body, user) {
   if (body.on) { for (const [x, y] of [[a, b], [b, a]]) await q('org_partners?on_conflict=org_id,partner_org_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify({ org_id: x, partner_org_id: y }) }); }
   else { await q('org_partners?or=(and(org_id.eq.' + a + ',partner_org_id.eq.' + b + '),and(org_id.eq.' + b + ',partner_org_id.eq.' + a + '))', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); }
   AUTH_CACHE.clear(); return { ok: true };
+}
+// удалить организацию целиком (только платформа-админ, не Urban Luxe): Channex property/группа, квартиры с бронями, ЖК, сотрудники (и auth), приглашения
+async function orgDelete(body, user) {
+  needPlatform(user); const id = Number(body.id); if (!id || id === 1) throw new Error('Нельзя удалить Urban Luxe');
+  const org = (await q('organizations?select=*&id=eq.' + id))[0]; if (!org) throw new Error('Организация не найдена');
+  if (String(body.confirm || '') !== org.name) throw new Error('Для подтверждения введите точное название организации');
+  const C = require('./_channex.js'); const log = [];
+  const key = ((org.settings || {}).channex || {}).api_key || null;
+  const props = await q('channel_properties?select=id,external_id&org_id=eq.' + id);
+  for (const pr of props) { if (pr.external_id) { try { await C.cx('DELETE', '/properties/' + pr.external_id, null, key); log.push('channex property deleted ' + pr.external_id.slice(0, 8)); } catch (e) { log.push('channex property: ' + String(e.message).slice(0, 80)); } } }
+  const gid = ((org.settings || {}).channex || {}).group_id; if (gid && !key) { try { await C.cx('DELETE', '/groups/' + gid); log.push('channex group deleted'); } catch (e) { log.push('channex group: ' + String(e.message).slice(0, 80)); } }
+  const apts = (await q('apartments?select=id&org_id=eq.' + id)).map(a => a.id);
+  if (apts.length) {
+    const inA = '&apartment_id=in.(' + apts.map(enc).join(',') + ')';
+    for (const t of ['channel_outbox', 'channel_restrictions', 'channel_units', 'rate_calendar', 'rate_overrides', 'cleaning_tasks', 'apartment_access', 'ical_sources']) await q(t + '?apartment_id=neq.__none__' + inA, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+    const bks = await q('bookings?select=id' + inA);
+    if (bks.length) { const inB = 'booking_id=in.(' + bks.map(b => b.id).join(',') + ')'; for (const t of ['payments', 'booking_events', 'channel_bookings']) await q(t + '?' + inB, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null); await q('bookings?id=in.(' + bks.map(b => b.id).join(',') + ')', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); }
+    await q('apartments?id=in.(' + apts.map(enc).join(',') + ')', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); log.push('apartments ' + apts.length + ', bookings ' + bks.length);
+  }
+  await q('channel_properties?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  await q('complexes?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  const us = await q('app_users?select=email,auth_user_id&org_id=eq.' + id);
+  for (const u of us) { const aid = u.auth_user_id || await authUserId(u.email); if (aid) { try { await authAdmin('users/' + aid, { method: 'DELETE' }); } catch (_) { } } }
+  await q('app_users?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); log.push('users ' + us.length);
+  for (const t of ['invitations', 'org_partners', 'channel_markups', 'rate_rules', 'selections']) await q(t + '?org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  await q('org_partners?partner_org_id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  await q('organizations?id=eq.' + id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  AUTH_CACHE.clear(); await logEvent(null, 'org_deleted', { id, name: org.name, log }, user);
+  return { ok: true, log };
 }
 // письмо (Resend) без привязки к брони
 async function sendMail(to, subject, html, text) {
@@ -631,6 +660,7 @@ exports.handler = async (event) => {
       case 'user_save': need('users'); return out(200, await userSave(body, user));
       case 'org_save': return out(200, await orgSave(body, user));
       case 'org_partner_set': return out(200, await orgPartnerSet(body, user));
+      case 'org_delete': return out(200, await orgDelete(body, user));
       case 'invite_create': need('users'); return out(200, await inviteCreate(body, user));
       case 'invite_delete': need('users'); await q('invitations?token=eq.' + enc(body.token) + '&org_id=eq.' + user.org.id + '&accepted_at=is.null', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
       case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
