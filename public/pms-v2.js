@@ -77,6 +77,57 @@ VIEWS.objects = async () => {
 };
 
 // =====================================================================
+// ОРГАНИЗАЦИИ (платформа-админ) — PMS v2-B
+// =====================================================================
+VIEWS.orgs = async () => {
+  $('#tools').innerHTML = `<button class="pri sm" id="g_new">+ Организация</button><span class="muted">Кабинеты клиентов и партнёров: свои объекты, сотрудники, каналы. Партнёры сети видят занятость и цены друг друга. Channex: по умолчанию — наша учётка (своя группа на организацию), либо свой ключ клиента.</span>`;
+  $('#main').innerHTML = '<div class="page"><div class="card" id="og">загрузка…</div></div>';
+  let L;
+  const load = async () => {
+    try { L = await api({ a: 'orgs' }); } catch (e) { $('#og').innerHTML = esc(e.message); return; }
+    const nm = id => (L.find(o => o.id === id) || {}).short || id;
+    $('#og').innerHTML = `<table class="t"><tr><th>#</th><th>Организация</th><th>Код</th><th>Квартир</th><th>Сотрудников</th><th>Channex</th><th>Партнёры</th><th>TG-чат</th><th></th></tr>` +
+      L.map(o => `<tr style="${o.is_active ? '' : 'opacity:.5'}"><td>${o.id}</td><td class="b">${esc(o.name)}${o.id === 1 ? ' <span class="tag">платформа</span>' : ''}${o.is_active ? '' : ' <span class="tag bad">выкл</span>'}</td><td><code>${esc(o.slug || '')}</code> ${esc(o.short || '')}</td><td>${o.apartments}${o.plan_limit ? ' / ' + o.plan_limit : ''}</td><td>${o.users}</td><td class="muted" style="font-size:11px">${o.channex.own_key ? 'свой ключ' : o.channex.group_id ? 'группа ' + esc(String(o.channex.group_id).slice(0, 8)) : (o.id === 1 ? 'наш аккаунт' : '<span class="muted">группа при первом подключении</span>')}</td><td>${(o.partners || []).map(nm).map(esc).join(', ') || '<span class="muted">—</span>'}</td><td class="muted" style="font-size:11px">${esc(o.tg_chat_id || '')}</td><td><button class="sm" data-oe="${o.id}">✎</button></td></tr>`).join('') + '</table>';
+    $$('#og [data-oe]').forEach(b => b.onclick = () => edit(L.find(o => String(o.id) === b.dataset.oe)));
+  };
+  const edit = (o) => { o = o || { is_active: true, partners: [] }; const isNew = !o.id;
+    openDrawer(isNew ? 'Новая организация' : o.name, `<div class="f">
+      <label class="w">Название <input id="g_name" value="${esc(o.name || '')}" placeholder="HighLife"></label>
+      <label>Короткий код <input id="g_short" value="${esc(o.short || '')}" placeholder="HL" maxlength="6"></label><label>Slug (для ссылок) <input id="g_slug" value="${esc(o.slug || '')}" placeholder="highlife"></label>
+      <label>Telegram <input id="g_tg" value="${esc(o.telegram || '')}" placeholder="@канал или ник"></label><label>TG chat_id для уведомлений <input id="g_chat" value="${esc(o.tg_chat_id || '')}" placeholder="пусто — наш чат"></label>
+      <label>Лимит квартир (тариф) <input id="g_lim" type="number" min="1" value="${o.plan_limit || ''}" placeholder="без лимита"></label><label>Логотип (URL) <input id="g_logo" value="${esc(o.logo_url || '')}"></label>
+      <label class="w">Свой ключ Channex <input id="g_key" type="password" autocomplete="off" placeholder="${o.channex && o.channex.own_key ? 'задан — пусто = не менять' : 'пусто = наш аккаунт, своя группа'}"></label>
+      <label style="flex-direction:row;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="g_act" ${o.is_active !== false ? 'checked' : ''}>активна</label></div>
+      ${isNew ? '' : `<div class="sec">Партнёры сети</div><div class="muted" style="font-size:11px;margin-bottom:6px">Партнёры видят личные квартиры друг друга только занятостью и ценой (вкладка «Партнёры»). Общие квартиры задаются в карточке квартиры.</div>${L.filter(x => x.id !== o.id).map(x => `<label style="display:inline-flex;flex-direction:row;gap:4px;margin:2px 12px 2px 0;font-size:12px;color:var(--text)"><input type="checkbox" data-pt="${x.id}" ${(o.partners || []).includes(x.id) ? 'checked' : ''}>${esc(x.name)}</label>`).join('')}`}`,
+      `<button class="pri" id="g_ok">${isNew ? 'Создать' : 'Сохранить'}</button><button onclick="closeDrawer()">Отмена</button>`);
+    $$('#d_body [data-pt]').forEach(c => c.onchange = async () => { try { await api(null, { a: 'org_partner_set', org_id: o.id, partner_org_id: c.dataset.pt, on: c.checked }); toast(c.checked ? 'Партнёрство включено' : 'Партнёрство снято'); } catch (e) { alert(e.message); c.checked = !c.checked; } });
+    $('#g_ok').onclick = async () => { const b = { id: o.id, name: $('#g_name').value.trim(), short: $('#g_short').value.trim(), slug: $('#g_slug').value.trim(), telegram: $('#g_tg').value.trim(), tg_chat_id: $('#g_chat').value.trim(), plan_limit: $('#g_lim').value, logo_url: $('#g_logo').value.trim(), is_active: $('#g_act').checked }; if ($('#g_key').value) b.channex_api_key = $('#g_key').value.trim();
+      try { await api(null, Object.assign({ a: 'org_save' }, b)); P.closeDrawer(); toast(isNew ? 'Организация создана — теперь пригласите её администратора в «Сотрудниках», переключившись в её кабинет' : 'Сохранено', 6000); load(); } catch (e) { alert(e.message); } };
+  };
+  $('#g_new').onclick = () => edit(null); load();
+};
+
+// =====================================================================
+// ОТЧЁТ СОБСТВЕННИКА / по квартире — PMS v2-B
+// =====================================================================
+VIEWS.report = async () => {
+  const ME = P.me(); const y0 = new Date().getUTCFullYear();
+  const apts = ((await P.ensureGrid()).apartments || []).filter(a => a.mode !== 'occupancy');
+  $('#tools').innerHTML = `<select id="r_year">${[y0 - 1, y0, y0 + 1].map(y => `<option ${y === y0 ? 'selected' : ''}>${y}</option>`).join('')}</select>${ME.role === 'partner' ? '' : `<select id="r_apt"><option value="">все мои квартиры</option>${apts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select>`}<button class="sm" id="r_csv">CSV</button><span class="muted">Доход — сумма броней (подтверждённые, живут, выехали) пропорционально ночам месяца. Доля собственника — по настройке квартиры (по умолчанию 100 %).</span>`;
+  $('#main').innerHTML = '<div class="page"><div class="card" id="rp">загрузка…</div></div>';
+  let R;
+  const MN = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const load = async () => {
+    try { R = await api({ a: 'owner_report', year: $('#r_year').value, apartment_id: $('#r_apt') ? $('#r_apt').value : '' }); } catch (e) { $('#rp').innerHTML = esc(e.message); return; }
+    const tot = R.months.reduce((s, m) => ({ nights: s.nights + m.nights, income: s.income + m.income, owner: s.owner + m.owner_income, bookings: s.bookings + m.bookings }), { nights: 0, income: 0, owner: 0, bookings: 0 });
+    $('#rp').innerHTML = `<h3>${R.year} · ${R.apartments.map(a => esc(a.name)).join(', ') || 'квартир нет'}</h3><div class="kpi"><div><b>${tot.nights}</b>ночей</div><div><b>${money(tot.income)}</b>доход</div><div><b>${money(tot.owner)}</b>доля собственника</div><div><b>${tot.bookings}</b>броней</div></div>
+      <table class="t"><tr><th>Месяц</th><th>Ночей</th><th>Загрузка</th><th>Броней</th><th>Ср. цена/ночь</th><th>Доход</th><th>Доля собственника</th></tr>` + R.months.map(m => `<tr><td>${MN[m.month - 1]}</td><td>${m.nights}</td><td>${m.occupancy}%</td><td>${m.bookings}</td><td>${m.adr ? money(m.adr) : '—'}</td><td class="b">${money(m.income)}</td><td class="b">${money(m.owner_income)}</td></tr>`).join('') + `</table>`;
+  };
+  $('#r_csv').onclick = () => { if (!R) return; const rows = [['Месяц', 'Ночей', 'Загрузка %', 'Броней', 'Ср. цена', 'Доход USD', 'Доля собственника USD']].concat(R.months.map(m => [MN[m.month - 1], m.nights, m.occupancy, m.bookings, m.adr, m.income, m.owner_income])); const csv = rows.map(r => r.join(';')).join('\n'); const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,\ufeff' + encodeURIComponent(csv); a.download = 'report-' + R.year + '.csv'; a.click(); };
+  $('#r_year').onchange = load; if ($('#r_apt')) $('#r_apt').onchange = load; load();
+};
+
+// =====================================================================
 // ПАНЕЛЬ ПЛОЩАДКИ ДЛЯ КВАРТИРЫ (Каналы → клик по ячейке)
 // =====================================================================
 P.channelPanel = async (S, aptId, ch, reload) => {

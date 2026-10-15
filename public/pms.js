@@ -19,14 +19,35 @@ const toast = (m, ms) => { const t = $('#toast'); t.textContent = m; t.style.dis
 // ---------- auth / api ----------
 let ME = null;
 async function token() { const { data: { session } } = await sb.auth.getSession(); return session ? session.access_token : null; }
+const ORG = () => localStorage.pms_org || '';   // B: платформа-админ смотрит другую организацию
 async function api(params, body) {
   const t = await token(); if (!t) { showLogin(); throw new Error('no session'); }
-  const r = await fetch(API + (body ? '' : '?' + new URLSearchParams(params)), { method: body ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const r = await fetch(API + '?' + new URLSearchParams(Object.assign({}, body ? {} : params, ORG() ? { org: ORG() } : {})), { method: body ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({ error: 'bad json' }));
   if (!r.ok || j.error) { if (r.status === 401) showLogin(); const e = new Error(j.error || r.status); e.status = r.status; throw e; }
   return j;
 }
 function showLogin() { $('#login').classList.remove('hide'); $('#app').classList.add('hide'); }
+// B (16.10): забыли пароль / приглашение / сброс
+const loginErr = m => { const er = $('#loginErr'); er.textContent = m; er.style.display = m ? 'block' : 'none'; };
+$('#forgot').onclick = async e => { e.preventDefault(); const email = ($('#email').value || prompt('Email для сброса пароля:') || '').trim(); if (!email) return; try { await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ a: 'password_reset', email }) }); loginErr(''); alert('Если такой сотрудник есть, письмо со ссылкой уже отправлено на ' + email); } catch (er) { loginErr(er.message); } };
+async function inviteFlow(tok) {
+  showLogin(); $('#loginForm').classList.add('hide'); $('#inviteForm').classList.remove('hide');
+  let info; try { const r = await fetch(API + '?a=invite_info&token=' + encodeURIComponent(tok)); info = await r.json(); if (info.error) throw new Error(info.error); } catch (e) { $('#inviteInfo').textContent = 'Приглашение не найдено: ' + e.message; $('#inv_ok').disabled = true; return; }
+  if (info.accepted) { $('#inviteInfo').textContent = 'Приглашение уже принято — войдите паролем.'; $('#inviteForm').classList.add('hide'); $('#loginForm').classList.remove('hide'); $('#email').value = info.email; return; }
+  if (info.expired) { $('#inviteInfo').textContent = 'Срок приглашения истёк — попросите выслать новое.'; $('#inv_ok').disabled = true; return; }
+  $('#loginTitle').textContent = info.org + ' · PMS'; $('#inviteInfo').innerHTML = 'Вас пригласили в <b>' + esc(info.org) + '</b> как ' + esc({ admin: 'администратора', booker: 'бронера', ops: 'опер-менеджера', partner: 'собственника' }[info.role] || info.role) + '<br>' + esc(info.email); $('#inv_name').value = info.name || '';
+  $('#inv_ok').onclick = async () => { const p1 = $('#inv_p1').value, p2 = $('#inv_p2').value; if (p1.length < 6) return loginErr('Пароль от 6 символов'); if (p1 !== p2) return loginErr('Пароли не совпадают'); $('#inv_ok').disabled = true;
+    try { const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ a: 'invite_accept', token: tok, password: p1, name: $('#inv_name').value.trim() }) }); const j = await r.json(); if (j.error) throw new Error(j.error);
+      const { error } = await sb.auth.signInWithPassword({ email: j.email, password: p1 }); if (error) throw error; history.replaceState(null, '', location.pathname); boot(); }
+    catch (e) { loginErr(e.message); $('#inv_ok').disabled = false; } };
+}
+async function resetFlow(th) {
+  showLogin(); $('#loginForm').classList.add('hide');
+  const { error } = await sb.auth.verifyOtp({ token_hash: th, type: 'recovery' }); if (error) { loginErr('Ссылка не подошла (' + error.message + '). Запросите новую через «Забыли пароль».'); $('#loginForm').classList.remove('hide'); return; }
+  $('#resetForm').classList.remove('hide');
+  $('#rs_ok').onclick = async () => { const p1 = $('#rs_p1').value, p2 = $('#rs_p2').value; if (p1.length < 6) return loginErr('Пароль от 6 символов'); if (p1 !== p2) return loginErr('Пароли не совпадают'); const { error: e2 } = await sb.auth.updateUser({ password: p1 }); if (e2) return loginErr(e2.message); history.replaceState(null, '', location.pathname); $('#resetForm').classList.add('hide'); $('#loginForm').classList.remove('hide'); boot(); };
+}
 window.login = async () => { const er = $('#loginErr'); er.style.display = 'none'; const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pass').value }); if (error) { er.textContent = 'Не удалось войти: ' + error.message; er.style.display = 'block'; return; } boot(); };
 window.logout = async () => { await sb.auth.signOut(); location.reload(); };
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
@@ -34,10 +55,17 @@ $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); })
 async function boot() {
   try { ME = await api({ a: 'me' }); } catch (e) { showLogin(); return; }
   $('#login').classList.add('hide'); $('#app').classList.remove('hide');
-  $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + ME.role;
+  const ROLE_LBL = { admin: 'админ', booker: 'бронер', ops: 'опер-менеджер', partner: 'собственник' };
+  $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + (ROLE_LBL[ME.role] || ME.role);
   if (!ME.can.rates) $$('#top nav button[data-v=rules]').forEach(b => b.remove());
   if (ME.role !== 'admin') $$('#top nav button[data-v=channels],#top nav button[data-v=users]').forEach(b => b.remove());
   if (!ME.can.objects) $$('#top nav button[data-v=objects]').forEach(b => b.remove());
+  if (!ME.platform_admin) $$('#top nav button[data-v=orgs]').forEach(b => b.remove());
+  if (!ME.has_partners) $$('#top nav button[data-v=partners]').forEach(b => b.remove());
+  if (!(ME.role === 'partner' || ME.can.pay_full)) $$('#top nav button[data-v=report]').forEach(b => b.remove());
+  // переключатель организации (только платформа-админ)
+  const sw = $('#orgsw'); if (ME.platform_admin && (ME.orgs || []).length > 1) { sw.classList.remove('hide'); sw.innerHTML = ME.orgs.map(o => `<option value="${o.id}" ${o.id === ME.org.id ? 'selected' : ''}>${esc(o.name)}${o.is_active === false ? ' (выкл)' : ''}</option>`).join(''); sw.onchange = () => { localStorage.pms_org = sw.value === String(ME.home_org_id) ? '' : sw.value; location.reload(); }; }
+  if (ME.platform_admin && ME.org.id !== ME.home_org_id) { $('#me').textContent = '👁 ' + $('#me').textContent; $('#me').title = 'Вы смотрите кабинет другой организации'; }
   if (!ME.can.guests) $$('button[data-v=guests]').forEach(b => b.remove());
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
@@ -64,7 +92,9 @@ let CLEAN = {};        // 'apt|date' → task
 const hoursOf = (t, def) => { const m = String(t || '').match(/^(\d{1,2})(?::(\d{2}))?/); if (!m) return def; const h = +m[1] + (+m[2] || 0) / 60; return h >= 0 && h <= 24 ? h : def; };
 const cellW = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell')) || 34;
 
+VIEWS.partners = async () => { CALMODE = 'partners'; await VIEWS.cal(); const t = $('#tools'); if (t) t.insertAdjacentHTML('afterbegin', '<span class="tag" style="background:#e3ecff" title="Квартиры партнёров сети: цена за ночь и занятость без данных гостей — чтобы заселить гостя к ним, когда у нас всё занято">Партнёры · только занятость</span>'); };
 VIEWS.cal = async () => {
+  if (VIEW !== 'partners') CALMODE = 'own';
   $('#tools').innerHTML = `
     <button class="sm" id="prev">‹</button><button class="sm" id="tod">сегодня</button><button class="sm" id="next">›</button>
     <input type="date" id="from" value="${FROM}" class="desk">
@@ -106,8 +136,9 @@ async function load(silent) {
   render();
   if (!silent) { const idx = Math.max(0, nightsOf(FROM, G.today) - 3); $('#wrap').scrollLeft = idx * cellW(); } else $('#wrap').scrollLeft = sc;
 }
+let CALMODE = 'own';   // own = свои + общие; partners = квартиры партнёров сети (только занятость)
 function visibleApts() {
-  let apts = G.apartments;
+  let apts = G.apartments.filter(a => CALMODE === 'partners' ? a.mode === 'occupancy' : a.mode !== 'occupancy');
   if (COMPLEX) apts = apts.filter(a => a.complex === COMPLEX);
   if (FLOOR) apts = apts.filter(a => String(a.floor) === String(FLOOR));
   if (FREEQ) { const n = nightsOf(FREEQ[0], FREEQ[1]); apts = apts.filter(a => { for (let i = 0; i < n; i++) { const r = RATES[a.id + '|' + addD(FREEQ[0], i)]; if (!r || !r.available) return false; } return true; }); }
@@ -511,10 +542,10 @@ VIEWS.rules = async () => {
 // =====================================================================
 // СОТРУДНИКИ (admin) — шаг 3
 // =====================================================================
-const ROLE_RU = { admin: 'админ', booker: 'бронер', ops: 'опер-менеджер', partner: 'партнёр' };
+const ROLE_RU = { admin: 'админ', booker: 'бронер', ops: 'опер-менеджер', partner: 'собственник' };
 VIEWS.users = async () => {
-  $('#tools').innerHTML = `<button class="pri sm" id="nu">+ сотрудник</button><span class="muted">Роли: админ — всё; бронер — брони, платежи, цены; опер-менеджер — только заехал/выехал; партнёр — свои квартиры, только чтение. Вход в шахматку из бота: команда <code>/pms</code> (нужен chat_id).</span>`;
-  $('#main').innerHTML = '<div class="page"><div class="card" id="ul">загрузка…</div><div class="card" id="sl"></div></div>';
+  $('#tools').innerHTML = `<button class="pri sm" id="ni">✉ Пригласить по email</button><button class="sm" id="nu">+ сотрудник с паролем</button><span class="muted">Роли: админ — всё; бронер — брони, платежи, цены; опер-менеджер — только заехал/выехал; собственник — свои квартиры, занятость без гостей и отчёт. Вход из бота: <code>/pms</code>.</span>`;
+  $('#main').innerHTML = '<div class="page"><div class="card" id="ul">загрузка…</div><div class="card" id="il"></div><div class="card" id="sl"></div></div>';
   if (!G) try { G = await api({ a: 'grid', from: iso(Date.now()), to: addD(iso(Date.now()), 1) }); } catch (_) { G = { apartments: [] }; }
   let D;
   const list = async () => {
@@ -522,6 +553,10 @@ VIEWS.users = async () => {
     const orgName = id => (D.orgs.find(o => o.id === id) || {}).short || id;
     $('#ul').innerHTML = `<h3>Сотрудники <span class="muted">${D.users.length}</span></h3><table class="t"><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Орг.</th><th>Telegram</th><th>Квартиры</th><th></th><th></th></tr>` +
       D.users.map(u => `<tr style="${u.is_active ? '' : 'opacity:.45'}"><td class="b">${esc(u.name)}${u.email === D.me ? ' <span class="tag">вы</span>' : ''}${u.is_active ? '' : ' <span class="tag bad">выкл</span>'}</td><td>${esc(u.email)}</td><td>${ROLE_RU[u.role] || u.role}</td><td>${esc(orgName(u.org_id))}</td><td>${u.telegram_chat_id ? '<code>' + esc(u.telegram_chat_id) + '</code>' : '<span class="muted">—</span>'}</td><td class="muted">${u.role === 'partner' ? (u.apartment_ids || []).length + ' кв.' : 'все'}</td><td><button class="sm" data-e="${esc(u.email)}">Изменить</button></td><td>${u.email !== D.me ? `<button class="sm" data-lo="${esc(u.email)}" title="Снять все сессии на всех устройствах">выйти везде</button>` : ''}</td></tr>`).join('') + `</table>`;
+    const inv = D.invitations || []; const invSt = i => i.accepted_at ? '<span class="tag" style="background:#d9f3dd">принято</span>' : new Date(i.expires_at) < new Date() ? '<span class="tag bad">истекло</span>' : '<span class="tag">ожидает</span>';
+    $('#il').innerHTML = `<h3>Приглашения <span class="muted">${inv.length}</span></h3>` + (inv.length ? `<table class="t"><tr><th>Email</th><th>Имя</th><th>Роль</th><th>Статус</th><th>Кем</th><th>Когда</th><th></th></tr>` + inv.map(i => `<tr><td class="b">${esc(i.email)}</td><td>${esc(i.name || '')}</td><td>${ROLE_RU[i.role] || i.role}</td><td>${invSt(i)}</td><td class="muted">${esc(i.invited_by || '')}</td><td class="nowrap muted">${(i.created_at || '').slice(0, 10)}</td><td class="nowrap">${i.accepted_at ? '' : '<button class="sm" data-ire="' + esc(i.email) + '" data-irole="' + i.role + '" data-iname="' + esc(i.name || '') + '">отправить снова</button> <button class="sm danger" data-idel="' + i.token + '">✕</button>'}</td></tr>`).join('') + '</table>' : '<div class="muted">приглашений нет</div>');
+    $$('#il [data-ire]').forEach(b => b.onclick = async () => { try { const r = await api(null, { a: 'invite_create', email: b.dataset.ire, role: b.dataset.irole, name: b.dataset.iname }); toast(r.mail && r.mail.sent ? 'Письмо отправлено' : 'Письмо не ушло (' + (r.mail && r.mail.reason) + ') — ссылка: ' + r.url, 6000); list(); } catch (e) { alert(e.message); } });
+    $$('#il [data-idel]').forEach(b => b.onclick = async () => { if (!confirm('Удалить приглашение?')) return; await api(null, { a: 'invite_delete', token: b.dataset.idel }); list(); });
     const st = (D.staff || []).filter(s => s.telegram_chat_id);
     $('#sl').innerHTML = `<h3>Chat_id из ботов <span class="muted">${st.length}</span></h3><div class="muted" style="font-size:11px;margin-bottom:6px">Сотрудник пишет боту /start — бот показывает его chat_id. Сюда попадают те, кому выдан доступ в ботах (/allow).</div>` + (st.length ? `<table class="t">` + st.map(s => `<tr><td class="b">${esc(s.name)}</td><td>${esc(s.role)}</td><td><code>${esc(s.telegram_chat_id)}</code></td></tr>`).join('') + `</table>` : '<div class="muted">—</div>');
     $$('#ul [data-e]').forEach(b => b.onclick = () => edit(D.users.find(u => u.email === b.dataset.e)));
@@ -549,6 +584,15 @@ VIEWS.users = async () => {
     };
   };
   $('#nu').onclick = () => edit(null);
+  $('#ni').onclick = () => { const byC = {}; G.apartments.forEach(a => (byC[a.complex] = byC[a.complex] || []).push(a));
+    openDrawer('Пригласить по email', `<div class="f"><label class="w">Email <input id="v_email" type="email" placeholder="name@mail.com"></label><label class="w">Имя <input id="v_name"></label>
+      <label>Роль <select id="v_role">${Object.entries(ROLE_RU).map(([k, v]) => `<option value="${k}" ${k === 'booker' ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <div class="w" id="v_apts" style="grid-column:1/3;display:none"><div class="sec">Квартиры собственника</div>${Object.keys(byC).map(c => `<div style="margin:4px 0"><b style="font-size:12px">${esc(c)}</b><br>${byC[c].map(a => `<label style="display:inline-flex;flex-direction:row;gap:3px;margin:2px 10px 2px 0;font-size:12px;color:var(--text)"><input type="checkbox" data-apt="${a.id}">${esc(a.name)}</label>`).join('')}</div>`).join('')}</div></div>
+      <div class="muted" style="font-size:11px">Человек получит письмо со ссылкой, задаст пароль и попадёт в кабинет ${esc((ME.org || {}).name || '')}. Ссылка действует 7 дней.</div>`,
+      `<button class="pri" id="v_ok">Отправить приглашение</button><button onclick="closeDrawer()">Отмена</button>`);
+    $('#v_role').onchange = () => { $('#v_apts').style.display = $('#v_role').value === 'partner' ? '' : 'none'; };
+    $('#v_ok').onclick = async () => { const email = $('#v_email').value.trim(); if (!email) return alert('Email'); $('#v_ok').disabled = true; try { const r = await api(null, { a: 'invite_create', email, name: $('#v_name').value.trim(), role: $('#v_role').value, apartment_ids: $$('#v_apts [data-apt]:checked').map(x => x.dataset.apt) }); closeDrawer(); toast(r.mail && r.mail.sent ? 'Приглашение отправлено на ' + email : 'Письмо не ушло (' + (r.mail && r.mail.reason) + '). Ссылка: ' + r.url, 8000); if (!(r.mail && r.mail.sent)) prompt('Скопируйте ссылку приглашения:', r.url); list(); } catch (e) { alert(e.message); $('#v_ok').disabled = false; } };
+  };
   try { await list(); } catch (e) { $('#ul').innerHTML = esc(e.message); }
 };
 
@@ -556,7 +600,7 @@ VIEWS.users = async () => {
 // КАНАЛЫ (admin) — channex-admin.js
 // =====================================================================
 async function capi(params, body) {
-  const t = await token(); const r = await fetch('/.netlify/functions/channex-admin' + (body ? '' : '?' + new URLSearchParams(params)), { method: body ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const t = await token(); const r = await fetch('/.netlify/functions/channex-admin?' + new URLSearchParams(Object.assign({}, body ? {} : params, ORG() ? { org: ORG() } : {})), { method: body ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({ error: 'bad json' })); if (!r.ok || j.error) throw new Error(j.error || r.status); return j;
 }
 VIEWS.channels = async () => {
@@ -682,11 +726,14 @@ async function realtime() {
 function setConn(ok) { const c = $('#conn'); if (!c) return; c.classList.toggle('off', !ok); c.textContent = ok ? 'online' : 'нет связи · данные на ' + new Date(lastOk).toTimeString().slice(0, 5); }
 
 // 16.10.2026: мост для pms-v2.js (Объекты, панель площадки, подборки)
-window.PMS = Object.assign(window.PMS || {}, { $, $$, esc, api, capi, openDrawer, closeDrawer: () => closeDrawer(), toast, money, ruD, iso, addD, VIEWS, me: () => ME, grid: () => G, openBooking, statusBadge });
+window.PMS = Object.assign(window.PMS || {}, { $, $$, esc, api, capi, openDrawer, closeDrawer: () => closeDrawer(), toast, money, ruD, iso, addD, VIEWS, me: () => ME, grid: () => G, ensureGrid: async () => { if (!G) { try { G = await api({ a: 'grid', from: iso(Date.now()), to: addD(iso(Date.now()), 1) }); } catch (_) { G = { apartments: [] }; } } return G; }, openBooking, statusBadge });
 
 // 13.10.2026: вход по одноразовой ссылке из бота бронеров (/pms → magic link): /pms?tk=<hashed_token>
 (async () => {
-  const tk = new URLSearchParams(location.search).get('tk');
+  const sp = new URLSearchParams(location.search);
+  if (sp.get('invite')) return inviteFlow(sp.get('invite'));
+  if (sp.get('reset')) return resetFlow(sp.get('reset'));
+  const tk = sp.get('tk');
   if (tk) {
     history.replaceState(null, '', location.pathname);
     const { error } = await sb.auth.verifyOtp({ token_hash: tk, type: 'magiclink' });
