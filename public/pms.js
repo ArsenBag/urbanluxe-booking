@@ -296,6 +296,26 @@ async function openBooking(id, preset) {
   if (id) { openDrawer('Бронь', '<div class="muted">загрузка…</div>'); try { CUR = await api({ a: 'booking', id }); } catch (e) { $('#d_body').innerHTML = 'Ошибка: ' + esc(e.message); return; } renderBooking(); }
   else { CUR = null; renderForm(preset || {}); }
 }
+// 16.10.2026: контакты гостя одной строкой — клик по номеру открывает меню: позвонить / SMS / Telegram / WhatsApp; email → письмо
+const digits = p => String(p || '').replace(/[^\d]/g, '');
+function contactBlock(phone, telegram, whatsapp, email) {
+  const out = [];
+  if (phone) out.push('<a href="#" class="ph" data-ph="' + esc(phone) + '">' + esc(phone) + '</a>');
+  if (telegram) out.push('<a target="_blank" href="https://t.me/' + esc(String(telegram).replace(/^@/, '').replace(/^\+/, '')) + '">' + esc(telegram) + '</a>');
+  if (whatsapp && digits(whatsapp) !== digits(phone)) out.push('<a target="_blank" href="https://wa.me/' + digits(whatsapp) + '">WA ' + esc(whatsapp) + '</a>');
+  if (email) out.push('<a href="mailto:' + esc(email) + '" title="' + (/guest\.booking\.com$/i.test(email) ? 'адрес Booking.com — письмо дойдёт гостю через Booking' : 'написать письмо') + '">' + esc(/guest\.booking\.com$/i.test(email) ? 'email Booking.com' : email) + '</a>');
+  return out.join(' · ');
+}
+function bindContacts(root) {
+  $$((root || '#d_body') + ' a.ph').forEach(a => a.onclick = e => { e.preventDefault(); const p = a.dataset.ph, d = digits(p); const intl = d.startsWith('998') || d.length > 9 ? '+' + d : d;
+    hideContactMenu(); const m = document.createElement('div'); m.id = 'phmenu'; m.style.cssText = 'position:absolute;z-index:60;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;display:grid;gap:2px;min-width:180px';
+    m.innerHTML = [['tel:' + intl, '📞 Позвонить'], ['sms:' + intl, '💬 SMS'], ['https://t.me/' + intl, '✈️ Telegram'], ['https://wa.me/' + d, '🟢 WhatsApp']].map(([h, t]) => '<a href="' + h + '" ' + (h.startsWith('http') ? 'target="_blank"' : '') + ' style="padding:7px 10px;border-radius:7px;color:var(--text)" onmouseover="this.style.background=\'#eef3fb\'" onmouseout="this.style.background=\'\'">' + t + '</a>').join('') + '<a href="#" data-copy="' + esc(p) + '" style="padding:7px 10px;border-radius:7px;color:var(--muted);font-size:12px">⧉ Скопировать</a>';
+    const r = a.getBoundingClientRect(); m.style.left = (r.left + scrollX) + 'px'; m.style.top = (r.bottom + scrollY + 4) + 'px'; document.body.appendChild(m);
+    m.querySelector('[data-copy]').onclick = ev => { ev.preventDefault(); navigator.clipboard.writeText(p).then(() => toast('Скопировано')); hideContactMenu(); };
+    setTimeout(() => document.addEventListener('click', hideContactMenu, { once: true }), 0);
+  });
+}
+function hideContactMenu() { const m = $('#phmenu'); if (m) m.remove(); }
 function statusBadge(st) { const s = ST[st] || ST.confirmed; return `<span class="st" style="background:${s[1]}">${s[0]}</span>`; }
 function renderBooking() {
   const b = CUR.booking, apt = (G && G.apartments.find(a => a.id === b.apartment_id)) || { name: b.apartment_name };
@@ -304,7 +324,7 @@ function renderBooking() {
   const nights = nightsOf(b.check_in, b.check_out);
   let h = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${statusBadge(b.status)}<span class="muted">${esc(CH[(b.channel || '').toLowerCase()] || b.channel || '')}${b.external_id ? ' · ' + esc(b.external_id) : ''}</span><span class="sp" style="flex:1"></span><span class="muted" style="font-size:11px">${esc(b.id.slice(0, 8))}</span></div>
     <h2 style="margin:8px 0 2px;font-size:17px">${esc(b.guest_name)}</h2>
-    <div>${b.guest_phone ? '<a href="tel:' + esc(b.guest_phone) + '">' + esc(b.guest_phone) + '</a>' : ''}${b.guest_telegram ? ' · <a target="_blank" href="https://t.me/' + esc(String(b.guest_telegram).replace(/^@/, '').replace(/^\+/, '')) + '">' + esc(b.guest_telegram) + '</a>' : ''}${b.guest_whatsapp ? ' · WA ' + esc(b.guest_whatsapp) : ''}</div>`;
+    <div>${contactBlock(b.guest_phone, b.guest_telegram, b.guest_whatsapp, b.guest_email) || '<span class="muted" style="font-size:12px">контактов нет' + (/booking/i.test(b.channel || '') ? ' — Booking.com не передаёт телефон через канал-менеджер, он виден в экстранете Booking' : '') + '</span>'}</div>`;
   if (g && (g.blacklisted || (g.tags || []).length || g.total_bookings > 1)) h += `<div style="margin:6px 0">${g.blacklisted ? '<span class="tag bad">чёрный список</span>' : ''}${(g.tags || []).map(t => '<span class="tag ' + (t === 'VIP' ? 'vip' : '') + '">' + esc(t) + '</span>').join('')}${g.total_bookings > 1 ? '<span class="tag">' + g.total_bookings + ' броней · ' + money(g.total_spent) + '</span>' : ''} <a href="#" id="g_open">карточка гостя</a></div>`;
   else if (g) h += `<div style="margin:6px 0"><a href="#" id="g_open">карточка гостя</a></div>`;
   else if (canW && ME.can.guests && b.status !== 'blocked') h += `<div style="margin:6px 0;font-size:12px" class="muted">Гость без карточки · <a href="#" id="g_link">привязать</a> · <a href="#" id="g_new">создать карточку</a></div>`;
@@ -331,6 +351,7 @@ function renderBooking() {
   }
   if (canW) foot += `<button id="b_edit">Изменить</button>` + (b.status !== 'checked_out' && b.status !== 'blocked' ? `<button class="danger" data-st="cancelled">Отменить</button>` : '') + (b.status === 'blocked' ? `<button class="danger" data-st="cancelled">Снять блок</button>` : '');
   openDrawer(b.status === 'blocked' ? 'Блок' : 'Бронь', h, foot);
+  bindContacts();
   if ($('#g_open')) $('#g_open').onclick = e => { e.preventDefault(); openGuest(g.id); };
   if ($('#g_unlink')) $('#g_unlink').onclick = async e => { e.preventDefault(); if (!confirm('Отвязать карточку гостя от брони?')) return; try { CUR = await api(null, { a: 'guest_link', booking_id: b.id, guest_id: null }); renderBooking(); } catch (er) { alert(er.message); } };
   if ($('#g_new')) $('#g_new').onclick = async e => { e.preventDefault(); try { const r = await api(null, { a: 'guest_create', booking_id: b.id, name: b.guest_name, phone: b.guest_phone, telegram: b.guest_telegram, whatsapp: b.guest_whatsapp }); toast(r.existed ? 'Нашлась существующая карточка — привязана' : 'Карточка создана'); CUR = await api({ a: 'booking', id: b.id }); renderBooking(); } catch (er) { alert(er.message); } };
@@ -447,7 +468,7 @@ async function openGuest(id) {
   const g = d.guest; const canW = ME.can.guests_write;
   const TAGS = ['VIP', 'корпоративный', 'постоянный', 'шумный', 'долг'];
   let h = `<h2 style="margin:0 0 4px;font-size:17px">${esc(g.name || '—')}</h2>
-    <div>${g.phone ? '<a href="tel:' + esc(g.phone) + '">' + esc(g.phone) + '</a>' : ''}${g.telegram ? ' · <a target="_blank" href="https://t.me/' + esc(String(g.telegram).replace(/^@/, '')) + '">' + esc(g.telegram) + '</a>' : ''}${g.whatsapp ? ' · WA ' + esc(g.whatsapp) : ''}${g.email ? ' · ' + esc(g.email) : ''}</div>
+    <div>${contactBlock(g.phone, g.telegram, g.whatsapp, g.email)}</div>
     <div class="kpi" style="margin-top:8px"><div><b>${g.total_bookings}</b>броней</div><div><b>${money(g.total_spent)}</b>за всё время</div><div><b>${g.last_stay ? ruD(g.last_stay) : '—'}</b>последний визит</div></div>`;
   if (canW) h += `<div class="f"><label>Язык <select id="g_lang"><option value="">—</option>${['ru', 'uz', 'en', 'kz', 'tr', 'other'].map(l => `<option ${g.lang === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label>Гражданство <input id="g_cit" value="${esc(g.citizenship || '')}"></label>
     <label class="w">Теги <div>${TAGS.map(t => `<label style="display:inline-flex;flex-direction:row;gap:3px;margin-right:8px;font-size:12px;color:var(--text)"><input type="checkbox" data-tag="${t}" ${(g.tags || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('')}</div></label>
@@ -457,6 +478,7 @@ async function openGuest(id) {
   h += `<div class="sec">Заметки</div><div style="white-space:pre-wrap;font-size:12px">${esc(g.notes || '—')}</div>` + (canW ? `<div style="display:flex;gap:6px;margin-top:6px"><input id="g_note" placeholder="добавить заметку" style="flex:1"><button class="sm" id="g_addn">+</button></div>` : '');
   h += `<div class="sec">Брони</div>` + (d.bookings.length ? `<table class="t">` + d.bookings.map(b => `<tr style="cursor:pointer" data-b="${b.id}"><td>${ruD(b.check_in)}–${ruD(b.check_out)}</td><td>${esc(b.apartment_name)}</td><td class="b">${money(b.total_price, b.currency)}</td><td>${statusBadge(b.status)}</td><td>${b.pay_state === 'paid' ? '✓' : b.pay_state === 'partial' ? '<span style="color:#b07a00">частично</span>' : b.pay_state === 'unpaid' ? '<span style="color:var(--red)">не опл.</span>' : ''}</td></tr>`).join('') + `</table>` : '<div class="muted">нет</div>');
   openDrawer('Гость', h, canW ? `<button class="pri" id="g_save">Сохранить</button><button onclick="closeDrawer()">Закрыть</button>` : `<button onclick="closeDrawer()">Закрыть</button>`);
+  bindContacts();
   $$('#d_body [data-b]').forEach(r => r.onclick = () => openBooking(r.dataset.b));
   if (canW) {
     const save = async (extra) => { const tags = $$('#d_body [data-tag]:checked').map(x => x.dataset.tag); try { await api(null, Object.assign({ a: 'guest_update', id: g.id, lang: $('#g_lang').value || null, citizenship: $('#g_cit').value, tags, doc_verified: $('#g_doc').checked, blacklisted: $('#g_bl').checked }, extra || {})); toast('Сохранено'); openGuest(g.id); } catch (e) { alert(e.message); } };
