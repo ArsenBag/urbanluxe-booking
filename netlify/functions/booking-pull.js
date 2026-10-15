@@ -15,5 +15,10 @@ exports.handler = async () => {
       catch (e) { out.errors.push(c.attributes.title + ': ' + String(e.message).slice(0, 120)); }
     }
   } catch (e) { out.errors.push(String(e.message).slice(0, 200)); }
+  // раз в час — скан маппингов для матрицы «Каналы» (channels[ch].mapped), порциями, не дольше ~18 с
+  if (new Date().getUTCMinutes() < 3) {
+    try { const A = require('./channex-admin.js'); const t0 = Date.now(); let off = 0; while (off != null && Date.now() - t0 < 18000) { const r = await A.mappingScan({ offset: off, limit: 10 }); off = r.next; out.scan = r; } }
+    catch (e) { out.errors.push('scan: ' + String(e.message).slice(0, 120)); }
+  }
   return { statusCode: 200, body: JSON.stringify(out) };
 };

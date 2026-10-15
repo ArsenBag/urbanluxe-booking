@@ -7,6 +7,13 @@
 // POST {a:'unit_update', apartment_id, markup_pct?, push_rates?, push_availability?, is_active?}
 // POST {a:'resolve_conflict', id, resolution:'moved'|'cancelled_on_ota'|'accept'} → accept = повторить запись брони (даты освободили)
 // POST {a:'ical_add', apartment_id, channel, url} | {a:'ical_delete', id} | {a:'ical_pull'}
+// 16.10.2026 (PMS v2-A, менеджер каналов v2):
+// POST {a:'setup_unit', apartment_id}                         → комната/тарифы одной новой квартиры в property её ЖК + ARI
+// POST {a:'channel_toggle', apartment_id, channel, enabled}   → снять/вернуть маппинг квартиры на площадке (channels[ch].enabled/saved)
+// POST {a:'unit_markup', apartment_id, channel, pct|null}     → наценка квартиры на площадке (null = общая)
+// POST {a:'restriction_save', id?, apartment_id, channel, date_from, date_to, stop_sell, min_nights, note} | {a:'restriction_delete', id}
+// POST {a:'unit_log', apartment_id}                           → очередь/брони/правила квартиры
+// POST {a:'mapping_scan', offset?, limit?}                    → channels[ch].mapped по факту маппингов в Channex (порциями)
 const C = require('./_channex.js');
 const SB_URL = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYnZmdnRvZml5c2J5d3hqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjgzNjIsImV4cCI6MjA5MTkwNDM2Mn0.Pk5C4mwyJNpWRSz30V-F6I-0qGs0If6FRhg8tM5mBcI';
@@ -42,8 +49,170 @@ async function status(user) {
   }
   else channex = { ok: false, error: 'CHANNEX_API_KEY не задан' };
   const mine = new Set(apts.map(a => a.id));
+  const restrictions = (await C.q('channel_restrictions?select=*&date_to=gte.' + C.today() + '&order=date_from')).filter(r => mine.has(r.apartment_id));
   const markups = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => markups[m.channel] = Number(m.pct));
-  return { channex, channels, markups, ota_plans: C.OTA_PLANS, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+  return { channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+}
+
+// Комната + тариф Standard одной квартиры в property ЖК → channel_units. Возвращает строку лога.
+async function ensureUnit(a, prop, u) {
+  if (u && u.external_room_type_id && u.external_rate_plan_id) return a.id + ': already';
+  const occ = Math.max(1, Math.min(10, a.max_guests || 2));
+  let rt = u && u.external_room_type_id;
+  if (!rt) { const r = await C.cx('POST', '/room_types', { room_type: { property_id: prop.external_id, title: a.name, count_of_rooms: 1, occ_adults: occ, occ_children: 0, occ_infants: 1, default_occupancy: occ, room_kind: 'room', codes: { apartment_id: a.id }, content: { description: (a.description_en || a.description || '').slice(0, 2000) || null } } }); rt = r.data.id; }
+  let rp = u && u.external_rate_plan_id;
+  if (!rp) { const r = await C.cx('POST', '/rate_plans', { rate_plan: { property_id: prop.external_id, room_type_id: rt, title: 'Standard', sell_mode: 'per_room', rate_mode: 'manual', currency: 'USD', meal_type: 'none', options: [{ occupancy: occ, is_primary: true, rate: String(a.weekday_price || 100) + '.00' }], min_stay_arrival: 1, meta: { apartment_id: a.id } } }); rp = r.data.id; }
+  await C.q('channel_units?on_conflict=apartment_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ apartment_id: a.id, channel_property_id: prop.id, external_room_type_id: rt, external_rate_plan_id: rp, is_active: true, updated_at: new Date().toISOString() }) });
+  return a.id + ': room ' + rt.slice(0, 8) + ' rate ' + rp.slice(0, 8);
+}
+
+// 16.10.2026: одна квартира (новая в /pms → Объекты) в уже подключённом ЖК: комната + Standard + производные тарифы площадок + отправка ARI
+async function setupUnit(body, user) {
+  const id = String(body.apartment_id || ''); if (!id) throw new Error('apartment_id');
+  const a = (await C.q('apartments?select=id,name,complex,floor,max_guests,weekday_price,description_en,description,is_active&id=eq.' + enc(id) + '&org_id=eq.' + user.org_id))[0];
+  if (!a) throw new Error('квартира не найдена'); if (!a.is_active) throw new Error('квартира в архиве');
+  const prop = (await C.q('channel_properties?select=*&complex=eq.' + enc(a.complex) + '&org_id=eq.' + user.org_id))[0];
+  if (!prop || !prop.external_id) throw new Error('ЖК «' + a.complex + '» не подключён к Channex — сначала «Подключить ЖК»');
+  const u = (await C.q('channel_units?select=*&apartment_id=eq.' + enc(id)))[0];
+  const log = [await ensureUnit(a, prop, u)];
+  const mk = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => mk[m.channel] = Number(m.pct));
+  const unit = (await C.q('channel_units?select=*&apartment_id=eq.' + enc(id)))[0];
+  for (const ch of Object.keys(C.OTA_PLANS)) { try { await C.ensureDerived(unit, prop, ch, mk[ch] || 0); } catch (e) { log.push(ch + ': ' + String(e.message).slice(0, 100)); } }
+  const queued = Number(await C.rpc('pms_outbox_full', { p_apt: id })) || 0;
+  const pushed = await C.processOutbox();
+  return { apartment_id: id, property: prop.complex, log, queued, pushed };
+}
+
+// Каналы Channex площадки `ch`, привязанные к property квартиры (с маппингами rate_plans)
+async function channelsFor(ch, prop) {
+  const code = C.CHANNEL_CODES[ch]; if (!code) throw new Error('площадка ' + ch + ' не через Channex');
+  const list = (await C.cx('GET', '/channels?pagination[limit]=100')).data || [];
+  const mine = list.filter(c => { const a = c.attributes || {}; const props = a.properties || ((c.relationships && c.relationships.properties && c.relationships.properties.data) || []).map(x => x.id); return a.channel === code && props.includes(prop.external_id); });
+  const out = [];
+  for (const c of mine) { const d = (await C.cx('GET', '/channels/' + c.id)).data; const a = d.attributes || {}; out.push({ id: d.id, title: a.title, code, settings: a.settings || {}, properties: a.properties || [prop.external_id], is_active: a.is_active, maps: a.rate_plans || a.mappings || [] }); }
+  return out;
+}
+const saveChannels = (unit, patch) => C.q('channel_units?apartment_id=eq.' + enc(unit.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ channels: Object.assign({}, unit.channels || {}, patch), updated_at: new Date().toISOString() }) });
+async function unitAndProp(apartment_id, user) {
+  const unit = (await C.q('channel_units?select=*&apartment_id=eq.' + enc(apartment_id)))[0]; if (!unit) throw new Error('квартира не подключена к Channex');
+  const prop = (await C.q('channel_properties?select=*&id=eq.' + unit.channel_property_id))[0]; if (!prop || !prop.external_id || (prop.org_id || 1) !== user.org_id) throw new Error('property не найдена');
+  return { unit, prop };
+}
+
+// Вкл/выкл площадки для квартиры. Выкл = снять маппинг производного тарифа в Channex (Airbnb — DELETE mapping;
+// Booking/Ostrovok/Agoda/Expedia — PUT канала без этой квартиры), снятое запомнить в channels[ch].saved. Вкл = вернуть из saved.
+async function channelToggle(body, user) {
+  const ch = String(body.channel || ''); const { unit, prop } = await unitAndProp(body.apartment_id, user);
+  const d = (unit.derived || {})[ch]; if (!d || !d.rate_plan_id) throw new Error('нет производного тарифа ' + ch + ' — «Полная отправка ЖК» / reconcile');
+  const cur = (unit.channels || {})[ch] || {}; const log = [];
+  if (body.enabled === false) {
+    const chans = await channelsFor(ch, prop); const saved = [];
+    for (const c of chans) {
+      const mine = c.maps.filter(m => m.rate_plan_id === d.rate_plan_id); if (!mine.length) continue;
+      if (ch === 'airbnb') { for (const m of mine) { await C.cx('DELETE', '/channels/' + c.id + '/mappings/' + m.id); log.push('unmapped ' + c.title + ' listing ' + (m.settings || {}).listing_id); } }
+      else { const rest = c.maps.filter(m => m.rate_plan_id !== d.rate_plan_id).map(m => ({ rate_plan_id: m.rate_plan_id, settings: m.settings })); await C.cx('PUT', '/channels/' + c.id, { channel: { rate_plans: rest } }); log.push('unmapped ' + c.title + ' (' + mine.length + ' mappings)'); }
+      saved.push({ channel_id: c.id, title: c.title, mappings: mine.map(m => ({ rate_plan_id: m.rate_plan_id, settings: m.settings })) });
+    }
+    if (!saved.length && !cur.saved) throw new Error('квартира не замаплена на ' + C.OTA_PLANS[ch] + ' — нечего выключать');
+    await saveChannels(unit, { [ch]: Object.assign({}, cur, { enabled: false, saved: saved.length ? saved : cur.saved, mapped: null, toggled_at: new Date().toISOString(), toggled_by: user.name }) });
+    return { ok: true, enabled: false, log };
+  }
+  // включить
+  if (!cur.saved || !cur.saved.length) { await saveChannels(unit, { [ch]: Object.assign({}, cur, { enabled: true }) }); return { ok: true, enabled: true, need_manual: true, log: ['маппинга нет — замапить в Channex: ' + C.BASE + '/channels'] }; }
+  for (const sv of cur.saved) {
+    const c = (await C.cx('GET', '/channels/' + sv.channel_id)).data; const a = c.attributes || {}; const maps = a.rate_plans || a.mappings || [];
+    if (ch === 'airbnb') { for (const m of sv.mappings) { await C.cx('POST', '/channels/' + sv.channel_id + '/mappings', { mapping: { rate_plan_id: m.rate_plan_id, settings: m.settings } }); log.push('mapped ' + sv.title + ' listing ' + (m.settings || {}).listing_id); } }
+    else { const all = maps.map(m => ({ rate_plan_id: m.rate_plan_id, settings: m.settings })).concat(sv.mappings); await C.cx('PUT', '/channels/' + sv.channel_id, { channel: { rate_plans: all } }); log.push('mapped ' + sv.title + ' (' + sv.mappings.length + ')'); }
+  }
+  await saveChannels(unit, { [ch]: Object.assign({}, cur, { enabled: true, saved: null, mapped: { channel_ids: cur.saved.map(x => x.channel_id), n: cur.saved.reduce((s, x) => s + x.mappings.length, 0), checked_at: new Date().toISOString() }, toggled_at: new Date().toISOString(), toggled_by: user.name }) });
+  await C.rpc('pms_outbox_full', { p_apt: unit.apartment_id }); await C.processOutbox();
+  return { ok: true, enabled: true, log };
+}
+
+// Наценка квартиры на площадке (null = общая из channel_markups)
+async function unitMarkup(body, user) {
+  const ch = String(body.channel || ''); if (!C.OTA_PLANS[ch]) throw new Error('channel');
+  const { unit, prop } = await unitAndProp(body.apartment_id, user);
+  const pct = body.pct === null || body.pct === '' || body.pct === undefined ? null : Math.max(0, Math.min(100, Number(body.pct) || 0));
+  const g = (await C.q('channel_markups?select=pct&org_id=eq.' + user.org_id + '&channel=eq.' + ch))[0]; const eff = pct != null ? pct : Number(g ? g.pct : 0);
+  await C.ensureDerived(unit, prop, ch, eff);
+  await saveChannels(unit, { [ch]: Object.assign({}, (unit.channels || {})[ch] || {}, { markup_pct: pct }) });
+  return { ok: true, channel: ch, markup_pct: pct, effective_pct: eff };
+}
+
+// Закрытие дат / мин. ночи по площадке → channel_restrictions → очередь kind=restriction (_channex.unitValues шлёт производному тарифу)
+async function ownRestrictions(unit, prop, ch, user) {
+  const cur = (unit.channels || {})[ch] || {}; if (cur.own_restrictions) return false;
+  const d = (unit.derived || {})[ch]; if (!d || !d.rate_plan_id) throw new Error('нет производного тарифа ' + ch);
+  await C.cx('PUT', '/rate_plans/' + d.rate_plan_id, { rate_plan: { inherit_stop_sell: false, inherit_min_stay_arrival: false } });
+  await saveChannels(unit, { [ch]: Object.assign({}, cur, { own_restrictions: true }) }); unit.channels = Object.assign({}, unit.channels || {}, { [ch]: Object.assign({}, cur, { own_restrictions: true }) });
+  await C.rpc('pms_outbox_full', { p_apt: unit.apartment_id });   // первый раз — весь горизонт, чтобы производный тариф получил свои значения
+  return true;
+}
+async function restrictionSave(body, user) {
+  const ch = String(body.channel || ''); if (!C.OTA_PLANS[ch]) throw new Error('channel');
+  if (!body.date_from || !body.date_to || body.date_to < body.date_from) throw new Error('даты');
+  const { unit, prop } = await unitAndProp(body.apartment_id, user);
+  const rec = { apartment_id: unit.apartment_id, channel: ch, date_from: body.date_from, date_to: body.date_to, stop_sell: !!body.stop_sell, min_nights: body.min_nights ? Math.max(1, Number(body.min_nights)) : null, note: body.note || null, created_by: user.name };
+  if (!rec.stop_sell && !rec.min_nights) throw new Error('укажите закрытие или мин. ночи');
+  let row;
+  if (body.id) { const old = (await C.q('channel_restrictions?select=*&id=eq.' + enc(body.id)))[0]; if (!old) throw new Error('правило не найдено'); row = (await C.q('channel_restrictions?id=eq.' + old.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rec) }))[0]; await C.rpc('pms_restriction_enqueue', { p_apt: old.apartment_id, p_channel: old.channel, p_from: old.date_from, p_to: old.date_to, p_rule: old.id }); }
+  else row = (await C.q('channel_restrictions', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rec) }))[0];
+  const first = await ownRestrictions(unit, prop, ch, user);
+  await C.rpc('pms_restriction_enqueue', { p_apt: row.apartment_id, p_channel: ch, p_from: row.date_from, p_to: row.date_to, p_rule: row.id });
+  const pushed = await C.processOutbox();
+  return { ok: true, rule: row, first, pushed };
+}
+async function restrictionDelete(body, user) {
+  const old = (await C.q('channel_restrictions?select=*&id=eq.' + enc(body.id)))[0]; if (!old) throw new Error('правило не найдено');
+  await unitAndProp(old.apartment_id, user);
+  await C.q('channel_restrictions?id=eq.' + old.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  await C.rpc('pms_restriction_enqueue', { p_apt: old.apartment_id, p_channel: old.channel, p_from: old.date_from, p_to: old.date_to, p_rule: 0 });
+  const pushed = await C.processOutbox();
+  return { ok: true, pushed };
+}
+
+// Лог квартиры: очередь (50), брони с площадок (20), правила по площадкам
+async function unitLog(body, user) {
+  const id = String(body.apartment_id || ''); const { unit } = await unitAndProp(id, user);
+  const [outbox, bookings, rules] = await Promise.all([
+    C.q('channel_outbox?select=id,kind,fields,date_from,date_to,created_at,sent_at,attempts,error,task_ids&apartment_id=eq.' + enc(id) + '&order=created_at.desc&limit=50'),
+    C.q('channel_bookings?select=id,unique_id,ota_name,ota_reservation_code,status,received_at,processed_at,acked_at,error,conflict,booking_id,payload&payload->rooms->0->>room_type_id=eq.' + enc(unit.external_room_type_id || '-') + '&order=received_at.desc&limit=20'),
+    C.q('channel_restrictions?select=*&apartment_id=eq.' + enc(id) + '&order=date_from')
+  ]);
+  return { unit, outbox, bookings: bookings.map(b => { const p = b.payload || {}; const r = (p.rooms || [])[0] || {}; const c = p.customer || {}; return { id: b.id, ota: b.ota_name, code: b.ota_reservation_code, status: b.status, received_at: b.received_at, error: b.error, conflict: b.conflict, booking_id: b.booking_id, check_in: r.checkin_date, check_out: r.checkout_date, guest: [c.name, c.surname].filter(Boolean).join(' '), amount: p.amount, currency: p.currency }; }), rules };
+}
+
+// Скан маппингов: какие квартиры реально привязаны к каким каналам (channels[ch].mapped). Порциями: {offset, limit} → next.
+// Вызывается из UI («Обновить статусы») и раз в час из booking-pull.
+async function mappingScan(body, user) {
+  const list = (await C.cx('GET', '/channels?pagination[limit]=100')).data || [];
+  const off = Number(body.offset) || 0, lim = Number(body.limit) || 8;
+  const part = list.slice(off, off + lim);
+  const units = await C.q('channel_units?select=*');
+  const byPlan = {}; units.forEach(u => { for (const ch of Object.keys(u.derived || {})) { const d = u.derived[ch]; if (d && d.rate_plan_id) byPlan[d.rate_plan_id] = { u, ch }; } });
+  const codeToCh = {}; Object.keys(C.CHANNEL_CODES).forEach(k => codeToCh[C.CHANNEL_CODES[k]] = k);
+  const found = {}; // apt → ch → {channel_ids, n}
+  for (const c of part) {
+    const a0 = c.attributes || {}; const ch = codeToCh[a0.channel]; if (!ch) continue;
+    let maps = a0.rate_plans || a0.mappings; if (!maps) { const d = (await C.cx('GET', '/channels/' + c.id)).data; const a = d.attributes || {}; maps = a.rate_plans || a.mappings || []; }
+    for (const m of maps) { const hit = byPlan[m.rate_plan_id]; if (!hit || hit.ch !== ch) continue; const f = (found[hit.u.apartment_id] = found[hit.u.apartment_id] || {}); const g = (f[ch] = f[ch] || { channel_ids: [], n: 0, active: a0.is_active }); if (!g.channel_ids.includes(c.id)) g.channel_ids.push(c.id); g.n++; }
+  }
+  const now = new Date().toISOString(); let updated = 0;
+  // обновляем только каналы, попавшие в эту порцию (по коду площадки)
+  const chsInPart = new Set(part.map(c => codeToCh[(c.attributes || {}).channel]).filter(Boolean));
+  const full = off + lim >= list.length && off === 0;
+  for (const u of units) {
+    const cur = Object.assign({}, u.channels || {}); let dirty = false;
+    for (const ch of chsInPart) {
+      const m = (found[u.apartment_id] || {})[ch];
+      const prev = cur[ch] || {};
+      if (m) { cur[ch] = Object.assign({}, prev, { mapped: Object.assign(m, { checked_at: now }) }); dirty = true; }
+      else if (full || (prev.mapped && prev.mapped.channel_ids && prev.mapped.channel_ids.some(id => part.some(c => c.id === id)))) { cur[ch] = Object.assign({}, prev, { mapped: null, checked_at: now }); dirty = true; }
+    }
+    if (dirty) { await C.q('channel_units?apartment_id=eq.' + enc(u.apartment_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ channels: cur }) }); updated++; }
+  }
+  return { total: list.length, offset: off, done: off + lim, next: off + lim < list.length ? off + lim : null, updated };
 }
 
 async function setupComplex(body, user) {
@@ -61,17 +230,7 @@ async function setupComplex(body, user) {
     log.push('property created ' + ext);
   }
   const existing = {}; (await C.q('channel_units?select=*&channel_property_id=eq.' + prop.id)).forEach(u => existing[u.apartment_id] = u);
-  for (const a of apts) {
-    const u = existing[a.id];
-    if (u && u.external_room_type_id && u.external_rate_plan_id) { log.push(a.id + ': already'); continue; }
-    const occ = Math.max(1, Math.min(10, a.max_guests || 2));
-    let rt = u && u.external_room_type_id;
-    if (!rt) { const r = await C.cx('POST', '/room_types', { room_type: { property_id: prop.external_id, title: a.name, count_of_rooms: 1, occ_adults: occ, occ_children: 0, occ_infants: 1, default_occupancy: occ, room_kind: 'room', codes: { apartment_id: a.id }, content: { description: (a.description_en || a.description || '').slice(0, 2000) || null } } }); rt = r.data.id; }
-    let rp = u && u.external_rate_plan_id;
-    if (!rp) { const r = await C.cx('POST', '/rate_plans', { rate_plan: { property_id: prop.external_id, room_type_id: rt, title: 'Standard', sell_mode: 'per_room', rate_mode: 'manual', currency: 'USD', meal_type: 'none', options: [{ occupancy: occ, is_primary: true, rate: String(a.weekday_price || 100) + '.00' }], min_stay_arrival: 1, meta: { apartment_id: a.id } } }); rp = r.data.id; }
-    await C.q('channel_units?on_conflict=apartment_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ apartment_id: a.id, channel_property_id: prop.id, external_room_type_id: rt, external_rate_plan_id: rp, is_active: true, updated_at: new Date().toISOString() }) });
-    log.push(a.id + ': room ' + rt.slice(0, 8) + ' rate ' + rp.slice(0, 8));
-  }
+  for (const a of apts) log.push(await ensureUnit(a, prop, existing[a.id]));
   // производные тарифы площадок (по умолчанию 0 %, регулируются в «Каналы → Наценки»)
   const mk = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => mk[m.channel] = Number(m.pct));
   const unitsNow = await C.q('channel_units?select=*&channel_property_id=eq.' + prop.id);
@@ -189,6 +348,13 @@ exports.handler = async (event) => {
     switch (body.a) {
       case 'setup_complex': return out(200, await setupComplex(body, user));
       case 'setup_webhook': return out(200, await setupWebhook());
+      case 'setup_unit': return out(200, await setupUnit(body, user));
+      case 'channel_toggle': return out(200, await channelToggle(body, user));
+      case 'unit_markup': return out(200, await unitMarkup(body, user));
+      case 'restriction_save': return out(200, await restrictionSave(body, user));
+      case 'restriction_delete': return out(200, await restrictionDelete(body, user));
+      case 'unit_log': return out(200, await unitLog(body, user));
+      case 'mapping_scan': return out(200, await mappingScan(body, user));
       case 'go_production': return out(200, await goProduction(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));
@@ -255,3 +421,4 @@ exports.handler = async (event) => {
     }
   } catch (e) { return out(e.status && e.status < 500 ? e.status : 400, { error: String(e.message || e).slice(0, 600) }); }
 };
+exports.mappingScan = mappingScan;

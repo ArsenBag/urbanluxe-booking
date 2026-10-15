@@ -61,9 +61,9 @@ function dbError(e) {
 
 // ---------- права ----------
 const CAN = {
-  admin: { write: 1, rates: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1, status_only: 0, users: 1 },
+  admin: { write: 1, rates: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1, status_only: 0, users: 1, objects: 1, objects_archive: 1 },
   booker: { write: 1, rates: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1 },
-  ops: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 1, guests_write: 0, status_only: 1 },
+  ops: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 1, guests_write: 0, status_only: 1, objects: 1 },
   partner: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 0 }
 };
 // 14.10.2026: вход кэшируется на тёплом инстансе функции (токен → пользователь, 2 мин). Раньше каждый вызов API делал
@@ -384,6 +384,62 @@ async function guestUpdate(body, user) {
   return guest(body.id);
 }
 
+// ---- PMS v2-A (16.10.2026): объекты (ЖК и квартиры), история брони, подборки для гостя. Спека docs/superpowers/specs/2026-10-15-pms-objects-channels-v2-design.md
+const APT_FIELDS = ['name', 'complex', 'floor', 'max_guests', 'rooms', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no', 'tracked', 'org_id', 'is_active'];
+async function objects(user) {
+  const org = '&org_id=eq.' + user.org.id;
+  const [cx, apts, units] = await Promise.all([
+    q('complexes?select=*' + org + '&order=name'),
+    q('apartments?select=id,name,complex,floor,max_guests,rooms,weekday_price,weekend_price,min_nights,catalog_no,tracked,org_id,is_active,photo_url,updated_at' + org + '&order=complex,catalog_no.nullslast,name'),
+    q('channel_units?select=apartment_id,channel_property_id,external_room_type_id,external_rate_plan_id,is_active,derived,channels,last_error,last_pushed_at')
+  ]);
+  const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
+  return { complexes: cx, apartments: apts.map(a => Object.assign(a, { unit: byApt[a.id] || null })) };
+}
+async function complexSave(body, user) {
+  const o = { name: String(body.name || '').trim(), address: body.address || null, city: body.city || 'Tashkent', timezone: body.timezone || 'Asia/Tashkent', notes: body.notes || null, is_active: body.is_active !== false };
+  if (!o.name) throw new Error('Название ЖК обязательно');
+  if (body.id) {
+    const cur = (await q('complexes?select=*&id=eq.' + enc(body.id) + '&org_id=eq.' + user.org.id))[0]; if (!cur) throw new Error('ЖК не найден');
+    if (cur.name !== o.name) await rpc('pms_complex_rename', { p_id: cur.id, p_name: o.name });
+    delete o.name;
+    const rows = await q('complexes?id=eq.' + enc(body.id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+    return rows[0];
+  }
+  o.org_id = user.org.id;
+  const rows = await q('complexes', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+  return rows[0];
+}
+async function aptSave(body, user) {
+  const id = String(body.id || '').trim();
+  if (!/^[a-z0-9_]{3,40}$/.test(id)) throw new Error('Код квартиры: латиница, цифры, _ (например kislorod_77)');
+  const o = {}; APT_FIELDS.forEach(f => { if (body[f] !== undefined) o[f] = body[f]; });
+  ['floor', 'max_guests', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no'].forEach(f => { if (o[f] === '' || o[f] === null) o[f] = null; else if (o[f] !== undefined) o[f] = Number(o[f]); });
+  if (o.org_id === undefined) o.org_id = user.org.id;
+  if (!o.name) throw new Error('Название обязательно');
+  if (!o.complex) throw new Error('Выберите ЖК');
+  const cx = await q('complexes?select=id&name=eq.' + enc(o.complex) + '&org_id=eq.' + o.org_id); if (!cx.length) throw new Error('ЖК «' + o.complex + '» не найден');
+  const cur = (await q('apartments?select=id,org_id&id=eq.' + enc(id)))[0];
+  if (cur) {
+    if (cur.org_id && cur.org_id !== user.org.id && user.role !== 'admin') throw new Error('Чужая квартира');
+    o.updated_at = new Date().toISOString();
+    const rows = await q('apartments?id=eq.' + enc(id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+    await logEvent(null, 'apartment_updated', { apartment_id: id, fields: Object.keys(o) }, user);
+    return rows[0];
+  }
+  o.id = id; if (o.is_active === undefined) o.is_active = true; if (o.tracked === undefined) o.tracked = true;
+  const rows = await q('apartments', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+  await logEvent(null, 'apartment_created', { apartment_id: id }, user);
+  return rows[0];
+}
+async function selectionCreate(body, user) {
+  const ids = (body.apartment_ids || []).filter(id => canSeeApt(user, id)); if (!ids.length) throw new Error('Выберите квартиры');
+  if (!body.check_in || !body.check_out || body.check_out <= body.check_in) throw new Error('Даты');
+  const code = Math.random().toString(36).slice(2, 10);
+  const rows = await q('selections', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ code, org_id: user.org.id, check_in: body.check_in, check_out: body.check_out, apartment_ids: ids, note: body.note || null, created_by: user.name }) });
+  return { code, url: (process.env.URL || 'https://urbanluxe.cc') + '/s/' + code, row: rows[0] };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
   const p = event.queryStringParameters || {};
@@ -402,6 +458,9 @@ exports.handler = async (event) => {
         case 'debts': if (!user.can.pay) return out(403, { error: 'forbidden' }); return out(200, await debts(user));
         case 'rules': if (!user.can.rates) return out(403, { error: 'forbidden' }); return out(200, await q('rate_rules?select=*&org_id=eq.' + user.org.id + '&order=is_active.desc,priority.desc,date_from.desc.nullslast'));
         case 'users': if (!user.can.users) return out(403, { error: 'forbidden' }); return out(200, await users(user));
+        case 'objects': if (!user.can.objects) return out(403, { error: 'forbidden' }); return out(200, await objects(user));
+        case 'booking_history': { const b = (await q('bookings?select=apartment_id&id=eq.' + enc(p.id)))[0]; if (!b || !canSeeApt(user, b.apartment_id)) return out(404, { error: 'not found' }); return out(200, { events: await rpc('pms_booking_history', { p_id: p.id }) }); }
+        case 'selections': return out(200, await q('selections?select=*&org_id=eq.' + user.org.id + '&order=created_at.desc&limit=50'));
         default: return out(400, { error: 'unknown action' });
       }
     }
@@ -423,6 +482,19 @@ exports.handler = async (event) => {
       case 'guest_create': need('guests_write'); return out(200, await guestCreate(body, user));
       case 'user_save': need('users'); return out(200, await userSave(body, user));
       case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
+      case 'complex_save': need('objects'); return out(200, await complexSave(body, user));
+      case 'apt_save': need('objects'); return out(200, await aptSave(body, user));
+      case 'apt_archive': need('objects_archive'); {
+        // закрыть 500 дней (rate_overrides → пересчёт → очередь) → отправить в Channex сейчас → только потом выключить квартиру и unit
+        if (!canSeeApt(user, body.id)) return out(403, { error: 'не ваша квартира' });
+        const r = await rpc('pms_apt_archive', { p_apt: body.id, p_actor: user.name });
+        let pushed = null; try { pushed = await require('./_channex.js').processOutbox(); } catch (e) { pushed = { error: String(e.message).slice(0, 200) }; }
+        await q('apartments?id=eq.' + enc(body.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() }) });
+        await q('channel_units?apartment_id=eq.' + enc(body.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() }) });
+        await logEvent(null, 'apartment_archived', { apartment_id: body.id }, user); return out(200, Object.assign({}, r, { pushed }));
+      }
+      case 'apt_restore': need('objects_archive'); { if (!canSeeApt(user, body.id)) return out(403, { error: 'не ваша квартира' }); const r = await rpc('pms_apt_restore', { p_apt: body.id }); await logEvent(null, 'apartment_restored', { apartment_id: body.id }, user); return out(200, r); }
+      case 'selection_create': return out(200, await selectionCreate(body, user));
       default: return out(400, { error: 'unknown action' });
     }
   } catch (e) { return out(e.status || 400, { error: dbError(e) }); }

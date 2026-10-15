@@ -72,6 +72,19 @@ async function unitValues(unit, from, to, kind, cache, days) {
       if (f.has('stop_sell')) o.stop_sell = !!g.row.closed;
       return o;
     });
+    // 16.10.2026: закрытия/мин. ночи по площадке (channel_restrictions). У производного тарифа площадки с флагом
+    // channels[ch].own_restrictions сняты inherit_stop_sell/inherit_min_stay_arrival — шлём ему свои значения:
+    // stop_sell = закрыто у нас ИЛИ правилом площадки; min_stay = max(наш, правило). Без правил — значения Standard (возврат).
+    const own = Object.keys(unit.channels || {}).filter(ch => (unit.channels[ch] || {}).own_restrictions && unit.derived && unit.derived[ch] && unit.derived[ch].rate_plan_id);
+    if (own.length) {
+      const rules = await q('channel_restrictions?select=*&apartment_id=eq.' + encodeURIComponent(unit.apartment_id) + '&date_to=gte.' + from + '&date_from=lte.' + to);
+      const sub = rows.filter(r => { const f = fieldsOf(r); return f.has('min_stay') || f.has('stop_sell'); });
+      for (const ch of own) {
+        const rr = rules.filter(x => x.channel === ch);
+        const eff = r => { let ss = !!r.closed, mn = Math.max(1, r.min_nights || 1); for (const x of rr) if (r.date >= x.date_from && r.date <= x.date_to) { if (x.stop_sell) ss = true; if (x.min_nights) mn = Math.max(mn, x.min_nights); } return { ss, mn }; };
+        v.restrictions.push(...ranges(sub, r => { const e = eff(r); return 's' + (e.ss ? 1 : 0) + '|m' + e.mn; }).map(g => { const e = eff(g.row); return { property_id: prop.external_id, rate_plan_id: unit.derived[ch].rate_plan_id, date_from: g.from, date_to: g.to, stop_sell: e.ss, min_stay_arrival: e.mn }; }));
+      }
+    }
   }
   return v;
 }
@@ -109,7 +122,7 @@ async function processOutbox(limit) {
     const g = groups[o.apartment_id] = groups[o.apartment_id] || { ids: [], from: o.date_from, to: o.date_to, kind: o.kind, attempts: o.attempts || 0, days: {} };
     g.ids.push(o.id); if (o.date_from < g.from) g.from = o.date_from; if (o.date_to > g.to) g.to = o.date_to; if (o.kind !== g.kind) g.kind = 'both';
     // какие поля изменились по каким датам (старые записи без fields → по kind)
-    const f = (o.fields && o.fields.length) ? o.fields : (o.kind === 'availability' ? ['availability'] : o.kind === 'rates' ? ['rate', 'min_stay', 'cta', 'stop_sell'] : ALL_FIELDS);
+    const f = o.kind === 'restriction' ? ['min_stay', 'stop_sell'] : (o.fields && o.fields.length) ? o.fields : (o.kind === 'availability' ? ['availability'] : o.kind === 'rates' ? ['rate', 'min_stay', 'cta', 'stop_sell'] : ALL_FIELDS);
     for (let d = o.date_from; d <= o.date_to; d = addDays(d, 1)) { const set = g.days[d] = g.days[d] || new Set(); f.forEach(x => set.add(x)); }
   }
   const out = { sent: 0, errors: [], tasks: [] };
@@ -165,7 +178,7 @@ async function ingestRevision(revisionId) {
   const r0 = a.rooms && a.rooms[0] || {};
   const head = res.conflict ? '🚨 ОВЕРБУКИНГ с площадки' : a.status === 'cancelled' ? '❌ Отмена с площадки' : a.status === 'modified' ? '✏️ Изменение брони с площадки' : '🆕 Бронь с площадки';
   const cust = a.customer || {};
-  await alertAdmin(head + ' · ' + T.esc(a.ota_name || '') + '\n' + T.esc(apt ? apt.name : ('room ' + (r0.room_type_id || '?'))) + ' · ' + T.ruDate(r0.checkin_date) + ' → ' + T.ruDate(r0.checkout_date) + '\n' + T.esc([cust.name, cust.surname].filter(Boolean).join(' ')) + (cust.phone ? ' · ' + T.esc(cust.phone) : '') + '\n' + T.esc(String(a.amount || '')) + ' ' + T.esc(a.currency || '') + (a.payment_collect === 'ota' ? ' · оплачено на площадке' : '') + (res.error ? '\n⚠️ ' + T.esc(res.error) : '') + (res.conflict ? '\nДаты заняты другой бронью — решить в /pms → Каналы' : ''));
+  await alertAdmin(head + ' · ' + T.esc(a.ota_name || '') + '\n' + T.esc(apt ? apt.name : ('room ' + (r0.room_type_id || '?'))) + ' · ' + T.ruDate(r0.checkin_date) + ' → ' + T.ruDate(r0.checkout_date) + '\n' + T.esc([cust.name, cust.surname].filter(Boolean).join(' ')) + (cust.phone ? ' · ' + T.esc(cust.phone) : '') + '\n' + T.esc(String(a.amount || '')) + ' ' + T.esc(a.currency || '') + (a.payment_collect === 'ota' ? ' · оплачено на площадке' : '') + (res.error ? '\n⚠️ ' + T.esc(res.error) : '') + (res.conflict ? '\nДаты заняты другой бронью — решить в /pms → Каналы' : '') + (res.booking_id ? '\n<a href="https://urbanluxe.cc/pms#booking=' + res.booking_id + '">Открыть в PMS</a>' : ''));
   return Object.assign({ revision_id: revisionId, channel_booking_id: cb.id }, res);
 }
 
@@ -213,8 +226,11 @@ async function applyMarkup(orgId, channel, pct) {
     const apt = cache.apts[u.apartment_id]; const prop = cache.props[u.channel_property_id];
     if (!apt || !prop || !prop.external_id || !u.external_rate_plan_id) continue;
     if ((prop.org_id || 1) !== orgId) continue;
-    try { await ensureDerived(u, prop, channel, pct); out.ok++; } catch (e) { out.errors.push(u.apartment_id + ': ' + String(e.message).slice(0, 160)); }
+    const ov = (u.channels || {})[channel]; const eff = ov && ov.markup_pct != null ? Number(ov.markup_pct) : pct;   // наценка квартиры важнее общей
+    try { await ensureDerived(u, prop, channel, eff); out.ok++; } catch (e) { out.errors.push(u.apartment_id + ': ' + String(e.message).slice(0, 160)); }
   }
   return out;
 }
-module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS };
+// код канала в Channex (attributes.channel) по нашему ключу площадки
+const CHANNEL_CODES = { airbnb: 'AirBNB', booking: 'BookingCom', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
+module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS, CHANNEL_CODES, derivedRate };
