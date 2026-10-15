@@ -127,6 +127,12 @@
   to = "/free.html"
   status = 200
 
+# Подборка для гостя (16.10.2026): /s/<code> — свободные квартиры с фото и ценами, заявка → book.js (selection-page.js)
+[[redirects]]
+  from = "/s/*"
+  to = "/.netlify/functions/selection-page/:splat"
+  status = 200
+
 # SEO-страницы апартаментов: /apartments и /apartments/<id> собираются функцией
 # apt-page.js из Supabase (настоящие индексируемые страницы вместо /?apt=...).
 [[redirects]]
