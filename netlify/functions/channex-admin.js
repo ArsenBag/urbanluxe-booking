@@ -143,8 +143,7 @@ async function bookingConnect(body, user) {
   const hotel_id = String(body.hotel_id || ''); if (!hotel_id) throw new Error('hotel_id');
   const pairs = body.pairs || {}; if (!Object.keys(pairs).length) throw new Error('pairs');
   const settings = { hotel_id };
-  const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings });
-  if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data));
+  if (!body.skip_test) { const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings }); if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data)); }
   const m = await C.cx('POST', '/channels/mapping_details', { channel: code, settings });
   const md = m.data || {}; const pricing = md.pricing_type || 'Standard';
   const units = await C.q('channel_units?select=*&is_active=eq.true');
@@ -194,6 +193,7 @@ exports.handler = async (event) => {
       case 'go_production': return out(200, await goProduction(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));
+      case 'channel_activate': { const id = String(body.channel_id || ''); if (!id) return out(400, { error: 'channel_id' }); const r = await C.cx('POST', '/channels/' + id + '/activate'); return out(200, { ok: true, r: r && r.meta }); }
       case 'ostrovok_probe': return out(200, await bookingProbe(Object.assign({}, body, { adapter: 'Ostrovok' })));
       case 'ostrovok_connect': return out(200, await bookingConnect(Object.assign({}, body, { adapter: 'Ostrovok' }), user));
       case 'reconcile_derived': { const props = await C.q('channel_properties?select=*&external_id=not.is.null&org_id=eq.' + user.org_id); const r = []; for (const p of props) r.push(Object.assign({ property: p.name }, await C.reconcileDerived(p.external_id))); return out(200, r); }
