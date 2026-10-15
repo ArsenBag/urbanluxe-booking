@@ -28,7 +28,23 @@ async function auth(event) {
   const r = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: ANON, Authorization: 'Bearer ' + tok } }); if (!r.ok) return null;
   const u = await r.json(); if (!u || !u.email) return null;
   const rows = await C.q('app_users?select=*&email=eq.' + enc(u.email.toLowerCase())); if (!rows.length || rows[0].is_active === false) return null;
-  return { email: rows[0].email, role: rows[0].role, name: rows[0].name || rows[0].email, org_id: rows[0].org_id || 1 };
+  // B (16.10): организация = кабинет; платформа-админ (admin org 1) может смотреть другую через ?org= / x-org
+  const qp = event.queryStringParameters || {}; const want = Number(qp.org || h['x-org'] || h['X-Org'] || 0) || 0;
+  const home = rows[0].org_id || 1; const platform = rows[0].role === 'admin' && home === 1;
+  const orgId = platform && want ? want : home;
+  const org = (await C.q('organizations?select=id,name,short,slug,settings,tg_chat_id&id=eq.' + orgId))[0] || { id: orgId, name: 'Urban Luxe', short: 'UL', settings: {} };
+  return { email: rows[0].email, role: rows[0].role, name: rows[0].name || rows[0].email, org_id: orgId, org, platform_admin: platform, channex_key: ((org.settings || {}).channex || {}).api_key || null };
+}
+// группа Channex организации (клиенты без своего ключа живут в нашем аккаунте, каждый в своей Group)
+async function orgGroupId(user) {
+  const cx = ((user.org.settings || {}).channex) || {};
+  if (cx.group_id) return cx.group_id;
+  if (user.channex_key) return ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id || null;   // свой аккаунт клиента — его первая группа
+  if (user.org_id === 1) return ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id || null;
+  const g = await C.cx('POST', '/groups', { group: { title: user.org.name } });
+  const settings = Object.assign({}, user.org.settings || {}, { channex: Object.assign({}, cx, { group_id: g.data.id }) });
+  await C.q('organizations?id=eq.' + user.org_id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ settings }) });
+  user.org.settings = settings; return g.data.id;
 }
 
 async function status(user) {
@@ -50,6 +66,8 @@ async function status(user) {
   }
   else channex = { ok: false, error: 'CHANNEX_API_KEY не задан' };
   const mine = new Set(apts.map(a => a.id));
+  const myProps = new Set(props.map(p => p.external_id).filter(Boolean)); channels = channels.filter(c => (c.properties || []).some(x => myProps.has(x)));
+  if (channex && channex.properties) channex.properties = channex.properties.filter(p => myProps.has(p.id));
   const restrictions = (await C.q('channel_restrictions?select=*&date_to=gte.' + C.today() + '&order=date_from')).filter(r => mine.has(r.apartment_id));
   // 16.10: партнёрские квартиры и принадлежность каналов аккаунтам организаций (Airbnb HighLife — отдельный канал в нашем Channex)
   const [access, accounts, orgs] = await Promise.all([C.q('apartment_access?select=apartment_id,org_id,mode'), C.q('channel_accounts?select=*'), C.q('organizations?select=id,name,short&is_active=eq.true&order=id')]);
@@ -235,7 +253,8 @@ async function setupComplex(body, user) {
   const log = [];
   if (!prop || !prop.external_id) {
     const title = body.title || ('Urban Luxe ' + complex);
-    const j = await C.cx('POST', '/properties', { property: { title, currency: 'USD', email: process.env.CHANNEX_CONTACT_EMAIL || 'booking@urbanluxe.cc', phone: '+998936900044', country: 'UZ', city: 'Tashkent', address: COMPLEX_ADDR[complex] || 'Tashkent', zip_code: '100000', timezone: 'Asia/Tashkent', property_type: 'apartment', website: 'https://urbanluxe.cc', settings: { min_stay_type: 'arrival', state_length: 500, allow_availability_autoupdate_on_modification: false, allow_availability_autoupdate_on_cancellation: false } } });
+    const gid = await orgGroupId(user);
+    const j = await C.cx('POST', '/properties', { property: { group_id: gid || undefined, title, currency: 'USD', email: process.env.CHANNEX_CONTACT_EMAIL || 'booking@urbanluxe.cc', phone: '+998936900044', country: 'UZ', city: 'Tashkent', address: COMPLEX_ADDR[complex] || 'Tashkent', zip_code: '100000', timezone: 'Asia/Tashkent', property_type: 'apartment', website: 'https://urbanluxe.cc', settings: { min_stay_type: 'arrival', state_length: 500, allow_availability_autoupdate_on_modification: false, allow_availability_autoupdate_on_cancellation: false } } });
     const ext = j.data.id;
     if (prop) { await C.q('channel_properties?id=eq.' + prop.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_id: ext, name: title, updated_at: new Date().toISOString() }) }); prop.external_id = ext; }
     else prop = (await C.q('channel_properties', { method: 'POST', body: JSON.stringify({ provider: 'channex', external_id: ext, name: title, complex, currency: 'USD', org_id: user.org_id }) }))[0];
@@ -335,7 +354,7 @@ async function bookingConnect(body, user) {
   if (!rate_plans.length) throw new Error('нечего мапить: ' + log.join('; '));
   if (propIds.size !== 1) throw new Error('номера карточки из разных property Channex: ' + [...propIds].join(','));
   const prop = (await C.q('channel_properties?select=*&id=eq.' + [...propIds][0]))[0];
-  const group_id = body.group_id || ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id; if (!group_id) throw new Error('нет group в Channex');
+  const group_id = body.group_id || await orgGroupId(user); if (!group_id) throw new Error('нет group в Channex');
   const existing = body.no_dup_check ? [] : ((await C.cx('GET', '/channels?pagination[limit]=100')).data || []);
   const dup = existing.find(c => c.attributes && c.attributes.channel === code && String((c.attributes.settings || {}).hotel_id) === hotel_id);
   let ch;
@@ -354,6 +373,7 @@ exports.handler = async (event) => {
   try {
     const user = await auth(event); if (!user) return out(401, { error: 'unauthorized' });
     if (user.role !== 'admin') return out(403, { error: 'только admin' });
+    C.setKey(user.channex_key);   // свой ключ Channex у организации — на время этого запроса
     const p = event.queryStringParameters || {};
     if (event.httpMethod === 'GET') { if (p.a === 'status') return out(200, await status(user)); return out(400, { error: 'unknown action' }); }
     const body = JSON.parse(event.body || '{}');
@@ -441,5 +461,6 @@ exports.handler = async (event) => {
       default: return out(400, { error: 'unknown action' });
     }
   } catch (e) { return out(e.status && e.status < 500 ? e.status : 400, { error: String(e.message || e).slice(0, 600) }); }
+  finally { C.setKey(null); }
 };
 exports.mappingScan = mappingScan;

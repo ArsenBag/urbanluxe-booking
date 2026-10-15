@@ -74,19 +74,24 @@ async function auth(event) {
   const h = event.headers || {};
   const tok = ((h.authorization || h.Authorization || '').match(/^Bearer\s+(.+)$/i) || [])[1];
   if (!tok) return null;
-  const hit = AUTH_CACHE.get(tok); if (hit && hit.exp > Date.now()) return hit.user;
+  const qp = event.queryStringParameters || {}; const wantOrg = Number(qp.org || h['x-org'] || h['X-Org'] || 0) || 0;   // B: платформа-админ смотрит другую организацию
+  const ckey = tok + '|' + wantOrg;
+  const hit = AUTH_CACHE.get(ckey); if (hit && hit.exp > Date.now()) return hit.user;
   const r = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: ANON, Authorization: 'Bearer ' + tok } });
   if (!r.ok) return null;
   const u = await r.json(); if (!u || !u.email) return null;
   const rows = await q('app_users?select=*&email=eq.' + enc(u.email.toLowerCase()));
   if (!rows.length || rows[0].is_active === false) return null;
   const me = rows[0];
-  const [orgRows, accRows] = await Promise.all([q('organizations?select=id,name,short,slug,logo_url&id=eq.' + (me.org_id || 1)), q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: me.org_id || 1 }) })]);
+  const platformAdmin = me.role === 'admin' && (me.org_id || 1) === 1;
+  const orgId = platformAdmin && wantOrg ? wantOrg : (me.org_id || 1);
+  const [orgRows, accRows] = await Promise.all([q('organizations?select=id,name,short,slug,logo_url,plan_limit,tg_chat_id,settings,is_active&id=eq.' + orgId), q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: orgId }) })]);
   const org = orgRows[0] || { id: 1, name: 'Urban Luxe', short: 'UL' };
+  if (org.settings && org.settings.channex) org.settings = Object.assign({}, org.settings, { channex: Object.assign({}, org.settings.channex, { api_key: org.settings.channex.api_key ? '•••' : null }) });   // ключ в интерфейс не отдаём
   const access = {}; accRows.forEach(x => access[x.apartment_id] = x.mode);
-  const user = { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {}, org, access };
+  const user = { email: me.email, role: me.role, name: me.name || me.email, apartment_ids: me.apartment_ids || null, can: CAN[me.role] || {}, org, access, platform_admin: platformAdmin, home_org_id: me.org_id || 1 };
   if (AUTH_CACHE.size > 200) AUTH_CACHE.clear();
-  AUTH_CACHE.set(tok, { user, exp: Date.now() + AUTH_TTL });
+  AUTH_CACHE.set(ckey, { user, exp: Date.now() + AUTH_TTL });
   return user;
 }
 // Видимость квартир: партнёр-собственник — свой список; остальные — квартиры своей организации + общие (apartment_access)
@@ -109,12 +114,15 @@ async function grid(user, p) {
   const from = isDate(p.from) ? p.from : addDays(today, -30);
   const to = isDate(p.to) ? p.to : addDays(from, 90);
   const [apts, bk, rates, cleaning] = await Promise.all([
-    q('apartments?select=id,name,complex,floor,rooms,max_guests,catalog_no,weekday_price,weekend_price,min_nights,is_active&is_active=eq.true&order=complex,catalog_no.nullslast,floor,name'),
+    q('apartments?select=id,name,complex,floor,rooms,max_guests,catalog_no,weekday_price,weekend_price,min_nights,is_active,org_id&is_active=eq.true&order=complex,catalog_no.nullslast,floor,name'),
     qAll('v_bookings?select=*&status=neq.cancelled&check_in=lt.' + to + '&check_out=gt.' + addDays(from, -1) + aptIn(user) + '&order=check_in'),
     qAll('rate_calendar?select=apartment_id,date,price,min_nights,closed,closed_to_arrival,available,source&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=apartment_id,date'),
     qAll('cleaning_tasks?select=apartment_id,date,done,hk_status,hk_maid&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=date').catch(() => [])
   ]);
-  return { from, to, today, me: { role: user.role, name: user.name, can: user.can, org: user.org, access: user.access }, apartments: aptFilter(user, apts), bookings: bk.map(b => stripPay(user, b)), rates, cleaning };
+  const orgs = await q('organizations?select=id,name,short&is_active=eq.true'); const orgOf = id => orgs.find(o => o.id === id) || {};
+  // B: mode = full (своя/общая) | occupancy (квартира партнёра сети — только занятость); partner_of — чья квартира
+  const list = aptFilter(user, apts).map(a => Object.assign(a, { mode: user.role === 'partner' ? 'owner' : (user.access[a.id] || 'full'), partner_of: a.org_id && a.org_id !== user.org.id ? (orgOf(a.org_id).short || orgOf(a.org_id).name || '') : null }));
+  return { from, to, today, me: { role: user.role, name: user.name, can: user.can, org: user.org, access: user.access, platform_admin: user.platform_admin }, apartments: list, bookings: bk.map(b => stripPay(user, b)), rates, cleaning };
 }
 async function booking(user, id) {
   const b = (await q('v_bookings?select=*&id=eq.' + enc(id)))[0];
@@ -324,12 +332,13 @@ const ROLES = ['admin', 'booker', 'ops', 'partner'];
 const SERVICE = process.env.SUPABASE_SERVICE_KEY;
 const authAdmin = (path, opt) => fetch(SB_URL + '/auth/v1/admin/' + path, Object.assign({ headers: { apikey: SERVICE, Authorization: 'Bearer ' + SERVICE, 'Content-Type': 'application/json' } }, opt || {}));
 async function users(user) {
-  const [rows, staff, orgs] = await Promise.all([
-    q('app_users?select=email,name,role,org_id,apartment_ids,telegram_chat_id,is_active,auth_user_id,created_at&order=is_active.desc,role,name'),
-    q('staff?select=id,name,role,telegram_chat_id,is_active&order=role,name').catch(() => []),
-    q('organizations?select=id,name,short&order=id')
+  const [rows, staff, orgs, invitations] = await Promise.all([
+    q('app_users?select=email,name,role,org_id,apartment_ids,telegram_chat_id,is_active,auth_user_id,created_at&org_id=eq.' + user.org.id + '&order=is_active.desc,role,name'),
+    user.org.id === 1 ? q('staff?select=id,name,role,telegram_chat_id,is_active&order=role,name').catch(() => []) : [],
+    q('organizations?select=id,name,short&order=id'),
+    q('invitations?select=token,email,name,role,apartment_ids,invited_by,created_at,expires_at,accepted_at&org_id=eq.' + user.org.id + '&order=created_at.desc&limit=50').catch(() => [])
   ]);
-  return { users: rows, staff, orgs, me: user.email };
+  return { users: rows, staff, orgs: user.platform_admin ? orgs : orgs.filter(o => o.id === user.org.id), invitations, me: user.email, org: user.org };
 }
 async function authUserId(email) {
   const rows = await rpc('pms_auth_user_id', { p_email: email }).catch(() => null);
@@ -343,7 +352,8 @@ async function userSave(body, user) {
   if (!ROLES.includes(u.role)) throw new Error('Роль: admin / booker / ops / partner');
   if (email === user.email && (u.role !== 'admin' || u.is_active === false)) throw new Error('Нельзя снять права с самого себя');
   const cur = (await q('app_users?select=*&email=eq.' + enc(email)))[0];
-  const o = { email, name: String(u.name || '').trim() || email, role: u.role, org_id: Number(u.org_id) || 1, is_active: u.is_active !== false,
+  if (cur && !user.platform_admin && (cur.org_id || 1) !== user.org.id) throw new Error('Сотрудник другой организации');
+  const o = { email, name: String(u.name || '').trim() || email, role: u.role, org_id: user.platform_admin ? (Number(u.org_id) || user.org.id) : user.org.id, is_active: u.is_active !== false,
     apartment_ids: u.role === 'partner' ? (Array.isArray(u.apartment_ids) ? u.apartment_ids.filter(Boolean) : null) : null,
     telegram_chat_id: u.telegram_chat_id ? String(u.telegram_chat_id).trim() : null };
   const pwd = u.password ? String(u.password) : '';
@@ -442,10 +452,126 @@ async function aptSave(body, user) {
     return rows[0];
   }
   o.id = id; if (o.is_active === undefined) o.is_active = true; if (o.tracked === undefined) o.tracked = true;
+  if (user.org.plan_limit) { const n = (await q('apartments?select=id&is_active=eq.true&org_id=eq.' + o.org_id)).length; if (n >= user.org.plan_limit) throw new Error('Лимит тарифа: ' + user.org.plan_limit + ' активных квартир. Обратитесь к администратору платформы'); }
   const rows = await q('apartments', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
   AUTH_CACHE.clear();   // чтобы новая квартира сразу была в access (шахматка, архив)
   await logEvent(null, 'apartment_created', { apartment_id: id }, user);
   return rows[0];
+}
+// ---- PMS v2-B (16.10.2026): организации, приглашения, сброс пароля, отчёт собственника. Спека docs/superpowers/specs/2026-10-16-pms-orgs-partners-design.md
+const SITE = process.env.URL || 'https://urbanluxe.cc';
+const needPlatform = user => { if (!user.platform_admin) throw Object.assign(new Error('Только администратор платформы'), { status: 403 }); };
+async function orgs(user) {
+  needPlatform(user);
+  const [list, apts, usersN, partners] = await Promise.all([
+    q('organizations?select=id,slug,name,short,logo_url,telegram,tg_chat_id,plan_limit,settings,is_active,created_at&order=id'),
+    q('apartments?select=org_id&is_active=eq.true'), q('app_users?select=org_id&is_active=eq.true'), q('org_partners?select=org_id,partner_org_id')
+  ]);
+  return list.map(o => ({ id: o.id, slug: o.slug, name: o.name, short: o.short, logo_url: o.logo_url, telegram: o.telegram, tg_chat_id: o.tg_chat_id, plan_limit: o.plan_limit, is_active: o.is_active, created_at: o.created_at,
+    apartments: apts.filter(a => (a.org_id || 1) === o.id).length, users: usersN.filter(u => (u.org_id || 1) === o.id).length,
+    channex: { group_id: (((o.settings || {}).channex) || {}).group_id || null, own_key: !!(((o.settings || {}).channex) || {}).api_key },
+    partners: partners.filter(x => x.org_id === o.id).map(x => x.partner_org_id) }));
+}
+async function orgSave(body, user) {
+  needPlatform(user);
+  const o = { name: String(body.name || '').trim(), short: String(body.short || '').trim().slice(0, 6) || null, slug: String(body.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || null, telegram: body.telegram || null, tg_chat_id: body.tg_chat_id || null, plan_limit: body.plan_limit ? Number(body.plan_limit) : null, logo_url: body.logo_url || null, is_active: body.is_active !== false };
+  if (!o.name) throw new Error('Название организации');
+  if (!o.slug) o.slug = o.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || ('org' + Date.now());
+  if (body.id) {
+    const cur = (await q('organizations?select=*&id=eq.' + enc(body.id)))[0]; if (!cur) throw new Error('Организация не найдена');
+    if (cur.id === 1 && o.is_active === false) throw new Error('Нельзя выключить Urban Luxe');
+    const settings = Object.assign({}, cur.settings || {});
+    if (body.channex_api_key !== undefined) settings.channex = Object.assign({}, settings.channex || {}, { api_key: body.channex_api_key ? String(body.channex_api_key).trim() : null });
+    o.settings = settings;
+    const rows = await q('organizations?id=eq.' + cur.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+    AUTH_CACHE.clear(); return rows[0] && { id: rows[0].id, name: rows[0].name };
+  }
+  o.created_by = actorOf(user); o.settings = body.channex_api_key ? { channex: { api_key: String(body.channex_api_key).trim() } } : {};
+  const rows = await q('organizations', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
+  await logEvent(null, 'org_created', { id: rows[0].id, name: o.name }, user);
+  return { id: rows[0].id, name: rows[0].name };
+}
+async function orgPartnerSet(body, user) {
+  needPlatform(user);
+  const a = Number(body.org_id), b = Number(body.partner_org_id); if (!a || !b || a === b) throw new Error('org_id / partner_org_id');
+  if (body.on) { for (const [x, y] of [[a, b], [b, a]]) await q('org_partners?on_conflict=org_id,partner_org_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify({ org_id: x, partner_org_id: y }) }); }
+  else { await q('org_partners?or=(and(org_id.eq.' + a + ',partner_org_id.eq.' + b + '),and(org_id.eq.' + b + ',partner_org_id.eq.' + a + '))', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); }
+  AUTH_CACHE.clear(); return { ok: true };
+}
+// письмо (Resend) без привязки к брони
+async function sendMail(to, subject, html, text) {
+  const key = process.env.RESEND_API_KEY || process.env.RESEND_KEY || process.env.EMAIL_API_KEY; if (!key) return { sent: false, reason: 'no RESEND_API_KEY' };
+  const from = process.env.RESEND_FROM || 'Urban Luxe <booking@urbanluxe.cc>';
+  try { const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [to], subject, html, text }) }); if (!r.ok) return { sent: false, reason: 'resend ' + r.status + ' ' + (await r.text()).slice(0, 120) }; return { sent: true }; }
+  catch (e) { return { sent: false, reason: String(e.message || e) }; }
+}
+const mailShell = (title, body, btnText, btnUrl) => `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a"><div style="font-size:12px;letter-spacing:.2em;color:#a88d45;margin-bottom:12px">URBAN LUXE · PMS</div><h2 style="font-weight:500;margin:0 0 12px">${title}</h2><div style="font-size:15px;line-height:1.5">${body}</div>${btnUrl ? '<p style="margin:22px 0"><a href="' + btnUrl + '" style="background:#c9a961;color:#111;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">' + btnText + '</a></p><p style="font-size:12px;color:#777">Если кнопка не работает, откройте ссылку: ' + btnUrl + '</p>' : ''}</div>`;
+async function inviteCreate(body, user) {
+  const email = String(body.email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Некорректный email');
+  const role = String(body.role || 'booker'); if (!ROLES.includes(role)) throw new Error('Роль');
+  if (role === 'admin' && !user.platform_admin && user.role !== 'admin') throw new Error('Админа приглашает админ');
+  const existing = (await q('app_users?select=email,org_id&email=eq.' + enc(email)))[0]; if (existing) throw new Error('Этот email уже сотрудник' + ((existing.org_id || 1) === user.org.id ? '' : ' другой организации'));
+  let inv = (await q('invitations?select=*&email=eq.' + enc(email) + '&org_id=eq.' + user.org.id + '&accepted_at=is.null'))[0];
+  const rec = { email, org_id: user.org.id, role, name: String(body.name || '').trim() || null, apartment_ids: role === 'partner' && Array.isArray(body.apartment_ids) ? body.apartment_ids.filter(Boolean) : null, invited_by: actorOf(user), expires_at: new Date(Date.now() + 7 * 864e5).toISOString() };
+  if (inv) inv = (await q('invitations?token=eq.' + enc(inv.token), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rec) }))[0];
+  else { rec.token = [...Array(32)].map(() => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join(''); inv = (await q('invitations', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rec) }))[0]; }
+  const url = SITE + '/pms?invite=' + inv.token;
+  const ROLE_RU = { admin: 'администратор', booker: 'бронер', ops: 'опер-менеджер', partner: 'собственник' };
+  const mail = await sendMail(email, 'Приглашение в PMS · ' + user.org.name, mailShell('Вас приглашают в ' + user.org.name, '<p>' + (rec.name ? rec.name + ', ' : '') + user.name + ' приглашает вас в систему управления бронированиями <b>' + user.org.name + '</b> с ролью «' + ROLE_RU[role] + '».</p><p>Нажмите кнопку, задайте пароль — и вы в кабинете. Ссылка действует 7 дней.</p>', 'Принять приглашение', url), 'Приглашение в PMS ' + user.org.name + ': ' + url);
+  await logEvent(null, 'invite', { email, role, sent: mail.sent, reason: mail.reason }, user);
+  return { ok: true, url, mail };
+}
+async function inviteInfo(token) {
+  const inv = (await q('invitations?select=token,email,name,role,org_id,expires_at,accepted_at&token=eq.' + enc(String(token || ''))))[0];
+  if (!inv) throw Object.assign(new Error('Приглашение не найдено'), { status: 404 });
+  const org = (await q('organizations?select=name,short,logo_url&id=eq.' + inv.org_id))[0] || {};
+  return { email: inv.email, name: inv.name, role: inv.role, org: org.name, logo_url: org.logo_url, expired: new Date(inv.expires_at) < new Date(), accepted: !!inv.accepted_at };
+}
+async function inviteAccept(body) {
+  const inv = (await q('invitations?select=*&token=eq.' + enc(String(body.token || ''))))[0];
+  if (!inv) throw new Error('Приглашение не найдено'); if (inv.accepted_at) throw new Error('Приглашение уже принято — войдите паролем'); if (new Date(inv.expires_at) < new Date()) throw new Error('Приглашение истекло — попросите выслать новое');
+  const pwd = String(body.password || ''); if (pwd.length < 6) throw new Error('Пароль от 6 символов');
+  const name = String(body.name || inv.name || '').trim() || inv.email;
+  if ((await q('app_users?select=email&email=eq.' + enc(inv.email))).length) throw new Error('Этот email уже зарегистрирован — войдите паролем или восстановите его');
+  let authId = null;
+  const r = await authAdmin('users', { method: 'POST', body: JSON.stringify({ email: inv.email, password: pwd, email_confirm: true, user_metadata: { name } }) });
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) authId = j.id;
+  else if (/already|exists|registered/i.test(JSON.stringify(j))) { authId = await authUserId(inv.email); if (authId) { const r2 = await authAdmin('users/' + authId, { method: 'PUT', body: JSON.stringify({ password: pwd }) }); if (!r2.ok) throw new Error('Auth: не удалось задать пароль'); } }
+  else throw new Error('Auth: ' + (j.msg || j.message || r.status));
+  await q('app_users', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ email: inv.email, name, role: inv.role, org_id: inv.org_id, apartment_ids: inv.apartment_ids, is_active: true, auth_user_id: authId }) });
+  await q('invitations?token=eq.' + enc(inv.token), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ accepted_at: new Date().toISOString() }) });
+  AUTH_CACHE.clear();
+  return { ok: true, email: inv.email };
+}
+async function passwordReset(body) {
+  const email = String(body.email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Некорректный email');
+  const u = (await q('app_users?select=email,name,is_active&email=eq.' + enc(email)))[0];
+  if (u && u.is_active !== false) {
+    const r = await authAdmin('generate_link', { method: 'POST', body: JSON.stringify({ type: 'recovery', email }) });
+    const j = await r.json().catch(() => ({}));
+    const th = j.hashed_token || (j.properties && j.properties.hashed_token);
+    if (th) { const url = SITE + '/pms?reset=' + th; await sendMail(email, 'Сброс пароля · Urban Luxe PMS', mailShell('Новый пароль', '<p>' + (u.name || '') + ', вы запросили сброс пароля в PMS. Нажмите кнопку и задайте новый. Если это не вы — просто проигнорируйте письмо.</p>', 'Задать новый пароль', url), 'Сброс пароля: ' + url); }
+  }
+  return { ok: true };   // всегда ok — не раскрываем, есть ли такой email
+}
+// отчёт собственника: по своим квартирам помесячно — ночи, загрузка, доход (пропорционально ночам месяца), доля собственника
+async function ownerReport(user, p) {
+  const year = Number(p.year) || Number(T.tashToday(0).slice(0, 4));
+  const ids = user.role === 'partner' ? (user.apartment_ids || []) : (p.apartment_id ? [p.apartment_id] : Object.keys(user.access).filter(id => user.access[id] === 'full'));
+  if (!ids.length) return { year, apartments: [], months: [] };
+  const apts = await q('apartments?select=id,name,complex,catalog_no,owner_share_pct&id=in.(' + ids.map(enc).join(',') + ')');
+  const from = year + '-01-01', to = (year + 1) + '-01-01';
+  const bks = await qAll('bookings?select=apartment_id,check_in,check_out,total_price,currency,status&status=in.(confirmed,checked_in,checked_out)&check_in=lt.' + to + '&check_out=gt.' + from + '&apartment_id=in.(' + ids.map(enc).join(',') + ')');
+  const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, nights: 0, income: 0, bookings: 0, by_apt: {} }));
+  for (const b of bks) {
+    const n = nightsOf(b.check_in, b.check_out); if (n <= 0) continue; const perNight = Number(b.total_price || 0) / n;
+    for (let d = b.check_in; d < b.check_out; d = addDays(d, 1)) { if (d < from || d >= to) continue; const m = months[Number(d.slice(5, 7)) - 1]; m.nights++; m.income += perNight; const a = (m.by_apt[b.apartment_id] = m.by_apt[b.apartment_id] || { nights: 0, income: 0 }); a.nights++; a.income += perNight; }
+    const m0 = months[Number(b.check_in.slice(5, 7)) - 1]; if (b.check_in >= from && b.check_in < to) m0.bookings++;
+  }
+  const daysIn = m => new Date(Date.UTC(year, m, 0)).getUTCDate();
+  const share = {}; apts.forEach(a => share[a.id] = a.owner_share_pct == null ? 100 : Number(a.owner_share_pct));
+  return { year, apartments: apts, months: months.map(m => ({ month: m.month, days: daysIn(m.month), nights: m.nights, occupancy: Math.round(100 * m.nights / (daysIn(m.month) * ids.length)), bookings: m.bookings, income: Math.round(m.income), owner_income: Math.round(Object.keys(m.by_apt).reduce((s, id) => s + m.by_apt[id].income * share[id] / 100, 0)), adr: m.nights ? Math.round(m.income / m.nights) : 0, by_apt: m.by_apt })) };
 }
 // квартира принадлежит организации пользователя (по базе, а не по кэшу доступа — новая квартира попадает в кэш только через 2 мин)
 async function ownApt(user, id) { const a = (await q('apartments?select=org_id&id=eq.' + enc(id)))[0]; return !!a && ((a.org_id || 1) === user.org.id || user.role === 'admin'); }
@@ -461,10 +587,15 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
   const p = event.queryStringParameters || {};
   try {
+    // B: действия без входа — приглашение и сброс пароля
+    if (event.httpMethod === 'GET' && p.a === 'invite_info') return out(200, await inviteInfo(p.token));
+    if (event.httpMethod === 'POST') { const b0 = JSON.parse(event.body || '{}'); if (b0.a === 'invite_accept') return out(200, await inviteAccept(b0)); if (b0.a === 'password_reset') return out(200, await passwordReset(b0)); }
     const user = await auth(event); if (!user) return out(401, { error: 'unauthorized' });
     if (event.httpMethod === 'GET') {
       switch (p.a) {
-        case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can, org: user.org, access: user.access });
+        case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can, org: user.org, access: user.access, platform_admin: user.platform_admin, home_org_id: user.home_org_id, orgs: user.platform_admin ? await q('organizations?select=id,name,short,is_active&order=id') : [{ id: user.org.id, name: user.org.name, short: user.org.short }], has_partners: Object.values(user.access).some(m => m === 'occupancy') });
+        case 'orgs': return out(200, await orgs(user));
+        case 'owner_report': if (!(user.role === 'partner' || user.can.pay_full)) return out(403, { error: 'forbidden' }); return out(200, await ownerReport(user, p));
         case 'grid': return out(200, await grid(user, p));
         case 'booking': return out(200, await booking(user, p.id));
         case 'price': return out(200, await price(p));
@@ -498,6 +629,10 @@ exports.handler = async (event) => {
       case 'guest_link': need('write'); return out(200, await guestLink(body, user));
       case 'guest_create': need('guests_write'); return out(200, await guestCreate(body, user));
       case 'user_save': need('users'); return out(200, await userSave(body, user));
+      case 'org_save': return out(200, await orgSave(body, user));
+      case 'org_partner_set': return out(200, await orgPartnerSet(body, user));
+      case 'invite_create': need('users'); return out(200, await inviteCreate(body, user));
+      case 'invite_delete': need('users'); await q('invitations?token=eq.' + enc(body.token) + '&org_id=eq.' + user.org.id + '&accepted_at=is.null', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
       case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
       case 'complex_save': need('objects'); return out(200, await complexSave(body, user));
       case 'apt_save': need('objects'); return out(200, await aptSave(body, user));

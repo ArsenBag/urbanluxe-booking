@@ -210,10 +210,11 @@ exports.handler = async (event) => {
 
     // Апартамент — из Supabase (все 35 актуальных, без хардкода)
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,weekday_price,weekend_price,seasonal_prices,ical_export_url,is_active&id=eq.' + encodeURIComponent(aptId),
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,weekday_price,weekend_price,seasonal_prices,ical_export_url,is_active,org_id&id=eq.' + encodeURIComponent(aptId),
       { headers: h(READ_KEY) }
     );
-    const apt = (ar.ok ? await ar.json() : [])[0];
+    let apt = (ar.ok ? await ar.json() : [])[0];
+    if (apt && apt.org_id && apt.org_id !== 1) apt = null;   // B (16.10): квартиры других организаций не бронируются через сайт
     if (!apt || !apt.is_active) {
       return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Апартамент не найден' }) };
     }

@@ -5,10 +5,15 @@ const T = require('./_tg.js');
 
 const BASE = (process.env.CHANNEX_BASE || 'https://staging.channex.io').replace(/\/$/, '');
 const KEY = process.env.CHANNEX_API_KEY;
+// 16.10.2026 (PMS v2-B): ключ Channex по организации. По умолчанию — наш (CHANNEX_API_KEY); у клиента может быть свой
+// (organizations.settings.channex.api_key): channex-admin ставит его на время запроса через setKey(), очередь берёт по property.
+let KEY_OVERRIDE = null;
+const setKey = k => { KEY_OVERRIDE = k || null; };
 
-async function cx(method, path, body) {
-  if (!KEY) throw new Error('CHANNEX_API_KEY не задан в Netlify env');
-  const r = await fetch(BASE + '/api/v1' + path, { method, headers: { 'user-api-key': KEY, 'Content-Type': 'application/json', Accept: 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+async function cx(method, path, body, key) {
+  const useKey = key || KEY_OVERRIDE || KEY;
+  if (!useKey) throw new Error('CHANNEX_API_KEY не задан в Netlify env');
+  const r = await fetch(BASE + '/api/v1' + path, { method, headers: { 'user-api-key': useKey, 'Content-Type': 'application/json', Accept: 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch (_) { j = { raw: t.slice(0, 300) }; }
   if (!r.ok) { const e = new Error('Channex ' + r.status + ' ' + method + ' ' + path + ': ' + JSON.stringify(j && (j.errors || j)).slice(0, 400)); e.status = r.status; e.body = j; throw e; }
   return j;
@@ -20,6 +25,11 @@ const addDays = (iso, k) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDa
 const today = () => T.tashToday(0);
 
 async function alertAdmin(text) { try { if (T.ADMIN && T.TOKENS.bookings) await T.api(T.TOKENS.bookings, 'sendMessage', { chat_id: T.ADMIN, text, parse_mode: 'HTML', disable_web_page_preview: true }); } catch (_) { } }
+// B: уведомление в чат организации-владельца квартиры (organizations.tg_chat_id), иначе — наш чат
+async function alertOrg(orgId, text) {
+  try { if (orgId && orgId !== 1) { const o = (await q('organizations?select=tg_chat_id&id=eq.' + orgId))[0]; if (o && o.tg_chat_id && T.TOKENS.bookings) { await T.api(T.TOKENS.bookings, 'sendMessage', { chat_id: o.tg_chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true }); return; } } } catch (_) { }
+  return alertAdmin(text);
+}
 
 // Наценка канала для квартиры: channel_units.markup_pct → rate_rules(channel_markup, channel null/'ota') → 0
 async function markupFor(unit, rulesCache) {
@@ -89,10 +99,10 @@ async function unitValues(unit, from, to, kind, cache, days) {
   return v;
 }
 // Отправить набор значений (одна property — один POST /availability и один POST /restrictions, как требует Channex)
-async function sendValues(v) {
+async function sendValues(v, key) {
   const res = {};
-  if (v.availability.length) res.availability = await cx('POST', '/availability', { values: v.availability });
-  if (v.restrictions.length) res.restrictions = await cx('POST', '/restrictions', { values: v.restrictions });
+  if (v.availability.length) res.availability = await cx('POST', '/availability', { values: v.availability }, key);
+  if (v.restrictions.length) res.restrictions = await cx('POST', '/restrictions', { values: v.restrictions }, key);
   const warn = [].concat((res.availability && res.availability.meta && res.availability.meta.warnings) || [], (res.restrictions && res.restrictions.meta && res.restrictions.meta.warnings) || []);
   const taskOf = r => { if (!r || !r.data) return null; const d = Array.isArray(r.data) ? r.data[0] : r.data; return d && d.id || null; };
   const tasks = { availability: taskOf(res.availability), restrictions: taskOf(res.restrictions) };
@@ -101,13 +111,17 @@ async function sendValues(v) {
 // Отправить ARI одной квартиры (push_full по квартире, проверки)
 async function pushUnit(unit, from, to, kind, cache) {
   const v = await unitValues(unit, from, to, kind, cache); if (!v) return { skipped: true };
-  return sendValues(v);
+  return sendValues(v, keyFor(cache, unit.channel_property_id));
 }
 
 async function loadCache() {
-  const [props, apts] = await Promise.all([q('channel_properties?select=*&is_active=eq.true'), q('apartments?select=id,name,complex,max_guests,floor,rooms,weekday_price&order=id')]);
-  const cache = { props: {}, apts: {} }; props.forEach(p => cache.props[p.id] = p); apts.forEach(a => cache.apts[a.id] = a); return cache;
+  const [props, apts, orgs] = await Promise.all([q('channel_properties?select=*&is_active=eq.true'), q('apartments?select=id,name,complex,max_guests,floor,rooms,weekday_price&order=id'), q('organizations?select=id,settings')]);
+  const cache = { props: {}, apts: {}, orgKeys: {} }; props.forEach(p => cache.props[p.id] = p); apts.forEach(a => cache.apts[a.id] = a);
+  orgs.forEach(o => { const k = ((o.settings || {}).channex || {}).api_key; if (k) cache.orgKeys[o.id] = k; });
+  return cache;
 }
+// ключ Channex для property (свой ключ организации или наш)
+const keyFor = (cache, propId) => { const p = cache.props[propId]; return p ? (cache.orgKeys[p.org_id || 1] || null) : null; };
 
 // Обработать очередь: квартиры → диапазоны, затем ЖК (property) → один запрос на занятость и один на цены/ограничения.
 // 13.10.2026: группировка по property (было по квартире) — требование сертификации Channex «несколько номеров = 1 API-вызов»;
@@ -144,7 +158,7 @@ async function processOutbox(limit) {
     }
     if (!okItems.length) continue;
     try {
-      const r = await sendValues(v);
+      const r = await sendValues(v, keyFor(cache, pid));
       const ids = okItems.flatMap(it => it.g.ids);
       await mark(ids, { sent_at: now(), error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null, task_ids: r.tasks });
       for (const it of okItems) await q('channel_units?apartment_id=eq.' + encodeURIComponent(it.apt), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_pushed_at: now(), last_error: r.warnings ? JSON.stringify(r.warnings).slice(0, 500) : null, last_task: r.tasks }) });
@@ -162,8 +176,8 @@ async function processOutbox(limit) {
 }
 
 // Забрать ревизию брони из Channex, записать, ack
-async function ingestRevision(revisionId) {
-  const j = await cx('GET', '/booking_revisions/' + revisionId);
+async function ingestRevision(revisionId, key) {
+  const j = await cx('GET', '/booking_revisions/' + revisionId, null, key);
   const a = (j.data && j.data.attributes) || j.data || j;
   // запоздавший повтор вебхука (Channex ретраит после наших 5xx): если у нас по этой брони уже есть ревизия «отменена» —
   // не воскрешать её. Без GET /bookings/:id (сертификация: брони только через вебхук/feed + booking_revisions).
@@ -173,21 +187,25 @@ async function ingestRevision(revisionId) {
   const cb = rows[0];
   const res = await rpc('pms_channel_booking_upsert', { p_cb: cb.id });
   // ack всегда (даже конфликт — он у нас в списке; Channex не должен слать повторно)
-  try { await cx('POST', '/booking_revisions/' + revisionId + '/ack'); await q('channel_bookings?id=eq.' + cb.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ acked_at: new Date().toISOString() }) }); } catch (e) { await q('channel_bookings?id=eq.' + cb.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ error: 'ack: ' + String(e.message).slice(0, 200) }) }); }
-  const apt = res.apartment_id ? (await q('apartments?select=name&id=eq.' + encodeURIComponent(res.apartment_id)))[0] : null;
+  try { await cx('POST', '/booking_revisions/' + revisionId + '/ack', null, key); await q('channel_bookings?id=eq.' + cb.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ acked_at: new Date().toISOString() }) }); } catch (e) { await q('channel_bookings?id=eq.' + cb.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ error: 'ack: ' + String(e.message).slice(0, 200) }) }); }
+  const apt = res.apartment_id ? (await q('apartments?select=name,org_id&id=eq.' + encodeURIComponent(res.apartment_id)))[0] : null;
   const r0 = a.rooms && a.rooms[0] || {};
   const head = res.conflict ? '🚨 ОВЕРБУКИНГ с площадки' : a.status === 'cancelled' ? '❌ Отмена с площадки' : a.status === 'modified' ? '✏️ Изменение брони с площадки' : '🆕 Бронь с площадки';
   const cust = a.customer || {};
-  await alertAdmin(head + ' · ' + T.esc(a.ota_name || '') + '\n' + T.esc(apt ? apt.name : ('room ' + (r0.room_type_id || '?'))) + ' · ' + T.ruDate(r0.checkin_date) + ' → ' + T.ruDate(r0.checkout_date) + '\n' + T.esc([cust.name, cust.surname].filter(Boolean).join(' ')) + (cust.phone ? ' · ' + T.esc(cust.phone) : '') + '\n' + T.esc(String(a.amount || '')) + ' ' + T.esc(a.currency || '') + (a.payment_collect === 'ota' ? ' · оплачено на площадке' : '') + (res.error ? '\n⚠️ ' + T.esc(res.error) : '') + (res.conflict ? '\nДаты заняты другой бронью — решить в /pms → Каналы' : '') + (res.booking_id ? '\n<a href="https://urbanluxe.cc/pms#booking=' + res.booking_id + '">Открыть в PMS</a>' : ''));
+  await alertOrg(apt && apt.org_id, head + ' · ' + T.esc(a.ota_name || '') + '\n' + T.esc(apt ? apt.name : ('room ' + (r0.room_type_id || '?'))) + ' · ' + T.ruDate(r0.checkin_date) + ' → ' + T.ruDate(r0.checkout_date) + '\n' + T.esc([cust.name, cust.surname].filter(Boolean).join(' ')) + (cust.phone ? ' · ' + T.esc(cust.phone) : '') + '\n' + T.esc(String(a.amount || '')) + ' ' + T.esc(a.currency || '') + (a.payment_collect === 'ota' ? ' · оплачено на площадке' : '') + (res.error ? '\n⚠️ ' + T.esc(res.error) : '') + (res.conflict ? '\nДаты заняты другой бронью — решить в /pms → Каналы' : '') + (res.booking_id ? '\n<a href="https://urbanluxe.cc/pms#booking=' + res.booking_id + '">Открыть в PMS</a>' : ''));
   return Object.assign({ revision_id: revisionId, channel_booking_id: cb.id }, res);
 }
 
 // Страховка: все неподтверждённые ревизии
 async function ingestFeed() {
-  const j = await cx('GET', '/booking_revisions/feed?pagination[limit]=50');
-  const list = (j.data || []).map(d => d.id); const out = [];
-  for (const id of list) { try { out.push(await ingestRevision(id)); } catch (e) { out.push({ revision_id: id, error: String(e.message).slice(0, 200) }); } }
-  return { count: list.length, results: out };
+  const keys = [null]; try { (await q('organizations?select=settings')).forEach(o => { const k = ((o.settings || {}).channex || {}).api_key; if (k && !keys.includes(k)) keys.push(k); }); } catch (_) { }
+  const out = []; let count = 0;
+  for (const key of keys) {
+    const j = await cx('GET', '/booking_revisions/feed?pagination[limit]=50', null, key);
+    const list = (j.data || []).map(d => d.id); count += list.length;
+    for (const id of list) { try { out.push(await ingestRevision(id, key)); } catch (e) { out.push({ revision_id: id, error: String(e.message).slice(0, 200) }); } }
+  }
+  return { count, results: out };
 }
 
 // Производный тариф площадки: «Airbnb» = Standard + pct %. Создаётся один раз на квартиру, процент меняется PUT'ом.
@@ -233,4 +251,4 @@ async function applyMarkup(orgId, channel, pct) {
 }
 // код канала в Channex (attributes.channel) по нашему ключу площадки
 const CHANNEL_CODES = { airbnb: 'AirBNB', booking: 'BookingCom', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
-module.exports = { cx, q, qAll, rpc, BASE, addDays, today, alertAdmin, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS, CHANNEL_CODES, derivedRate };
+module.exports = { cx, setKey, q, qAll, rpc, BASE, addDays, today, alertAdmin, alertOrg, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS, CHANNEL_CODES, derivedRate };

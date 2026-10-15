@@ -138,7 +138,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Некорректные даты' }) };
     }
     const ar = await fetch(
-      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,rooms,weekday_price,weekend_price,seasonal_prices,ical_export_url&is_active=eq.true',
+      SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,rooms,weekday_price,weekend_price,seasonal_prices,ical_export_url&is_active=eq.true&org_id=eq.1',
       { headers: sbHeaders() }
     );
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);

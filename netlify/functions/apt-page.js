@@ -177,7 +177,7 @@ exports.handler = async (event) => {
     const seg = (event.path || '').split('/').filter(Boolean);
     const id = decodeURIComponent(seg[seg.length - 1] || '');
     const isIndex = !id || id === 'apt-page' || id === 'apartments';
-    const q = SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,rooms,max_guests,weekday_price,weekend_price,seasonal_prices,description,amenities,photo_url&is_active=eq.true&order=complex.asc,weekday_price.asc';
+    const q = SB_URL + '/rest/v1/apartments?select=id,name,complex,floor,style,rooms,max_guests,weekday_price,weekend_price,seasonal_prices,description,amenities,photo_url&is_active=eq.true&org_id=eq.1&order=complex.asc,weekday_price.asc';
     const r = await fetch(q, { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY } });
     if (!r.ok) throw new Error('supabase ' + r.status);
     const list = await r.json();
