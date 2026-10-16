@@ -331,7 +331,7 @@ async function adapters() {
   let cached = null; try { const r = await C.q('app_settings?select=value,updated_at&key=eq.channex_adapters'); if (r && r[0] && Date.now() - new Date(r[0].updated_at).getTime() < 86400000) cached = JSON.parse(r[0].value); } catch (_) { }
   let list = cached;
   if (!list) {
-    const j = await C.cx('GET', '/channels/adapters');
+    const j = await C.cx('GET', '/channels/list');
     const raw = j.data || j.adapters || j || [];
     list = (Array.isArray(raw) ? raw : Object.keys(raw).map(k => Object.assign({ code: k }, typeof raw[k] === 'object' ? raw[k] : { title: raw[k] }))).map(x => { const a = x.attributes || x; return { code: a.code || a.id || x.id || a.channel, title: a.title || a.name || a.code || x.id }; }).filter(x => x.code);
     list.sort((a, b) => String(a.title).localeCompare(String(b.title)));
