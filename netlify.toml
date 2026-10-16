@@ -28,6 +28,11 @@
 [functions."booking-pull"]
   schedule = "*/3 * * * *"
 
+# Брони из RC ПАРТНЁРА (HighLife, 11 общих квартир) → bookings каждые 2 минуты (16.10.2026): их Airbnb/ручные брони закрывают
+# даты у нас и на наших площадках; пересечения → TG. Токен: RC_PARTNER_TOKEN или app_settings.rc_partner_token. Убрать, когда HighLife перейдут в наш PMS.
+[functions."partner-rc-sync"]
+  schedule = "*/2 * * * *"
+
 # Брони из RealtyCalendar → своя таблица bookings (07.10.2026). Нужен RC_TOKEN.
 [functions."rc-sync"]
   schedule = "7,22,37,52 * * * *"
