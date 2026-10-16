@@ -1,4 +1,4 @@
-// booking-pull.js — каждые 10 минут просит Channex подтянуть будущие брони Booking.com по всем активным BookingCom-каналам
+// booking-pull.js — раз в 30 минут (16.10: было */3; Channex подтвердил push в реальном времени) просит Channex подтянуть будущие брони Booking.com по всем активным BookingCom-каналам — страховка
 // (execute/load_future_reservations). Нужно, пока Booking не включил push новых броней новому провайдеру (15.10.2026:
 // бронь 6065920185 на nest_325 не пришла сама, появилась только после ручного «Pull Future Reservations»). Брони, которых у нас нет,
 // Channex отдаёт вебхуком → channex-webhook → /pms. Отключить, когда push заработает (см. CHANNEX-CERT.md).
@@ -16,7 +16,7 @@ exports.handler = async () => {
     }
   } catch (e) { out.errors.push(String(e.message).slice(0, 200)); }
   // раз в час — скан маппингов для матрицы «Каналы» (channels[ch].mapped), порциями, не дольше ~18 с
-  if (new Date().getUTCMinutes() < 3) {
+  if (new Date().getUTCMinutes() < 30) {   // при расписании */30 — каждый первый запуск часа
     try { const A = require('./channex-admin.js'); const t0 = Date.now(); let ch = 'airbnb'; out.scan = []; while (ch && Date.now() - t0 < 18000) { const r = await A.mappingScan({ channel: ch }); ch = r.next; out.scan.push(r); } }
     catch (e) { out.errors.push('scan: ' + String(e.message).slice(0, 120)); }
   }
