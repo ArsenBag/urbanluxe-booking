@@ -664,7 +664,7 @@ VIEWS.channels = async () => {
       <table class="t"><tr><th>Квартира</th><th>Channex</th>${OTAS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}${ICALS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}<th>Цены отпр.</th><th>Ошибка</th></tr>`;
     h = h.replace('клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex', 'клик по ячейке площадки — вкл/выкл, наценка, закрытия, лог; ✓ подключена · ● выключена нами · ✓? не сканировано');
     for (const cx of Object.keys(byCx)) {
-      const hasProp = S.properties.some(p => p.complex === cx && p.external_id);
+      const hasProp = S.properties.some(p => p.complex === cx && p.external_id && !p.foreign);   // своя карточка Channex (чужая — у владельца общих квартир)
       const allShared = byCx[cx].every(a => a.shared);   // общие с владельцем квартиры: карточка Channex — его, создавать/пересылать нельзя
       h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${allShared ? '<span class="tag" style="background:#e3ecff" title="общие квартиры: карточка Channex у владельца, подключение площадок — через + Площадка">общие</span>' : hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
       for (const a of byCx[cx]) {
