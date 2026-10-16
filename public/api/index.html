@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Urban Luxe PMS · API v1 — документация</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--ink:#1a1a1a;--muted:#6b7280;--line:#e6e8ec;--gold:#a88d45;--bg:#fafafa}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:#fff;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 80px}h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 10px;padding-top:12px;border-top:1px solid var(--line)}h3{font-size:15px;margin:22px 0 6px}
+.sub{color:var(--muted);margin-bottom:20px}code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}pre{background:#0f1115;color:#e6e8ec;padding:14px 16px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.5}pre code{background:none;padding:0;color:inherit}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.m{display:inline-block;font-family:monospace;font-size:12px;padding:2px 7px;border-radius:5px;background:#e8f1ff;color:#1d4ed8;margin-right:6px}.m.post{background:#e6f7ec;color:#1a7f37}
+.toc{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:14px}.toc a{color:var(--ink);text-decoration:none;margin-right:14px}.note{border-left:3px solid var(--gold);background:#fffbf0;padding:10px 14px;border-radius:0 8px 8px 0;font-size:14px}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Urban Luxe PMS · API v1</h1>
+<div class="sub">Подключение вашего сайта или CRM к системе бронирования: квартиры, свободные даты, цены, заявки и брони, вебхуки, готовый виджет.</div>
+<div class="toc"><a href="#auth">Авторизация</a><a href="#apartments">Квартиры</a><a href="#availability">Доступность</a><a href="#price">Цена</a><a href="#bookings">Брони</a><a href="#webhooks">Вебхуки</a><a href="#widget">Виджет</a><a href="#errors">Ошибки</a></div>
+
+<h2 id="auth">Авторизация</h2>
+<p>Базовый адрес: <code>https://urbanluxe.cc/api/v1</code>. Все ответы — JSON: <code>{"ok":true,"data":…}</code> или <code>{"ok":false,"error":{"code","message"}}</code>.</p>
+<p>Ключ выдаёт администратор организации в PMS (раздел «Интеграции»). Два типа ключей:</p>
+<table><tr><th>Тип</th><th>Где использовать</th><th>Права</th></tr>
+<tr><td><code>sk_live_…</code> секретный</td><td>Только на сервере (CRM, бэкенд сайта). Не вставляйте в HTML.</td><td>Настраиваются: чтение, брони, отмена, управление</td></tr>
+<tr><td><code>pk_live_…</code> публичный</td><td>В браузере: виджет, JS на сайте. Запросы с любого домена (CORS).</td><td>Чтение + создание заявок (<code>status=request</code>)</td></tr></table>
+<pre><code>curl https://urbanluxe.cc/api/v1/me \
+  -H "Authorization: Bearer sk_live_XXXXXXXX"</code></pre>
+<p>Лимит: 120 запросов в минуту на ключ (<code>429 rate_limited</code>). Даты везде в формате <code>YYYY-MM-DD</code>, цены в USD, часовой пояс объектов — Asia/Tashkent.</p>
+
+<h2 id="apartments"><span class="m">GET</span>/apartments</h2>
+<p>Все активные квартиры вашей организации.</p>
+<pre><code>{"ok":true,"data":[{"id":"nest_325","name":"Апартамент 325","complex":"Nest One","floor":17,"rooms":"Студия",
+  "max_guests":3,"catalog_no":3,"weekday_price":130,"weekend_price":140,"min_nights":1,"currency":"USD",
+  "photos":["https://…/1.jpg"],"description":{"ru":"…","en":"…","uz":null},"amenities":["wifi","ac"]}]}</code></pre>
+
+<h2 id="availability"><span class="m">GET</span>/availability?from&amp;to[&amp;apartment_id]</h2>
+<p>Свободные квартиры на период (заезд <code>from</code>, выезд <code>to</code>) и календарь по дням: доступность, цена ночи, минимальный срок. Максимум 400 дней.</p>
+<pre><code>GET /api/v1/availability?from=2026-11-05&amp;to=2026-11-08
+
+{"ok":true,"data":{"from":"2026-11-05","to":"2026-11-08","free":["nest_325","kislorod_31"],
+  "days":{"nest_325":{"2026-11-05":{"available":true,"price":130,"min_nights":1,"closed_to_arrival":false}, …}}}}</code></pre>
+
+<h2 id="price"><span class="m">GET</span>/price?apartment_id&amp;check_in&amp;check_out[&amp;guests]</h2>
+<p>Итоговая цена за период по правилам PMS (сезоны, выходные, скидки за длительность).</p>
+<pre><code>{"ok":true,"data":{"apartment_id":"nest_325","check_in":"2026-11-05","check_out":"2026-11-08","nights":3,
+  "total":440,"per_night":147,"currency":"USD","ok":true,"reason":null,"discount_label":null}}</code></pre>
+
+<h2 id="bookings">Брони</h2>
+<h3><span class="m post">POST</span>/bookings — создать заявку или бронь</h3>
+<pre><code>curl -X POST https://urbanluxe.cc/api/v1/bookings \
+  -H "Authorization: Bearer sk_live_XXXXXXXX" -H "Content-Type: application/json" \
+  -d '{
+    "apartment_id": "nest_325",
+    "check_in": "2026-11-05", "check_out": "2026-11-08",
+    "guest": { "name": "Иван Петров", "phone": "+998901234567", "email": "ivan@mail.com", "telegram": "@ivan" },
+    "guests_count": 2,
+    "status": "request",
+    "external_ref": "order-10452",
+    "notes": "Поздний заезд",
+    "total_price": 440
+  }'</code></pre>
+<table><tr><th>Поле</th><th>Описание</th></tr>
+<tr><td><code>status</code></td><td><code>request</code> — заявка, подтверждает менеджер в PMS (по умолчанию); <code>confirmed</code> — сразу подтверждённая бронь (если у вас своя оплата на сайте). Публичный ключ — только <code>request</code>. В обоих случаях даты удерживаются сразу и закрываются на всех площадках.</td></tr>
+<tr><td><code>total_price</code></td><td>Необязательно. Если не передать — считается по правилам PMS.</td></tr>
+<tr><td><code>external_ref</code></td><td>Ваш номер заказа — вернётся в вебхуках и в карточке брони.</td></tr></table>
+<p>Ответ <code>201</code> — объект брони. Если даты заняты — <code>409 dates_taken</code>.</p>
+<pre><code>{"ok":true,"data":{"id":"64d0cac7-…","ref":"UL-261105-K7PQ","apartment_id":"nest_325","status":"request",
+  "check_in":"2026-11-05","check_out":"2026-11-08","nights":3,"guest":{"name":"Иван Петров","phone":"+998901234567",…},
+  "guests_count":2,"total_price":440,"currency":"USD","source":"api","channel":"partner-site","external_ref":"order-10452",
+  "created_at":"2026-10-16T09:12:00Z","updated_at":null,"cancelled_at":null}}</code></pre>
+<h3><span class="m">GET</span>/bookings/{id}</h3><p>Бронь по id (публичный ключ видит только свои заявки).</p>
+<h3><span class="m">GET</span>/bookings?from&amp;to[&amp;status]</h3><p>Брони по вашим квартирам за период (только секретный ключ, до 500).</p>
+<h3><span class="m post">POST</span>/bookings/{id}/cancel</h3><p>Тело: <code>{"reason":"…"}</code>. Отменять можно брони, созданные через API вашей организации; с правом <code>manage</code> — любые брони ваших квартир. Заехавшего гостя отменить нельзя (<code>409 bad_status</code>).</p>
+<h3><span class="m">GET</span>/me</h3><p>Организация, тип ключа, права, лимиты.</p>
+
+<h2 id="webhooks">Вебхуки</h2>
+<p>В разделе «Интеграции» укажите URL (https) и события. При каждом событии по бронями ваших квартир — откуда бы они ни пришли (ваш сайт, Booking.com, Airbnb, вручную в PMS) — мы отправим <code>POST</code> с JSON:</p>
+<pre><code>POST https://your.site/hooks/urbanluxe
+X-UL-Event: booking.created
+X-UL-Delivery: 1042
+X-UL-Signature: sha256=3f1b…
+
+{"id":1042,"event":"booking.created","created_at":"2026-10-16T09:12:01Z","data":{ …объект брони, как в /bookings… }}</code></pre>
+<table><tr><th>Событие</th><th>Когда</th></tr>
+<tr><td><code>booking.created</code></td><td>Новая бронь или заявка</td></tr>
+<tr><td><code>booking.updated</code></td><td>Изменились даты, квартира, статус (подтверждена, заехал, выехал), цена или данные гостя</td></tr>
+<tr><td><code>booking.cancelled</code></td><td>Отмена</td></tr>
+<tr><td><code>ping</code></td><td>Проверка из PMS</td></tr></table>
+<p>Отвечайте <code>2xx</code> в течение 8 секунд. Иначе повторы через 1, 5, 30 и 120 минут (до 5 попыток), затем доставка помечается как неуспешная — её можно повторить вручную в PMS.</p>
+<h3>Проверка подписи</h3>
+<pre><code>// Node.js
+const crypto = require('crypto');
+function verify(rawBody, header, secret) {
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(header || ''));
+}
+
+// PHP
+$expected = 'sha256=' . hash_hmac('sha256', file_get_contents('php://input'), $secret);
+$ok = hash_equals($expected, $_SERVER['HTTP_X_UL_SIGNATURE'] ?? '');</code></pre>
+<div class="note">Подпись считается по сырому телу запроса (до разбора JSON). Секрет виден в «Интеграциях», его можно перегенерировать.</div>
+
+<h2 id="widget">Виджет бронирования</h2>
+<p>Готовый блок «даты → свободные квартиры с фото и ценой → заявка» одной строкой. Нужен публичный ключ.</p>
+<pre><code>&lt;div id="booking"&gt;&lt;/div&gt;
+&lt;script src="https://urbanluxe.cc/widget.js" data-key="pk_live_XXXXXXXX" data-target="#booking" data-lang="ru"&gt;&lt;/script&gt;</code></pre>
+<table><tr><th>Атрибут</th><th>Описание</th></tr>
+<tr><td><code>data-key</code></td><td>Публичный ключ (обязательно)</td></tr>
+<tr><td><code>data-target</code></td><td>CSS-селектор контейнера; без него виджет встаёт сразу после тега script</td></tr>
+<tr><td><code>data-lang</code></td><td><code>ru</code> (по умолчанию) или <code>en</code></td></tr>
+<tr><td><code>data-apartments</code></td><td>Показывать только эти квартиры: <code>id1,id2</code></td></tr></table>
+<p>Стили виджета изолированы классами <code>ulw-*</code>; цвета кнопок можно переопределить своим CSS (<code>.ulw button{background:#…}</code>). Заявки приходят в PMS как заявки с сайта, менеджер подтверждает — гость получает письмо.</p>
+
+<h2 id="errors">Коды ошибок</h2>
+<table><tr><th>HTTP</th><th>code</th><th>Когда</th></tr>
+<tr><td>400</td><td><code>bad_dates</code>, <code>validation</code>, <code>bad_json</code></td><td>Неверные даты / нет обязательных полей / тело не JSON</td></tr>
+<tr><td>401</td><td><code>unauthorized</code></td><td>Нет ключа или ключ отключён</td></tr>
+<tr><td>403</td><td><code>forbidden</code>, <code>org_inactive</code></td><td>У ключа нет права; публичный ключ пытается подтвердить бронь</td></tr>
+<tr><td>404</td><td><code>not_found</code>, <code>no_route</code></td><td>Квартира/бронь не ваша или нет такого метода</td></tr>
+<tr><td>409</td><td><code>dates_taken</code>, <code>bad_status</code></td><td>Даты заняты; отмена невозможна по статусу</td></tr>
+<tr><td>429</td><td><code>rate_limited</code></td><td>Больше 120 запросов в минуту</td></tr></table>
+<p class="sub" style="margin-top:30px">Urban Luxe PMS · вопросы по интеграции — в Telegram <a href="https://t.me/Arsen_bnb">@Arsen_bnb</a></p>
+</div></body></html>
