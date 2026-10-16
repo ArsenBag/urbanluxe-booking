@@ -33,6 +33,8 @@ c "2/7 Код CRM → $DIR"
 mkdir -p "$DIR" /tmp/crm && curl -fsSL "$BASE/crm.tar.gz" -o /tmp/crm/crm.tgz && curl -fsSL "$BASE/crm.sha256" -o /tmp/crm/crm.sha256
 echo "$(cat /tmp/crm/crm.sha256)  /tmp/crm/crm.tgz" | sha256sum -c - >/dev/null || die "Архив повреждён"
 tar -xzf /tmp/crm/crm.tgz -C "$DIR"
+# архив собран из папки с правами 0700 — в образе файлы копируются как есть, и пользователь node внутри контейнера их не видит (EACCES)
+chmod -R u+rwX,go+rX "$DIR"
 ok "распаковано: $(find "$DIR" -type f | wc -l) файлов"
 
 # ---------- 3. .env ----------
