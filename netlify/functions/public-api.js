@@ -129,7 +129,8 @@ async function bookingCancel(ctx, id, body) {
 }
 
 const H = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
-const cors = ctx => ctx && ctx.isPublic ? { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } : {};
+// CORS — для публичных ключей (в т.ч. на ошибках 401/429, когда ctx ещё нет: смотрим префикс ключа в заголовке)
+const cors = (ctx, event) => { const raw = ((event && event.headers && (event.headers.authorization || event.headers.Authorization)) || ''); const pub = (ctx && ctx.isPublic) || /Bearer\s+pk_/i.test(raw) || !raw; return pub ? { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } : {}; };
 exports.handler = async (event) => {
   const t0 = Date.now();
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: Object.assign({}, H, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }), body: '' };
@@ -155,5 +156,5 @@ exports.handler = async (event) => {
     body = { ok: false, error: { code: e.code || (status === 500 ? 'internal' : 'error'), message: String(e.message || e).slice(0, 300) } };
   }
   try { await q('api_log', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ key_id: ctx ? ctx.key.id : null, org_id: ctx ? ctx.org.id : null, method: event.httpMethod, path, status, ms: Date.now() - t0, ip }) }); } catch (_) { }
-  return { statusCode: status, headers: Object.assign({}, H, cors(ctx)), body: JSON.stringify(body) };
+  return { statusCode: status, headers: Object.assign({}, H, cors(ctx, event)), body: JSON.stringify(body) };
 };
