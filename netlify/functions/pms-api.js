@@ -602,6 +602,63 @@ async function ownerReport(user, p) {
   const share = {}; apts.forEach(a => share[a.id] = a.owner_share_pct == null ? 100 : Number(a.owner_share_pct));
   return { year, apartments: apts, months: months.map(m => ({ month: m.month, days: daysIn(m.month), nights: m.nights, occupancy: Math.round(100 * m.nights / (daysIn(m.month) * ids.length)), bookings: m.bookings, income: Math.round(m.income), owner_income: Math.round(Object.keys(m.by_apt).reduce((s, id) => s + m.by_apt[id].income * share[id] / 100, 0)), adr: m.nights ? Math.round(m.income / m.nights) : 0, by_apt: m.by_apt })) };
 }
+// ---- Интеграции (16.10.2026): API-ключи, вебхуки, лог доставок. Спека docs/superpowers/specs/2026-10-16-public-api-webhooks-design.md
+const crypto = require('crypto');
+const randKey = (pfx) => pfx + crypto.randomBytes(24).toString('base64url').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+async function integrations(user) {
+  const [keys, hooks, log] = await Promise.all([
+    q('api_keys?select=id,name,kind,prefix,scopes,is_active,last_used_at,created_by,created_at&org_id=eq.' + user.org.id + '&order=created_at.desc'),
+    q('webhooks?select=*&org_id=eq.' + user.org.id + '&order=created_at.desc'),
+    q('api_log?select=key_id,method,path,status,ms,created_at&org_id=eq.' + user.org.id + '&order=created_at.desc&limit=30').catch(() => [])
+  ]);
+  const deliveries = hooks.length ? await q('webhook_deliveries?select=id,webhook_id,event,booking_id,attempts,sent_at,status,response,created_at,next_at&webhook_id=in.(' + hooks.map(h => h.id).join(',') + ')&order=created_at.desc&limit=50') : [];
+  const pub = keys.find(k => k.kind === 'public' && k.is_active);
+  return { keys, webhooks: hooks, deliveries, log, public_key: pub ? pub.prefix : null, widget_snippet: pub ? '<script src="' + SITE + '/widget.js" data-key="' + pub.prefix + '"></script>' : null, docs_url: SITE + '/api/docs', api_base: SITE + '/api/v1' };
+}
+async function apiKeyCreate(body, user) {
+  const kind = body.kind === 'public' ? 'public' : 'secret'; const name = String(body.name || '').trim() || (kind === 'public' ? 'Виджет' : 'Сайт');
+  const scopes = kind === 'public' ? ['read', 'book'] : (Array.isArray(body.scopes) && body.scopes.length ? body.scopes.filter(x => ['read', 'book', 'cancel', 'manage'].includes(x)) : ['read', 'book', 'cancel']);
+  const key = randKey(kind === 'public' ? 'pk_live_' : 'sk_live_');
+  const rec = { org_id: user.org.id, name, kind, prefix: kind === 'public' ? key : key.slice(0, 12) + '…', key_hash: kind === 'public' ? key : crypto.createHash('sha256').update(key).digest('hex'), scopes, created_by: actorOf(user) };
+  const rows = await q('api_keys', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rec) });
+  await logEvent(null, 'api_key_created', { id: rows[0].id, name, kind, scopes }, user);
+  return { id: rows[0].id, key, kind, name, scopes };   // ключ показывается один раз
+}
+async function apiKeyToggle(body, user) {
+  const k = (await q('api_keys?select=id,org_id&id=eq.' + enc(body.id)))[0]; if (!k || k.org_id !== user.org.id) throw new Error('Ключ не найден');
+  await q('api_keys?id=eq.' + k.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_active: !!body.is_active }) });
+  await logEvent(null, 'api_key_toggle', { id: k.id, is_active: !!body.is_active }, user); return { ok: true };
+}
+async function webhookSave(body, user) {
+  const url = String(body.url || '').trim(); if (!/^https:\/\/[^\s]+$/i.test(url)) throw new Error('URL вебхука должен начинаться с https://');
+  const events = (Array.isArray(body.events) ? body.events : ['booking.created', 'booking.updated', 'booking.cancelled']).filter(e => /^booking\.(created|updated|cancelled)$/.test(e));
+  if (!events.length) throw new Error('Выберите хотя бы одно событие');
+  if (body.id) {
+    const w = (await q('webhooks?select=id,org_id,secret&id=eq.' + enc(body.id)))[0]; if (!w || w.org_id !== user.org.id) throw new Error('Вебхук не найден');
+    const patch = { url, events, is_active: body.is_active !== false }; if (body.rotate_secret) patch.secret = randKey('whsec_');
+    const rows = await q('webhooks?id=eq.' + w.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) }); return rows[0];
+  }
+  const rows = await q('webhooks', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ org_id: user.org.id, url, secret: randKey('whsec_'), events, created_by: actorOf(user) }) });
+  await logEvent(null, 'webhook_created', { id: rows[0].id, url }, user); return rows[0];
+}
+async function webhookDelete(body, user) {
+  const w = (await q('webhooks?select=id,org_id&id=eq.' + enc(body.id)))[0]; if (!w || w.org_id !== user.org.id) throw new Error('Вебхук не найден');
+  await q('webhooks?id=eq.' + w.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return { ok: true };
+}
+async function webhookPing(body, user) {
+  const w = (await q('webhooks?select=id,org_id,url&id=eq.' + enc(body.id)))[0]; if (!w || w.org_id !== user.org.id) throw new Error('Вебхук не найден');
+  const rows = await q('webhook_deliveries', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ webhook_id: w.id, event: 'ping', payload: { message: 'Проверка вебхука из Urban Luxe PMS', organization: user.org.name, at: new Date().toISOString() } }) });
+  const r = await require('./webhook-dispatch.js').run(5);
+  const d = (await q('webhook_deliveries?select=*&id=eq.' + rows[0].id))[0];
+  return { delivery: d, run: r };
+}
+async function webhookRetry(body, user) {
+  const d = (await q('webhook_deliveries?select=id,webhook_id&id=eq.' + enc(body.id)))[0]; if (!d) throw new Error('Доставка не найдена');
+  const w = (await q('webhooks?select=org_id&id=eq.' + d.webhook_id))[0]; if (!w || w.org_id !== user.org.id) throw new Error('Вебхук не найден');
+  await q('webhook_deliveries?id=eq.' + d.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sent_at: null, attempts: 0, next_at: new Date().toISOString(), status: null, response: null }) });
+  const r = await require('./webhook-dispatch.js').run(5);
+  return { delivery: (await q('webhook_deliveries?select=*&id=eq.' + d.id))[0], run: r };
+}
 // квартира принадлежит организации пользователя (по базе, а не по кэшу доступа — новая квартира попадает в кэш только через 2 мин)
 async function ownApt(user, id) { const a = (await q('apartments?select=org_id&id=eq.' + enc(id)))[0]; return !!a && ((a.org_id || 1) === user.org.id || user.role === 'admin'); }
 async function selectionCreate(body, user) {
@@ -631,6 +688,7 @@ exports.handler = async (event) => {
       switch (p.a) {
         case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can, org: user.org, access: user.access, platform_admin: user.platform_admin, home_org_id: user.home_org_id, orgs: user.platform_admin ? await q('organizations?select=id,name,short,is_active&order=id') : [{ id: user.org.id, name: user.org.name, short: user.org.short }], has_partners: Object.values(user.access).some(m => m === 'occupancy') });
         case 'orgs': return out(200, await orgs(user));
+        case 'integrations': if (user.role !== 'admin') return out(403, { error: 'только admin' }); return out(200, await integrations(user));
         case 'owner_report': if (!(user.role === 'partner' || user.can.pay_full)) return out(403, { error: 'forbidden' }); return out(200, await ownerReport(user, p));
         case 'grid': return out(200, await grid(user, p));
         case 'booking': return out(200, await booking(user, p.id));
@@ -668,6 +726,12 @@ exports.handler = async (event) => {
       case 'org_save': return out(200, await orgSave(body, user));
       case 'org_partner_set': return out(200, await orgPartnerSet(body, user));
       case 'org_delete': return out(200, await orgDelete(body, user));
+      case 'api_key_create': need('users'); return out(200, await apiKeyCreate(body, user));
+      case 'api_key_toggle': need('users'); return out(200, await apiKeyToggle(body, user));
+      case 'webhook_save': need('users'); return out(200, await webhookSave(body, user));
+      case 'webhook_delete': need('users'); return out(200, await webhookDelete(body, user));
+      case 'webhook_ping': need('users'); return out(200, await webhookPing(body, user));
+      case 'webhook_retry': need('users'); return out(200, await webhookRetry(body, user));
       case 'invite_create': need('users'); return out(200, await inviteCreate(body, user));
       case 'invite_delete': need('users'); await q('invitations?token=eq.' + enc(body.token) + '&org_id=eq.' + user.org.id + '&accepted_at=is.null', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
       case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
