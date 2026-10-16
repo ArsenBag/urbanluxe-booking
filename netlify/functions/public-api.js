@@ -31,7 +31,7 @@ async function auth(event) {
   const m = Math.floor(Date.now() / 60000); const r = RATE.get(k.id) || { m, n: 0 }; if (r.m !== m) { r.m = m; r.n = 0; } r.n++; RATE.set(k.id, r);
   if (r.n > LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту');
   try { const n = await rpc('api_rate_hit', { p_key: k.id }); if (Number(n) > LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту'); } catch (e) { if (e.code === 'rate_limited') throw e; }
-  const org = (await q('organizations?select=id,name,short,slug,logo_url,telegram,tg_chat_id,is_active&id=eq.' + k.org_id))[0];
+  const org = (await q('organizations?select=id,name,short,slug,logo_url,telegram,tg_chat_id,is_active,plan_limit&id=eq.' + k.org_id))[0];
   if (!org || org.is_active === false) throw ApiError(403, 'org_inactive', 'Организация отключена');
   const acc = await q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: org.id }) });
   const apts = new Set(acc.filter(x => x.mode === 'full').map(x => x.apartment_id));
@@ -48,8 +48,8 @@ const photos = a => { const p = a.photo_url || ''; if (!p) return []; try { cons
 // ---- ресурсы
 async function apartments(ctx) {
   need(ctx, 'read');
-  const rows = await q('apartments?select=id,name,complex,floor,rooms,max_guests,weekday_price,weekend_price,min_nights,catalog_no,description,description_en,description_uz,amenities,photo_url,style&is_active=eq.true' + aptIn(ctx) + '&order=complex,catalog_no.nullslast,name');
-  return rows.map(a => ({ id: a.id, name: a.name, complex: a.complex, floor: a.floor, rooms: a.rooms, max_guests: a.max_guests, catalog_no: a.catalog_no, style: a.style, weekday_price: a.weekday_price, weekend_price: a.weekend_price, min_nights: a.min_nights, currency: 'USD', photos: photos(a), description: { ru: a.description || null, en: a.description_en || null, uz: a.description_uz || null }, amenities: a.amenities || null }));
+  const rows = await q('apartments?select=id,name,complex,floor,rooms,max_guests,weekday_price,weekend_price,min_nights,catalog_no,description,description_en,description_uz,amenities,photo_url,style,external_ref&is_active=eq.true' + aptIn(ctx) + '&order=complex,catalog_no.nullslast,name');
+  return rows.map(a => ({ id: a.id, external_ref: a.external_ref || null, name: a.name, complex: a.complex, floor: a.floor, rooms: a.rooms, max_guests: a.max_guests, catalog_no: a.catalog_no, style: a.style, weekday_price: a.weekday_price, weekend_price: a.weekend_price, min_nights: a.min_nights, currency: 'USD', photos: photos(a), description: { ru: a.description || null, en: a.description_en || null, uz: a.description_uz || null }, amenities: a.amenities || null }));
 }
 async function availability(ctx, p) {
   need(ctx, 'read');
@@ -116,6 +116,78 @@ async function bookingsList(ctx, p) {
   const rows = await q(path);
   return rows.map(toApi);
 }
+// PATCH /bookings/{id} (16.10.2026, мост с CRM партнёров): даты, квартира, гость, сумма, заметки, request<->confirmed.
+async function bookingUpdate(ctx, id, body) {
+  need(ctx, 'book');
+  const b = (await q('bookings?select=*&id=eq.' + enc(id)))[0];
+  if (!b || !ctx.apts.has(b.apartment_id)) throw ApiError(404, 'not_found', 'Бронь не найдена');
+  const own = b.meta && b.meta.api_key_id && (await q('api_keys?select=org_id&id=eq.' + b.meta.api_key_id))[0]?.org_id === ctx.org.id;
+  if (!own && !ctx.scopes.includes('manage')) throw ApiError(403, 'forbidden', 'Менять можно только брони, созданные через API вашей организации (или право manage)');
+  if (b.status === 'cancelled') throw ApiError(409, 'bad_status', 'Бронь отменена — изменения невозможны');
+  if (ctx.isPublic) throw ApiError(403, 'forbidden', 'Изменение брони — только по секретному ключу');
+  const o = {};
+  const ci = body.check_in || b.check_in, co = body.check_out || b.check_out;
+  if (body.check_in !== undefined || body.check_out !== undefined) { if (!isDate(ci) || !isDate(co) || co <= ci) throw ApiError(400, 'bad_dates', 'check_in / check_out (YYYY-MM-DD, выезд позже заезда)'); o.check_in = ci; o.check_out = co; o.nights = Math.round((new Date(co) - new Date(ci)) / 864e5); }
+  if (body.apartment_id !== undefined) { const apt = String(body.apartment_id); if (!ctx.apts.has(apt)) throw ApiError(404, 'not_found', 'Квартира не найдена'); o.apartment_id = apt; }
+  const g = body.guest || {};
+  if (g.name !== undefined || body.guest_name !== undefined) { const n = String(g.name || body.guest_name || '').trim(); if (!n) throw ApiError(400, 'validation', 'guest.name не может быть пустым'); o.guest_name = n; }
+  if (g.phone !== undefined || body.guest_phone !== undefined) o.guest_phone = String(g.phone || body.guest_phone || '').trim() || null;
+  if (g.email !== undefined) o.guest_email = g.email || null; if (g.telegram !== undefined) o.guest_telegram = g.telegram || null; if (g.whatsapp !== undefined) o.guest_whatsapp = g.whatsapp || null;
+  if (body.guests_count !== undefined) o.guests_count = Math.max(1, Number(body.guests_count) || 1);
+  if (body.total_price !== undefined) o.total_price = Math.max(0, Math.round(Number(body.total_price) || 0));
+  if (body.prepaid !== undefined) o.prepaid = Math.max(0, Math.round(Number(body.prepaid) || 0));
+  if (body.notes !== undefined) o.notes = body.notes ? String(body.notes).slice(0, 1000) : null;
+  if (body.arrival_time !== undefined) o.arrival_time = body.arrival_time || null; if (body.departure_time !== undefined) o.departure_time = body.departure_time || null;
+  if (body.external_ref !== undefined) o.meta = Object.assign({}, b.meta || {}, { external_ref: body.external_ref ? String(body.external_ref).slice(0, 100) : null });
+  if (body.status !== undefined) { if (!['request', 'confirmed'].includes(body.status)) throw ApiError(400, 'validation', 'status: request | confirmed (отмена — POST /bookings/{id}/cancel)'); if (['checked_in', 'checked_out'].includes(b.status)) throw ApiError(409, 'bad_status', 'Гость уже заехал — статус меняется в PMS'); o.status = body.status; }
+  if (!Object.keys(o).length) return toApi(b);
+  o.updated_by = 'api:' + ctx.key.name; o.updated_at = new Date().toISOString();
+  let rows;
+  try { rows = await q('bookings?id=eq.' + enc(id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) }); }
+  catch (e) { if (/23P01|conflicts with existing|exclusion|overlap|пересек/i.test(e.message)) throw ApiError(409, 'dates_taken', 'Даты заняты'); throw e; }
+  return toApi(rows[0]);
+}
+// POST /apartments (16.10.2026): квартира клиента PMS из его системы (CRM). Upsert по external_ref; по rc_id (RealtyCalendar) привязываем к уже
+// существующей квартире (карта app_settings.rc_partner_map — общие квартиры партнёра); иначе создаём в организации ключа.
+const slug = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'apt';
+async function apartmentUpsert(ctx, body) {
+  need(ctx, 'manage'); if (ctx.isPublic) throw ApiError(403, 'forbidden', 'Только по секретному ключу');
+  const ref = String(body.external_ref || '').trim().slice(0, 100); if (!ref) throw ApiError(400, 'validation', 'external_ref обязателен');
+  const name = String(body.name || '').trim().slice(0, 120); if (!name) throw ApiError(400, 'validation', 'name обязателен');
+  const complex = String(body.complex || '').trim().slice(0, 80); if (!complex) throw ApiError(400, 'validation', 'complex (ЖК) обязателен');
+  const org = ctx.org.id;
+  const byRef = (await q('apartments?select=id,org_id,name,complex&org_id=eq.' + org + '&external_ref=eq.' + enc(ref)))[0];
+  if (byRef) {
+    const o = { updated_at: new Date().toISOString() }; if (body.is_active !== undefined) o.is_active = !!body.is_active; if (body.name) o.name = name;
+    await q('apartments?id=eq.' + enc(byRef.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(o) });
+    return { id: byRef.id, created: false, linked_existing: false, complex: byRef.complex };
+  }
+  // по RC id — квартира уже есть (общая с партнёром или заведена вручную): только привязываем external_ref
+  const rcId = body.rc_id ? String(body.rc_id) : null;
+  if (rcId) {
+    let map = {}; try { const r = await q('app_settings?select=value&key=eq.rc_partner_map'); map = JSON.parse((r[0] || {}).value || '{}'); } catch (_) { }
+    const existingId = map[rcId];
+    if (existingId) {
+      const ex = (await q('apartments?select=id,org_id,external_ref,complex&id=eq.' + enc(existingId)))[0];
+      if (ex) {
+        if (ex.external_ref && ex.external_ref !== ref && ex.org_id === org) throw ApiError(409, 'conflict', 'Квартира ' + ex.id + ' уже привязана к другому external_ref');
+        // чужая (org 1) квартира с доступом партнёра: external_ref ставим только если её ещё нет — org-уникальность по владельцу
+        if (!ex.external_ref) await q('apartments?id=eq.' + enc(ex.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_ref: ref, updated_at: new Date().toISOString() }) });
+        return { id: ex.id, created: false, linked_existing: true, complex: ex.complex };
+      }
+    }
+  }
+  // ЖК организации
+  let cx = (await q('complexes?select=id,name&org_id=eq.' + org + '&name=eq.' + enc(complex)))[0];
+  if (!cx) cx = (await q('complexes', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ name: complex, address: body.address || null, city: 'Tashkent', timezone: 'Asia/Tashkent', org_id: org, is_active: true }) }))[0];
+  // код квартиры: <slug ЖК>_<номер из названия>; при занятости — суффикс
+  const num = (name.match(/\d{1,4}/) || [])[0] || slug(ref).slice(-6);
+  let id = slug(complex) + '_' + num; for (let i = 2; i < 50; i++) { const t = (await q('apartments?select=id&id=eq.' + enc(id)))[0]; if (!t) break; id = slug(complex) + '_' + num + '_' + i; }
+  if (ctx.org.plan_limit) { const n = (await q('apartments?select=id&is_active=eq.true&org_id=eq.' + org)).length; if (n >= ctx.org.plan_limit) throw ApiError(403, 'plan_limit', 'Лимит тарифа: ' + ctx.org.plan_limit + ' активных квартир'); }
+  const row = { id, name, complex, org_id: org, external_ref: ref, floor: Number(body.floor) || 1, max_guests: Number(body.max_guests) || 2, rooms: body.rooms || null, is_active: body.is_active !== false, tracked: true, weekday_price: Number(body.weekday_price) || null, weekend_price: Number(body.weekend_price) || null };
+  await q('apartments', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
+  return { id, created: true, linked_existing: false, complex };
+}
 async function bookingCancel(ctx, id, body) {
   need(ctx, 'cancel');
   const b = (await q('bookings?select=*&id=eq.' + enc(id)))[0];
@@ -130,16 +202,16 @@ async function bookingCancel(ctx, id, body) {
 
 const H = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 // CORS — для публичных ключей (в т.ч. на ошибках 401/429, когда ctx ещё нет: смотрим префикс ключа в заголовке)
-const cors = (ctx, event) => { const raw = ((event && event.headers && (event.headers.authorization || event.headers.Authorization)) || ''); const pub = (ctx && ctx.isPublic) || /Bearer\s+pk_/i.test(raw) || !raw; return pub ? { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } : {}; };
+const cors = (ctx, event) => { const raw = ((event && event.headers && (event.headers.authorization || event.headers.Authorization)) || ''); const pub = (ctx && ctx.isPublic) || /Bearer\s+pk_/i.test(raw) || !raw; return pub ? { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS' } : {}; };
 exports.handler = async (event) => {
   const t0 = Date.now();
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: Object.assign({}, H, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }), body: '' };
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: Object.assign({}, H, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS' }), body: '' };
   const path = (event.path || '').replace(/^.*\/api\/v1/, '').replace(/^\/\.netlify\/functions\/public-api/, '').replace(/\/+$/, '') || '/';
   const p = event.queryStringParameters || {}; const ip = (event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for'] || '').split(',')[0];
   let ctx = null, status = 200, body;
   try {
     ctx = await auth(event);
-    let data; const m = event.httpMethod; let json = {}; if (m === 'POST') { try { json = JSON.parse(event.body || '{}'); } catch (_) { throw ApiError(400, 'bad_json', 'Тело запроса — JSON'); } }
+    let data; const m = event.httpMethod; let json = {}; if (m === 'POST' || m === 'PATCH' || m === 'PUT') { try { json = JSON.parse(event.body || '{}'); } catch (_) { throw ApiError(400, 'bad_json', 'Тело запроса — JSON'); } }
     let mm;
     if (m === 'GET' && path === '/me') data = { organization: { id: ctx.org.id, name: ctx.org.name, short: ctx.org.short, logo_url: ctx.org.logo_url }, key: { name: ctx.key.name, kind: ctx.key.kind, scopes: ctx.scopes }, limits: { per_minute: LIMIT }, apartments: ctx.apts.size };
     else if (m === 'GET' && path === '/apartments') data = await apartments(ctx);
@@ -149,6 +221,8 @@ exports.handler = async (event) => {
     else if (m === 'GET' && path === '/bookings') data = await bookingsList(ctx, p);
     else if (m === 'GET' && (mm = path.match(/^\/bookings\/([0-9a-f-]{36})$/))) data = await bookingGet(ctx, mm[1]);
     else if (m === 'POST' && (mm = path.match(/^\/bookings\/([0-9a-f-]{36})\/cancel$/))) data = await bookingCancel(ctx, mm[1], json);
+    else if ((m === 'PATCH' || m === 'PUT') && (mm = path.match(/^\/bookings\/([0-9a-f-]{36})$/))) data = await bookingUpdate(ctx, mm[1], json);
+    else if (m === 'POST' && path === '/apartments') data = await apartmentUpsert(ctx, json);
     else throw ApiError(404, 'no_route', 'Нет такого метода: ' + m + ' ' + path + '. Документация: https://urbanluxe.cc/api/docs');
     body = { ok: true, data };
   } catch (e) {
