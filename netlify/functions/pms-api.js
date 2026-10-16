@@ -622,7 +622,7 @@ exports.handler = async (event) => {
       // 16.10: первичная настройка синка с RC партнёра по одноразовому ключу (app_settings.partner_sync_once): токен RC HighLife уходит со страницы RC прямо сюда
       if (b0.a === 'partner_sync_setup') {
         const once = (await q('app_settings?select=value&key=eq.partner_sync_once'))[0]; if (!once || !once.value || once.value !== String(b0.once || '')) return out(403, { error: 'bad once' });
-        await q('app_settings?key=eq.partner_sync_once', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ value: null, updated_at: new Date().toISOString() }) });
+        await q('app_settings?key=eq.partner_sync_once', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
         if (b0.token) await q('app_settings?on_conflict=key', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ key: 'rc_partner_token', value: String(b0.token), note: 'X-User-Token RC HighLife (agency 75311)', updated_at: new Date().toISOString() }) });
         return out(200, await require('./partner-rc-sync.js').sync());
       } }

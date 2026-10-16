@@ -56,7 +56,7 @@ exports.handler = async (event) => {
   if (event && event.httpMethod === 'POST' && (h['x-once'] || h['X-Once'])) {
     const once = await setting('partner_sync_once');
     if (!once || (h['x-once'] || h['X-Once']) !== once) return { statusCode: 403, body: 'bad once' };
-    await setSetting('partner_sync_once', null);
+    await C.q('app_settings?key=eq.partner_sync_once', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     let body = {}; try { body = JSON.parse(event.body || '{}'); } catch (_) { }
     if (body.token) await setSetting('rc_partner_token', String(body.token), 'X-User-Token RC HighLife (agency 75311), ' + new Date().toISOString().slice(0, 10));
     if (body.map) await setSetting(MAP_KEY, JSON.stringify(body.map), 'RC id партнёра → наш apartment_id');
