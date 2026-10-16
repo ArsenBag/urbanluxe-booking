@@ -42,8 +42,9 @@ exports.handler = async (event) => {
     const byId = {}; apts.forEach(a => { byId[a.id] = a; });
 
     const today = T.tashToday(0), horizon = addDays(today, 90);
-    // единый календарь: всё, что живёт или заедет в ближайшие 90 дней (блоки владельца HK-боту не нужны)
-    const rows = await T.sb('bookings?select=id,booking_ref,apartment_id,check_in,check_out,guests_count,guest_name,guest_phone,source,channel,status,arrival_time,departure_time,notes&status=in.(confirmed,checked_in)&check_out=gte.' + today + '&check_in=lte.' + horizon + '&order=check_in').then(r => r.json()).catch(() => []);
+    // единый календарь: всё, что живёт или заедет в ближайшие 90 дней (блоки владельца HK-боту не нужны).
+    // 16.10.2026: checked_out тоже — иначе отметка «выехал» в PMS убирала бронь из списка и бот получал cancel_booking (уборка снималась).
+    const rows = await T.sb('bookings?select=id,booking_ref,apartment_id,check_in,check_out,guests_count,guest_name,guest_phone,source,channel,status,arrival_time,departure_time,notes&status=in.(confirmed,checked_in,checked_out)&check_out=gte.' + today + '&check_in=lte.' + horizon + '&order=check_in').then(r => r.json()).catch(() => []);
     const wanted = (Array.isArray(rows) ? rows : []).filter(b => byId[b.apartment_id] && byId[b.apartment_id].is_active).map(b => ({
       uid: 'UL-' + (b.booking_ref || b.id), apartment_id: b.apartment_id, check_in: b.check_in, check_out: b.check_out,
       guests: b.guests_count || null, guest_name: b.guest_name || '', guest_phone: b.guest_phone || '', source: b.channel || b.source || 'site',

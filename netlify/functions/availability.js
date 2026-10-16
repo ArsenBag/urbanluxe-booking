@@ -1,7 +1,7 @@
-// Urban Luxe — availability.js (v2, август 2026)
-// Было: список апартаментов захардкожен → новые объекты (август 2026) отвечали
-// «Apartment not found». Стало: апартаменты и занятость берутся из Supabase
-// (is_active=true) + живые iCal-фиды RealtyCalendar. Форматы ответов совместимы:
+// Urban Luxe — availability.js (v3, 16.10.2026)
+// Занятость — ТОЛЬКО из нашей таблицы bookings (PMS): туда приходят брони сайта, шахматки, площадок через Channex,
+// RC наш (rc-sync) и RC HighLife (partner-rc-sync). iCal RealtyCalendar больше не подмешиваем: после перевода площадок
+// на Channex RC устарел и показывал отменённые брони как занятые (utower_65 17–23.10). Форматы ответов совместимы:
 //   ?apt=<id>                          -> { apartment, booked_dates:[{start,end}...] }
 //   ?check_in=YYYY-MM-DD&check_out=…   -> { check_in, check_out, total_apartments,
 //                                          available_count, available:[{...}] }
@@ -24,53 +24,6 @@ function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
-// iCal RealtyCalendar -> [{check_in, check_out}]
-function parseICS(text) {
-  const events = [];
-  const blocks = String(text).split('BEGIN:VEVENT').slice(1);
-  for (const b of blocks) {
-    const body = b.split('END:VEVENT')[0];
-    const get = (re) => { const m = body.match(re); return m ? m[1].trim() : ''; };
-    const ds = get(/DTSTART(?:;VALUE=DATE)?[^:]*:(\d{8})/);
-    const de = get(/DTEND(?:;VALUE=DATE)?[^:]*:(\d{8})/);
-    if (!ds || !de) continue;
-    const fmt = (s) => s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
-    const ci = fmt(ds), co = fmt(de);
-    if (co <= ci) continue;
-    events.push({ check_in: ci, check_out: co });
-  }
-  return events;
-}
-
-function fetchWithTimeout(url, ms) {
-  return Promise.race([
-    fetch(url),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
-  ]);
-}
-
-// Кэш на тёплую лямбду: apartment_id -> { at, events }
-const icalCache = global.__ulIcalCache || (global.__ulIcalCache = {});
-const CACHE_MS = 90 * 1000;
-
-async function icalEvents(apt) {
-  if (!apt.ical_export_url || !/^https?:\/\//.test(apt.ical_export_url)) return [];
-  const c = icalCache[apt.id];
-  if (c && Date.now() - c.at < CACHE_MS) return c.events;
-  try {
-    const r = await fetchWithTimeout(apt.ical_export_url, 9000);
-    if (!r.ok) throw new Error('ical ' + r.status);
-    const body = await r.text();
-    if (body.indexOf('BEGIN:VCALENDAR') < 0) throw new Error('ical not ics (RC заглушка «сервис недоступен»)');
-    const events = parseICS(body);
-    icalCache[apt.id] = { at: Date.now(), events };
-    return events;
-  } catch (e) {
-    // Фид недоступен: используем протухший кэш, если есть; иначе null = «данных нет» (RC лежит)
-    return c ? c.events : null;
-  }
-}
-
 // 11.10.2026: наша база `bookings` — мастер (RC зеркалится в неё каждые 15 минут через rc-sync), поэтому занятость
 // считаем по ней: подтверждена / живёт / заявка / блок. iCal RC используем только как добавку для квартир, по которым
 // из RC к нам ещё ни разу ничего не приходило (партнёрские/новые) — иначе при падении RC протухший iCal-кэш
@@ -83,13 +36,6 @@ async function siteBookings(aptId) {
   if (!r.ok) return [];
   return r.json();
 }
-// «Синхронизирована с RC» = по квартире уже приходили брони из RC (source='rc'). 13.10.2026 ВАЖНО: 11 квартир
-// (modera_294/359, gardens_65, nest_168/179/609, utower_194/222/298/326/400) числятся в RC на аккаунте партнёра HighLife
-// (agency 75311): /v2/event_calendars под токеном Арсена по ним НИЧЕГО не отдаёт, в нашей bookings их броней нет —
-// занятость по ним берётся ТОЛЬКО из iCal RC. Не считать их «синхронизированными» по наличию RC-ссылки: тогда бот
-// покажет их свободными, когда они заняты. Пока HighLife не ведёт их у нас — iCal остаётся единственным источником.
-function rcSyncedSet(rows) { const s = new Set(); rows.forEach(b => { if (b.source === 'rc') s.add(b.apartment_id); }); return s; }
-
 function overlaps(events, ci, co) {
   return events.some(e => e.check_in < co && e.check_out > ci);
 }
@@ -123,9 +69,8 @@ exports.handler = async (event) => {
         return { statusCode: 404, headers: HEADERS, body: JSON.stringify({ error: 'Apartment not found' }) };
       }
       const site = await siteBookings(apt.id);
-      const rc = (rcSyncedSet(site, [apt]).has(apt.id) ? [] : await icalEvents(apt)) || [];
       const days = new Set();
-      rc.concat(site).forEach(e => {
+      site.forEach(e => {
         for (let d = e.check_in; d < e.check_out; d = addDays(d, 1)) days.add(d);
       });
       const booked_dates = [...days].sort().map(d => ({ start: d, end: addDays(d, 1) }));
@@ -144,15 +89,13 @@ exports.handler = async (event) => {
     if (!ar.ok) throw new Error('apartments fetch failed: ' + ar.status);
     const apts = await ar.json();
     const site = await siteBookings(null);
-    const siteByApt = {}; const synced = rcSyncedSet(site, apts);
+    const siteByApt = {};
     site.forEach(b => { (siteByApt[b.apartment_id] = siteByApt[b.apartment_id] || []).push(b); });
 
     const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
     const results = await Promise.all(apts.map(async (a) => {
-      const rc = synced.has(a.id) ? [] : await icalEvents(a);
-      // по квартире нет данных ни в базе (RC к нам её не отдавал), ни в iCal (RC лежит) — не показываем как свободную
-      const unknown = rc === null;
-      const busy = (rc || []).concat(siteByApt[a.id] || []);
+      const unknown = false;
+      const busy = siteByApt[a.id] || [];
       if (overlaps(busy, ci, co)) return null;
       let total = 0;
       for (let d = ci; d < co; d = addDays(d, 1)) {

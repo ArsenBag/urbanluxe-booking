@@ -61,8 +61,8 @@ function dbError(e) {
 
 // ---------- права ----------
 const CAN = {
-  admin: { write: 1, rates: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1, status_only: 0, users: 1, objects: 1, objects_archive: 1 },
-  booker: { write: 1, rates: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1 },
+  admin: { write: 1, rates: 1, report: 1, pay: 1, pay_full: 1, guests: 1, guests_write: 1, status_only: 0, users: 1, objects: 1, objects_archive: 1 },
+  booker: { write: 1, rates: 0, report: 0, pay: 1, pay_full: 1, guests: 1, guests_write: 1 }, // 16.10.2026: бронерам «Цены» и «Отчёт» не нужны
   ops: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 1, guests_write: 0, status_only: 1, objects: 1 },
   partner: { write: 0, rates: 0, pay: 1, pay_full: 0, guests: 0 }
 };
@@ -689,7 +689,7 @@ exports.handler = async (event) => {
         case 'me': return out(200, { email: user.email, role: user.role, name: user.name, apartment_ids: user.apartment_ids, can: user.can, org: user.org, access: user.access, platform_admin: user.platform_admin, home_org_id: user.home_org_id, orgs: user.platform_admin ? await q('organizations?select=id,name,short,is_active&order=id') : [{ id: user.org.id, name: user.org.name, short: user.org.short }], has_partners: Object.values(user.access).some(m => m === 'occupancy') });
         case 'orgs': return out(200, await orgs(user));
         case 'integrations': if (user.role !== 'admin') return out(403, { error: 'только admin' }); return out(200, await integrations(user));
-        case 'owner_report': if (!(user.role === 'partner' || user.can.pay_full)) return out(403, { error: 'forbidden' }); return out(200, await ownerReport(user, p));
+        case 'owner_report': if (!(user.role === 'partner' || user.can.report)) return out(403, { error: 'forbidden' }); return out(200, await ownerReport(user, p));
         case 'grid': return out(200, await grid(user, p));
         case 'booking': return out(200, await booking(user, p.id));
         case 'price': return out(200, await price(p));
