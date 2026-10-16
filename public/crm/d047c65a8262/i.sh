@@ -82,7 +82,9 @@ ok "образы собраны"
 
 # ---------- 5. Запуск + миграции + админ ----------
 c "5/7 Запуск"
-$COMPOSE up -d --remove-orphans
+# миграции отдельно и с логом (при ошибке видно причину), затем сервисы
+$COMPOSE run --rm migrate pnpm db:deploy 2>&1 | tail -15 || die "Миграции не прошли — пришлите вывод выше"
+$COMPOSE up -d --no-deps postgres api web
 for i in $(seq 1 40); do
   if curl -fsS http://172.17.0.1:4000/api/health 2>/dev/null | grep -q '"ok"\|status'; then ok "API отвечает"; break; fi
   sleep 5; [ "$i" = 40 ] && { $COMPOSE logs --tail=60 api; die "API не поднялось — пришлите вывод выше"; }
