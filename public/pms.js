@@ -68,12 +68,19 @@ async function boot() {
   if (ME.platform_admin && ME.org.id !== ME.home_org_id) { $('#me').textContent = '👁 ' + $('#me').textContent; $('#me').title = 'Вы смотрите кабинет другой организации'; }
   if (!ME.can.guests) $$('button[data-v=guests]').forEach(b => b.remove());
   if (!ME.can.pay) $$('button[data-v=debts]').forEach(b => b.remove());
+  if (!ME.platform_admin) $$('#top .apps a:not(.on)').forEach(a => a.remove());   // Админка/Карта — только платформа (Urban Luxe)
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
   realtime();
   // 14.10.2026: ссылки из админки — /pms#booking=<id> (открыть панель брони), /pms#today, /pms#free …
   const h = location.hash.replace('#', '');
   const m = h.match(/^booking=(.+)$/);
   if (m) { history.replaceState(null, '', location.pathname); go('cal'); setTimeout(() => openBooking(m[1]), 300); return; }
+  const sp0 = new URLSearchParams(location.search);
+  if (sp0.get('airbnb') !== null) {   // возврат с авторизации Airbnb (Channex connection_link)
+    const chId = sp0.get('channel_id'); history.replaceState(null, '', location.pathname + (sp0.get('org') ? '?org=' + sp0.get('org') : ''));
+    go('channels'); if (sp0.get('success') === 'false' || sp0.get('airbnb') === '0' || !chId) setTimeout(() => alert('Airbnb не подтвердил подключение. Проверьте, что в Airbnb нет другого подключённого менеджера каналов, и получите новую ссылку.'), 500); else PMS._airbnbReturn(chId);
+    return;
+  }
   if (h && VIEWS[h]) { history.replaceState(null, '', location.pathname + location.search); go(h); return; }
   go(innerWidth < 760 ? 'today' : 'cal');
 }
@@ -630,9 +637,10 @@ VIEWS.channels = async () => {
   $('#main').innerHTML = '<div class="page" id="ch"><div class="muted">загрузка…</div></div>';
   const say = (m, bad) => { const e = $('#c_msg'); e.textContent = m; e.style.color = bad ? 'var(--red)' : ''; };
   const run = async (fn, label) => { say(label + '…'); try { const r = await fn(); say('готово'); console.log(label, r); load(); } catch (e) { say(e.message, true); } };
+  if (!ME.platform_admin) ['#c_full', '#c_feed', '#c_hook', '#c_scan'].forEach(id => { const b = $(id); if (b) b.remove(); });   // платформенные действия — не для кабинетов партнёров
   let S; const load = async () => {
     try { S = await capi({ a: 'status' }); } catch (e) { $('#ch').innerHTML = '<div class="card">' + esc(e.message) + '</div>'; return; }
-    const cx = $('#c_cx'); if (cx.options.length <= 1) [...new Set(S.apartments.filter(a => a.is_active).map(a => a.complex))].forEach(c => cx.add(new Option(c, c)));
+    const cx = $('#c_cx'); if (cx.options.length <= 1) [...new Set(S.apartments.filter(a => a.is_active && !a.shared).map(a => a.complex))].forEach(c => cx.add(new Option(c, c)));
     const aptName = id => (S.apartments.find(a => a.id === id) || { name: id }).name;
     const propName = id => (S.properties.find(p => p.id === id) || {}).name || '—';
     const dt = s => s ? s.slice(5, 16).replace('T', ' ') : '—';
@@ -657,7 +665,8 @@ VIEWS.channels = async () => {
     h = h.replace('клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex', 'клик по ячейке площадки — вкл/выкл, наценка, закрытия, лог; ✓ подключена · ● выключена нами · ✓? не сканировано');
     for (const cx of Object.keys(byCx)) {
       const hasProp = S.properties.some(p => p.complex === cx && p.external_id);
-      h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
+      const allShared = byCx[cx].every(a => a.shared);   // общие с владельцем квартиры: карточка Channex — его, создавать/пересылать нельзя
+      h += `<tr style="background:#f7f8fa"><td colspan="${4 + OTAS.length + ICALS.length}" class="b">${esc(cx)} ${allShared ? '<span class="tag" style="background:#e3ecff" title="общие квартиры: карточка Channex у владельца, подключение площадок — через + Площадка">общие</span>' : hasProp ? '<span class="tag">Channex ✓</span> <button class="sm" data-pushcx="' + esc(cx) + '" title="Полная отправка цен и занятости всех квартир ЖК на 500 дней (2 запроса в Channex)">⟳ полная отправка ЖК</button>' : '<button class="sm" data-cx="' + esc(cx) + '">подключить ЖК к Channex</button>'}</td></tr>`;
       for (const a of byCx[cx]) {
         const u = unitOf(a.id);
         const pts = (S.access || []).filter(x => x.apartment_id === a.id).map(x => { const o = (S.orgs || []).find(y => y.id === x.org_id) || {}; return '<span class="tag" style="background:#e3ecff" title="партнёрская квартира: ' + esc(o.name || x.org_id) + '">' + esc(o.short || x.org_id) + '</span>'; }).join('');
@@ -716,8 +725,27 @@ VIEWS.channels = async () => {
     $('#d_foot').innerHTML = `<button class="pri" id="ac_probe">Проверить и показать номера</button><button onclick="closeDrawer()">Отмена</button>`;
     const settingsOf = () => { const st = {}; const id = $('#ac_id').value.trim(); if (id) st.hotel_id = id; [['#ac_k1', '#ac_v1'], ['#ac_k2', '#ac_v2']].forEach(([k, v]) => { const kk = $(k).value.trim(); if (kk) st[kk] = $(v).value; }); return st; };
     const adapterOf = () => { const t = $('#ac_q').value.trim(); return list.find(x => x.title.toLowerCase() === t.toLowerCase()) || list.find(x => x.code.toLowerCase() === t.toLowerCase()); };
+    // Airbnb: не ID объекта, а вход владельца аккаунта Airbnb по ссылке (OAuth через Channex)
+    const airbnbFlow = () => {
+      const cxs = [...new Set(apts.map(a => a.complex))];
+      $('#ac_res').innerHTML = `<div class="sec" style="margin-top:8px">Airbnb — подключение аккаунта</div>
+        <div class="muted" style="font-size:12px;margin:4px 0 8px">Выберите ЖК, квартиры которых есть в этом аккаунте Airbnb, получите ссылку и откройте её под аккаунтом Airbnb (или отправьте владельцу аккаунта). После входа вы вернётесь сюда и сопоставите объявления с квартирами.</div>
+        ${cxs.map(c => `<label style="display:flex;flex-direction:row;gap:6px;align-items:center;font-size:12px;margin:3px 0"><input type="checkbox" style="width:auto;margin:0" data-acx="${esc(c)}" checked>${esc(c)}</label>`).join('')}
+        <div id="ac_link" style="margin-top:8px"></div>`;
+      $('#d_foot').innerHTML = `<button class="pri" id="ac_getlink">Получить ссылку для входа в Airbnb</button><button onclick="closeDrawer()">Отмена</button>`;
+      $('#ac_getlink').onclick = async () => {
+        const complexes = $$('#ac_res [data-acx]').filter(x => x.checked).map(x => x.dataset.acx);
+        $('#ac_link').innerHTML = '<div class="muted">запрашиваю ссылку у Channex…</div>';
+        try { const r = await capi(null, { a: 'airbnb_link', complexes });
+          $('#ac_link').innerHTML = `<div style="color:var(--green);font-weight:600">Ссылка готова (действует 2 часа)</div><div style="display:flex;gap:6px;margin-top:6px"><input id="ac_url" readonly value="${esc(r.url)}" style="flex:1;font-size:11px"><button class="sm" id="ac_copy">копировать</button></div><div style="margin-top:8px"><a class="pri sm" style="display:inline-block;padding:7px 12px;border-radius:8px;background:var(--text);color:#fff;text-decoration:none" href="${esc(r.url)}" target="_blank" rel="noopener">Открыть и войти в Airbnb ↗</a></div><div class="muted" style="font-size:11px;margin-top:6px">Если у Airbnb уже подключён другой менеджер каналов (RealtyCalendar), Airbnb откажет — сначала отключите его в Airbnb → Аккаунт → Конфиденциальность → Подключённые приложения.</div>`;
+          $('#ac_copy').onclick = () => { navigator.clipboard.writeText(r.url).then(() => { $('#ac_copy').textContent = 'скопировано'; }); };
+        } catch (e) { $('#ac_link').innerHTML = '<div style="color:var(--red)">' + esc(e.message) + '</div>'; }
+      };
+    };
+    $('#ac_q').addEventListener('change', () => { const ad = adapterOf(); if (ad && /^airbnb$/i.test(ad.code)) airbnbFlow(); });
     $('#ac_probe').onclick = async () => {
       const ad = adapterOf(); if (!ad) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Выберите площадку из списка</div>'; return; }
+      if (/^airbnb$/i.test(ad.code)) { airbnbFlow(); return; }
       const st = settingsOf(); if (!Object.keys(st).length) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Введите ID объекта</div>'; return; }
       $('#ac_res').innerHTML = '<div class="muted">проверяю подключение…</div>';
       let r; try { r = await capi(null, { a: 'channel_probe', adapter: ad.code, settings: st }); } catch (e) { $('#ac_res').innerHTML = '<div style="color:var(--red)">' + esc(e.message) + '</div>'; return; }
@@ -740,6 +768,27 @@ VIEWS.channels = async () => {
       };
     };
   };
+  // возврат после OAuth Airbnb: /pms?airbnb=1&channel_id=… → объявления аккаунта ↔ квартиры
+  const openAirbnbMapping = async (channelId) => {
+    openDrawer('Airbnb — объявления → квартиры', '<div class="muted">читаю объявления аккаунта…</div>', '');
+    let R; try { R = await capi(null, { a: 'airbnb_listings', channel_id: channelId }); } catch (e) { $('#d_body').innerHTML = '<div style="color:var(--red)">' + esc(e.message) + '</div>'; return; }
+    const apts = S.apartments.filter(a => a.is_active);
+    const guess = (title) => { const t = String(title || ''); const num = (t.match(/\d{2,4}/) || [])[0]; return (num && apts.find(a => a.id.endsWith('_' + num))) || null; };
+    const row = l => `<tr data-lid="${esc(l.id)}"><td>${esc(l.title)}<div class="muted" style="font-size:11px">${esc(l.id)} · до ${Math.max(...(l.occupancies || [2]))} гостей${l.city ? ' · ' + esc(l.city) : ''}</div></td><td>${l.mapped_apartment ? '<span style="color:var(--green)">✓ ' + esc(l.mapped_apartment) + '</span>' : `<select data-lsel><option value="">— не подключать —</option>${apts.map(a => `<option value="${a.id}" ${guess(l.title) && guess(l.title).id === a.id ? 'selected' : ''}>${esc(a.name)} · ${esc(a.complex)}</option>`).join('')}</select>`}</td><td class="st muted" style="font-size:11px"></td></tr>`;
+    $('#d_body').innerHTML = `<div class="muted" style="font-size:12px">Канал ${esc(R.channel.title || '')} ${R.channel.is_active ? '<span class="tag">активен</span>' : '<span class="tag bad">не активен</span>'} · объявлений ${R.listings.length}. Каждое объявление подключается ~30 секунд.</div><table class="t" style="margin-top:8px">${R.listings.map(row).join('')}</table><div id="am_log" class="muted" style="font-size:11px;margin-top:6px"></div>`;
+    $('#d_foot').innerHTML = `<button class="pri" id="am_go">Подключить выбранные</button><button id="am_act">Активировать канал</button><button onclick="closeDrawer()">Закрыть</button>`;
+    $('#am_go').onclick = async () => {
+      const rows = $$('#d_body tr[data-lid]').filter(r => r.querySelector('[data-lsel]') && r.querySelector('[data-lsel]').value);
+      if (!rows.length) { alert('Выберите квартиры для объявлений'); return; }
+      $('#am_go').disabled = true; let ok = 0;
+      for (const r of rows) { const st = r.querySelector('.st'); st.textContent = 'подключаю…';
+        try { await capi(null, { a: 'airbnb_map', channel_id: channelId, listing_id: r.dataset.lid, apartment_id: r.querySelector('[data-lsel]').value }); st.innerHTML = '<span style="color:var(--green)">✓</span>'; r.querySelector('[data-lsel]').disabled = true; ok++; }
+        catch (e) { st.innerHTML = '<span style="color:var(--red)">' + esc(String(e.message).slice(0, 120)) + '</span>'; } }
+      $('#am_go').disabled = false; $('#am_log').textContent = 'Подключено: ' + ok + ' из ' + rows.length + '. Теперь «Активировать канал».';
+    };
+    $('#am_act').onclick = async () => { $('#am_act').disabled = true; $('#am_act').textContent = 'активирую…'; try { const r = await capi(null, { a: 'airbnb_activate', channel_id: channelId }); $('#am_log').textContent = 'Активация: ' + (r.activated === true ? 'ок' : r.activated) + ' · брони загружены: ' + (r.loaded === true ? 'да' : JSON.stringify(r.loaded).slice(0, 80)); load(); } catch (e) { $('#am_log').textContent = e.message; } $('#am_act').disabled = false; $('#am_act').textContent = 'Активировать канал'; };
+  };
+  PMS._airbnbReturn = (channelId) => { const t = setInterval(() => { if (S) { clearInterval(t); openAirbnbMapping(channelId); } }, 300); };
   const openUnit = (id) => {
     const a = S.apartments.find(x => x.id === id), u = S.units.find(x => x.apartment_id === id) || {};
     const exp = S.ical_base + id;
