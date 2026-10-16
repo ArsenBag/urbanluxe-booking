@@ -643,14 +643,16 @@ VIEWS.channels = async () => {
     h += `<div class="card"><h3>Наценки площадкам <span class="muted" style="font-weight:400;font-size:12px">· % сверх прайса; 0 = цена как на сайте. Меняется — уходит на площадку за минуту</span></h3><div style="display:flex;gap:14px;flex-wrap:wrap">` +
       Object.keys(PL).map(ch => `<label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted)">${PL[ch]}<span style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="100" step="1" value="${MK[ch] == null ? 0 : MK[ch]}" data-mkup="${ch}" style="width:70px"> %</span></label>`).join('') + `</div></div>`;
     // матрица квартиры × площадки
-    const OTAS = [['booking', 'Booking', 'BookingCom'], ['airbnb', 'Airbnb', 'Airbnb'], ['ostrovok', 'Ostrovok', 'EmergingTravel'], ['agoda', 'Agoda', 'Agoda'], ['expedia', 'Expedia', 'Expedia']];
+    // 16.10.2026: колонки площадок — из каталога (известные 5 + добавленные через «+ Площадка»)
+    const BASE_OTAS = [['booking', 'Booking', 'BookingCom'], ['airbnb', 'Airbnb', 'Airbnb'], ['ostrovok', 'Ostrovok', 'EmergingTravel'], ['agoda', 'Agoda', 'Agoda'], ['expedia', 'Expedia', 'Expedia']];
+    const CC = S.channel_codes || {}; const OTAS = BASE_OTAS.concat(Object.keys(CC).filter(k => !BASE_OTAS.some(o => o[0] === k)).map(k => [k, PL[k] || k, CC[k]]));
     const ICALS = [['yandex', 'Яндекс'], ['sutochno', 'Sutochno']];
     const unitOf = id => S.units.find(u => u.apartment_id === id);
     const chanFor = (u, code) => { const p = u && S.properties.find(x => x.id === u.channel_property_id); if (!p || !p.external_id) return null; return S.channels.find(c => (c.channel || '').toLowerCase().replace(/[^a-z]/g, '') === code.toLowerCase().replace(/[^a-z]/g, '') && (c.properties || []).includes(p.external_id)); };
     const icalFor = (id, ch) => S.icals.find(i => i.apartment_id === id && i.channel === ch);
     const cell = (ok, label, title, cls) => `<td style="text-align:center" title="${esc(title || '')}">${ok === null ? '<span class="muted">—</span>' : ok ? '<span style="color:var(--green);font-weight:700">✓</span>' : '<span class="' + (cls || 'muted') + '" style="font-size:11px">' + esc(label) + '</span>'}</td>`;
     const byCx = {}; S.apartments.filter(a => a.is_active).forEach(a => (byCx[a.complex] = byCx[a.complex] || []).push(a));
-    h += `<div class="card"><h3>Менеджер каналов <span class="muted" style="font-weight:400;font-size:12px">· клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex</span></h3>
+    h += `<div class="card"><h3 style="display:flex;align-items:center;gap:10px">Менеджер каналов <span class="muted" style="font-weight:400;font-size:12px">· клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex</span><button class="sm pri" id="c_addch" style="margin-left:auto">+ Площадка</button></h3>
       <table class="t"><tr><th>Квартира</th><th>Channex</th>${OTAS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}${ICALS.map(o => '<th style="text-align:center">' + o[1] + '</th>').join('')}<th>Цены отпр.</th><th>Ошибка</th></tr>`;
     h = h.replace('клик по квартире — ссылки iCal, наценка, статус; клик по ЖК — подключить к Channex', 'клик по ячейке площадки — вкл/выкл, наценка, закрытия, лог; ✓ подключена · ● выключена нами · ✓? не сканировано');
     for (const cx of Object.keys(byCx)) {
@@ -676,7 +678,7 @@ VIEWS.channels = async () => {
         h += `<td class="nowrap">${u ? dt(u.last_pushed_at) : '—'}${u && !u.is_active ? ' <span class="tag bad">выкл</span>' : ''}</td><td style="color:var(--red);font-size:11px">${esc(((u && u.last_error) || '').slice(0, 60))}</td></tr>`;
       }
     }
-    h += `</table><div class="muted" style="font-size:11px;margin-top:6px">Booking / Airbnb / Ostrovok / Agoda / Expedia подключаются в Channex: <a target="_blank" href="${esc((S.channex.base || 'https://staging.channex.io') + '/channels')}">Channels → Add new channel</a> → выбрать карточку ЖК и сопоставить комнаты. Яндекс и Sutochno — по ссылкам iCal в карточке квартиры.</div></div>`;
+    h += `</table><div class="muted" style="font-size:11px;margin-top:6px">«+ Площадка» — любая из ${Object.keys(CC).length}+ площадок Channex (Booking, Airbnb, Ostrovok, Agoda, Expedia, Trip.com, Hostelworld, VRBO…): ID объекта на площадке → номера → сопоставление с квартирами → активация. Яндекс Путешествия и Sutochno прямого API не дают (только сертифицированные CM) — пока iCal ниже, далее мост через RealtyCalendar.</div></div>`;
     if (S.failed.length) h += `<div class="card"><h3>Ошибки отправки</h3>` + S.failed.map(f => `<div class="ev"><b>${esc(aptName(f.apartment_id))}</b> попыток ${f.attempts}: ${esc((f.error || '').slice(0, 160))}</div>`).join('') + `</div>`;
     h += `<div class="card"><h3>iCal-площадки (Яндекс Путешествия, Sutochno)</h3><div class="muted" style="font-size:12px;margin-bottom:6px">Наша ссылка для экстранета площадки: <code>${esc(S.ical_base)}&lt;id квартиры&gt;</code>. Их ссылку вставьте сюда — брони появятся в шахматке.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><select id="i_apt">${S.apartments.filter(a => a.is_active).map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select><select id="i_ch"><option value="yandex">Яндекс Путешествия</option><option value="sutochno">Sutochno</option><option value="other">другое</option></select><input id="i_url" placeholder="https://…ics" style="flex:1;min-width:260px"><button class="sm pri" id="i_add">Добавить</button></div>
@@ -686,6 +688,7 @@ VIEWS.channels = async () => {
     $$('#ch [data-b]').forEach(x => x.onclick = e => { e.preventDefault(); openBooking(x.dataset.b); });
     $$('#ch [data-res]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'resolve_conflict', id: x.dataset.id, resolution: x.dataset.res }), 'Решаю конфликт'));
     $$('#ch [data-mkup]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'markup_set', channel: x.dataset.mkup, pct: x.value }), 'Наценка ' + x.dataset.mkup));
+    const addBtn = $('#c_addch'); if (addBtn) addBtn.onclick = () => openAddChannel();
     $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
     $$('#ch [data-cell]').forEach(x => x.onclick = e => { e.stopPropagation(); const [apt, ch] = x.dataset.cell.split('|'); PMS.channelPanel(S, apt, ch, load); });
@@ -697,6 +700,45 @@ VIEWS.channels = async () => {
     $$('#ch [data-pa]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'unit_update', apartment_id: x.dataset.pa, push_availability: x.checked }), 'Сохраняю'));
     $$('#ch [data-idel]').forEach(x => x.onclick = () => { if (confirm('Удалить источник?')) run(() => capi(null, { a: 'ical_delete', id: x.dataset.idel }), 'Удаляю'); });
     $('#i_add').onclick = () => run(() => capi(null, { a: 'ical_add', apartment_id: $('#i_apt').value, channel: $('#i_ch').value, url: $('#i_url').value.trim() }), 'Добавляю');
+  };
+  // «+ Площадка»: адаптер Channex → ID объекта → проверка → номера ↔ квартиры → подключить
+  const openAddChannel = async () => {
+    openDrawer('Подключить площадку', '<div class="muted">загружаю список площадок Channex…</div>', '');
+    let A; try { A = await capi(null, { a: 'adapters' }); } catch (e) { $('#d_body').innerHTML = '<div style="color:var(--red)">' + esc(e.message) + '</div>'; return; }
+    const list = A.adapters || []; const apts = S.apartments.filter(a => a.is_active);
+    const byKey = {}; list.forEach(x => byKey[x.code] = x);
+    $('#d_body').innerHTML = `<div class="f"><label class="w">Площадка <input id="ac_q" list="ac_list" placeholder="начните вводить: Booking, Agoda, Trip.com, Hostelworld…" autocomplete="off"><datalist id="ac_list">${list.map(x => `<option value="${esc(x.title)}">`).join('')}</datalist></label>
+      <label class="w">ID объекта на площадке <input id="ac_id" placeholder="hotel id / property id из экстранета площадки"></label>
+      <details style="width:100%"><summary class="muted" style="font-size:12px;cursor:pointer">дополнительные поля (если площадка требует логин/пароль или код)</summary><div class="f" style="margin-top:6px"><label>Поле <input id="ac_k1" placeholder="например username"></label><label>Значение <input id="ac_v1"></label><label>Поле <input id="ac_k2" placeholder="например password"></label><label>Значение <input id="ac_v2" type="password"></label></div></details>
+      <label class="w">Название канала <input id="ac_title" placeholder="например: Agoda Kislorod"></label></div>
+      <div class="muted" style="font-size:12px;margin:6px 0">Airbnb подключается через OAuth в Channex (кнопка «Airbnb» в Channex → вход в аккаунт), остальные — по ID объекта. Яндекс Путешествия и Sutochno здесь нет: у них нет открытого API, см. iCal ниже и мост через RealtyCalendar.</div>
+      <div id="ac_res"></div>`;
+    $('#d_foot').innerHTML = `<button class="pri" id="ac_probe">Проверить и показать номера</button><button onclick="closeDrawer()">Отмена</button>`;
+    const settingsOf = () => { const st = {}; const id = $('#ac_id').value.trim(); if (id) st.hotel_id = id; [['#ac_k1', '#ac_v1'], ['#ac_k2', '#ac_v2']].forEach(([k, v]) => { const kk = $(k).value.trim(); if (kk) st[kk] = $(v).value; }); return st; };
+    const adapterOf = () => { const t = $('#ac_q').value.trim(); return list.find(x => x.title.toLowerCase() === t.toLowerCase()) || list.find(x => x.code.toLowerCase() === t.toLowerCase()); };
+    $('#ac_probe').onclick = async () => {
+      const ad = adapterOf(); if (!ad) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Выберите площадку из списка</div>'; return; }
+      const st = settingsOf(); if (!Object.keys(st).length) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Введите ID объекта</div>'; return; }
+      $('#ac_res').innerHTML = '<div class="muted">проверяю подключение…</div>';
+      let r; try { r = await capi(null, { a: 'channel_probe', adapter: ad.code, settings: st }); } catch (e) { $('#ac_res').innerHTML = '<div style="color:var(--red)">' + esc(e.message) + '</div>'; return; }
+      const ok = r.test && r.test.success; const rooms = (r.mapping && r.mapping.rooms) || [];
+      if (!ok) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Площадка не приняла подключение: ' + esc(JSON.stringify(r.test || r.mapping || {}).slice(0, 300)) + '</div>'; return; }
+      if (!rooms.length) { $('#ac_res').innerHTML = '<div style="color:var(--red)">Подключение есть, но площадка не отдала номера: ' + esc(JSON.stringify(r.mapping || {}).slice(0, 300)) + '</div>'; return; }
+      const guess = (title) => { const t = String(title || '').toLowerCase(); const num = (t.match(/\d{2,4}/) || [])[0]; return (num && apts.find(a => a.id.endsWith('_' + num))) || null; };
+      $('#ac_res').innerHTML = `<div class="sec" style="margin-top:8px">Номера на площадке (${rooms.length}) → квартиры</div><table class="t">` + rooms.map(rm => `<tr><td>${esc(rm.title || rm.id)}<div class="muted" style="font-size:11px">${esc(String(rm.id))} · тарифов ${(rm.rates || []).length}</div></td><td><select data-room="${esc(String(rm.id))}"><option value="">— не подключать —</option>${apts.map(a => `<option value="${a.id}" ${guess(rm.title) && guess(rm.title).id === a.id ? 'selected' : ''}>${esc(a.name)} · ${esc(a.complex)}</option>`).join('')}</select></td></tr>`).join('') + `</table><div class="muted" style="font-size:11px;margin-top:4px">Все номера одной карточки должны быть квартирами одного ЖК (одна карточка Channex). Тип цен: ${esc(r.mapping.pricing_type || 'Standard')}.</div>`;
+      $('#d_foot').innerHTML = `<button class="pri" id="ac_go">Подключить и активировать</button><button id="ac_back">Назад</button><button onclick="closeDrawer()">Отмена</button>`;
+      $('#ac_back').onclick = () => { $('#ac_res').innerHTML = ''; $('#d_foot').innerHTML = `<button class="pri" id="ac_probe2">Проверить и показать номера</button><button onclick="closeDrawer()">Отмена</button>`; $('#ac_probe2').onclick = () => $('#ac_probe') && $('#ac_probe').click(); };
+      $('#ac_go').onclick = async () => {
+        const pairs = {}; $$('#ac_res select[data-room]').forEach(sl => { if (sl.value) pairs[sl.dataset.room] = sl.value; });
+        if (!Object.keys(pairs).length) { alert('Сопоставьте хотя бы один номер с квартирой'); return; }
+        $('#ac_go').disabled = true; $('#ac_go').textContent = 'подключаю…';
+        try { const c = await capi(null, { a: 'channel_connect', adapter: ad.code, adapter_title: ad.title, settings: st, title: $('#ac_title').value.trim() || (ad.title + ' ' + (st.hotel_id || '')), pairs, mapping: r.mapping, activate: true });
+          try { await capi(null, { a: 'mapping_scan', channel: ad.key || c.adapter.toLowerCase() }); } catch (_) { }
+          $('#ac_res').innerHTML = '<div style="color:var(--green);font-weight:600">Подключено: канал ' + esc(c.channel_id) + ', маппингов ' + c.mappings + (c.activated === true ? ', активирован' : ', активация: ' + esc(String(c.activated))) + '</div><div class="muted" style="font-size:11px;white-space:pre-wrap">' + esc((c.log || []).join('\n')) + '</div>';
+          $('#d_foot').innerHTML = `<button class="pri" onclick="closeDrawer()">Готово</button>`; load();
+        } catch (e) { $('#ac_go').disabled = false; $('#ac_go').textContent = 'Подключить и активировать'; $('#ac_res').insertAdjacentHTML('beforeend', '<div style="color:var(--red)">' + esc(e.message) + '</div>'); }
+      };
+    };
   };
   const openUnit = (id) => {
     const a = S.apartments.find(x => x.id === id), u = S.units.find(x => x.apartment_id === id) || {};
