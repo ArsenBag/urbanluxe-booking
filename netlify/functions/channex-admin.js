@@ -40,25 +40,32 @@ async function orgGroupId(user) {
   const cx = ((user.org.settings || {}).channex) || {};
   if (cx.group_id) return cx.group_id;
   if (user.channex_key) return ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id || null;   // свой аккаунт клиента — его первая группа
-  if (user.org_id === 1) return ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id || null;
-  const g = await C.cx('POST', '/groups', { group: { title: user.org.name } });
-  const settings = Object.assign({}, user.org.settings || {}, { channex: Object.assign({}, cx, { group_id: g.data.id }) });
-  await C.q('organizations?id=eq.' + user.org_id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ settings }) });
-  user.org.settings = settings; return g.data.id;
+  // 16.10 (вечер): клиенты без своего ключа — в нашей основной группе (одна Airbnb-учётка = одно подключение, а общие с нами
+  // квартиры уже лежат в нашей группе; отдельные группы мешали бы подключить их Airbnb к общим и своим квартирам сразу)
+  return ((await C.cx('GET', '/groups?pagination[limit]=10')).data || [])[0]?.id || null;
 }
 
 async function status(user) {
   const org = '&org_id=eq.' + user.org_id;
-  const [props, units, apts, pending, conflicts, recent, icals, failed] = await Promise.all([
-    C.q('channel_properties?select=*' + org + '&order=id'),
+  // 16.10 (вечер): кабинет партнёра видит свои квартиры + общие (apartment_access mode=full), и ничего чужого
+  const accessIds = user.org_id === 1 ? null : (await C.rpc('pms_org_apartments', { p_org: user.org_id })).filter(x => x.mode === 'full').map(x => x.apartment_id);
+  const aptQ = accessIds ? ('&id=in.(' + (accessIds.length ? accessIds : ['-']).map(enc).join(',') + ')') : org;
+  const [props0, units, apts, pending0, conflicts0, recent, icals, failed0] = await Promise.all([
+    C.q('channel_properties?select=*&order=id'),
     C.q('channel_units?select=*&order=apartment_id'),
-    C.q('apartments?select=id,name,complex,floor,max_guests,catalog_no,is_active' + org + '&order=complex,catalog_no'),
-    C.q('channel_outbox?select=id&sent_at=is.null&limit=1000'),
+    C.q('apartments?select=id,name,complex,floor,max_guests,catalog_no,is_active,org_id' + aptQ + '&order=complex,catalog_no'),
+    C.q('channel_outbox?select=apartment_id&sent_at=is.null&limit=2000'),
     C.q('channel_conflicts?select=*&resolved=eq.false&order=created_at.desc'),
     C.q('channel_bookings?select=id,unique_id,ota_name,status,received_at,processed_at,acked_at,error,conflict,booking_id&order=received_at.desc&limit=30'),
     C.q('ical_sources?select=*&order=apartment_id'),
     C.q('channel_outbox?select=apartment_id,error,attempts,created_at&sent_at=is.null&attempts=gte.1&order=created_at.desc&limit=20')
   ]);
+  apts.forEach(a => { a.shared = (a.org_id || 1) !== user.org_id; });
+  const myCx = new Set(apts.map(a => a.complex));
+  // свои карточки Channex + чужие (владельца общих квартир) — помечены foreign: по ним нельзя создавать/пересоздавать
+  const props = props0.filter(p => p.org_id === user.org_id || myCx.has(p.complex)).map(p => Object.assign(p, { foreign: p.org_id !== user.org_id }));
+  const mineSet = new Set(apts.map(a => a.id));
+  const pending = pending0.filter(o => mineSet.has(o.apartment_id)); const conflicts = conflicts0.filter(c => mineSet.has(c.apartment_id)); const failed = failed0.filter(f => mineSet.has(f.apartment_id));
   let channex = null, channels = [];
   if (process.env.CHANNEX_API_KEY) {
     try { const j = await C.cx('GET', '/properties?pagination[limit]=50'); channex = { ok: true, base: C.BASE, properties: (j.data || []).map(p => ({ id: p.id, title: p.attributes && p.attributes.title, channels: p.attributes && p.attributes.acc_channels_count })) }; } catch (e) { channex = { ok: false, base: C.BASE, error: String(e.message).slice(0, 200) }; }
@@ -74,7 +81,7 @@ async function status(user) {
   const accByCh = {}; accounts.forEach(a => accByCh[a.channel_id] = a.org_id);
   channels.forEach(c => c.org_id = accByCh[c.id] || 1);
   const markups = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => markups[m.channel] = Number(m.pct));
-  return { channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, access: access.filter(x => mine.has(x.apartment_id)), accounts, orgs, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent, icals, webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+  return { platform_admin: !!user.platform_admin, org_id: user.org_id, channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, access: access.filter(x => mine.has(x.apartment_id)), accounts, orgs, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent: user.org_id === 1 ? recent : [], icals: icals.filter(i => mineSet.has(i.apartment_id)), webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
 }
 
 // Комната + тариф Standard одной квартиры в property ЖК → channel_units. Возвращает строку лога.
@@ -312,6 +319,60 @@ async function goProduction(body, user) {
   return { log, results, webhook };
 }
 
+// 16.10.2026 (вечер): Airbnb по API Channex без входа в Channex — https://docs.channex.io/channel-api-examples/airbnb
+// 1) airbnb_link {complexes:[...]} → ссылка авторизации (2 часа), владелец аккаунта Airbnb открывает её, Channex создаёт неактивный канал
+//    и возвращает в /pms?airbnb=1&channel_id=…; 2) airbnb_listings {channel_id} → объявления аккаунта; 3) airbnb_map {channel_id, listing_id,
+//    apartment_id} по одному (Channex отвечает ~30 с) на производный тариф «Airbnb»; 4) airbnb_activate → активация + загрузка броней.
+const SITE_URL = process.env.URL || 'https://urbanluxe.cc';
+async function assertChannelOrg(channelId, user) {
+  if (!channelId) throw new Error('channel_id');
+  if (user.org_id === 1) return;
+  const acc = (await C.q('channel_accounts?select=org_id&channel_id=eq.' + enc(channelId)))[0];
+  if (!acc || acc.org_id !== user.org_id) throw new Error('Канал не принадлежит вашей организации');
+}
+async function airbnbLink(body, user) {
+  const names = Array.isArray(body.complexes) ? body.complexes.filter(Boolean) : [];
+  if (!names.length) throw new Error('Выберите хотя бы один ЖК');
+  const st = await status(user);
+  const props = st.properties.filter(p => names.includes(p.complex) && p.external_id);
+  const missing = names.filter(n => !props.some(p => p.complex === n));
+  if (missing.length) throw new Error('ЖК ещё не подключены к Channex: ' + missing.join(', ') + ' — сначала «+ подключить ЖК»');
+  const group_id = await orgGroupId(user); if (!group_id) throw new Error('нет group в Channex');
+  const token = user.org_id + ':' + Date.now().toString(36);
+  const r = await C.cx('POST', '/meta/airbnb/connection_link', { connection_link: {
+    group_id, properties: props.map(p => p.external_id),
+    redirect_uri: SITE_URL + '/pms?airbnb=1&org=' + user.org_id, failure_redirect_uri: SITE_URL + '/pms?airbnb=0&org=' + user.org_id, token,
+    title: 'Airbnb ' + (user.org.short || user.org.name), settings: { min_stay_type: 'Arrival', send_email_notifications: false } } });
+  await C.q('app_settings?on_conflict=key', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ key: 'airbnb_link_' + user.org_id, value: JSON.stringify({ token, complexes: names, at: new Date().toISOString() }), note: 'ожидание OAuth Airbnb', updated_at: new Date().toISOString() }) });
+  return { url: (r.data && r.data.attributes && r.data.attributes.url) || (r.data && r.data.url), complexes: names, properties: props.length };
+}
+async function airbnbListings(body, user) {
+  const id = String(body.channel_id || ''); if (!id) throw new Error('channel_id');
+  // первый заход после OAuth: канал ещё ничей — закрепляем за организацией (кроме платформы)
+  const acc = (await C.q('channel_accounts?select=org_id&channel_id=eq.' + enc(id)))[0];
+  if (!acc) { if (user.org_id !== 1) await C.q('channel_accounts?on_conflict=channel_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ channel_id: id, org_id: user.org_id, channel: 'airbnb' }) }); }
+  else if (acc.org_id !== user.org_id && user.org_id !== 1) throw new Error('Канал не принадлежит вашей организации');
+  const ch = (await C.cx('GET', '/channels/' + id)).data; const a = ch.attributes || {};
+  const mapped = {}; (a.rate_plans || []).forEach(m => { const lid = m.settings && m.settings.listing_id; if (lid) mapped[String(lid)] = m.rate_plan_id; });
+  const r = await C.cx('GET', '/channels/' + id + '/action/listings');
+  const vals = (((r.data || {}).listing_id_dictionary || {}).values) || ((r.data || {}).attributes && r.data.attributes.listing_id_dictionary && r.data.attributes.listing_id_dictionary.values) || [];
+  // какой квартире соответствует уже существующий маппинг — по производному тарифу airbnb
+  const units = await C.q('channel_units?select=apartment_id,derived');
+  const aptByPlan = {}; units.forEach(u => { const d = (u.derived || {}).airbnb; if (d && d.rate_plan_id) aptByPlan[d.rate_plan_id] = u.apartment_id; });
+  return { channel: { id, title: a.title, is_active: !!a.is_active, properties: a.properties || [] }, listings: vals.map(v => ({ id: String(v.id), title: v.title, city: v.city, occupancies: v.occupancies, quality_status: v.quality_status, mapped_apartment: mapped[String(v.id)] ? (aptByPlan[mapped[String(v.id)]] || '?') : null })) };
+}
+async function airbnbMap(body, user) {
+  const id = String(body.channel_id || ''); await assertChannelOrg(id, user);
+  const listing_id = String(body.listing_id || ''); const apt = String(body.apartment_id || ''); if (!listing_id || !apt) throw new Error('listing_id, apartment_id');
+  const u = (await C.q('channel_units?select=*&apartment_id=eq.' + enc(apt)))[0]; if (!u || !u.external_rate_plan_id) throw new Error('Квартира не создана в Channex — сначала «+ подключить ЖК»');
+  const prop = (await C.q('channel_properties?select=*&id=eq.' + u.channel_property_id))[0];
+  let d = (u.derived || {}).airbnb;
+  if (!d || !d.rate_plan_id) { const mk = (await C.q('channel_markups?select=pct&org_id=eq.' + user.org_id + '&channel=eq.airbnb'))[0]; await C.ensureDerived(u, prop, 'airbnb', mk ? Number(mk.pct) : 0); d = (u.derived || {}).airbnb; }
+  if (!d || !d.rate_plan_id) throw new Error('нет производного тарифа Airbnb');
+  const r = await C.cx('POST', '/channels/' + id + '/mappings', { mapping: { rate_plan_id: d.rate_plan_id, settings: { listing_id } } });
+  return { ok: true, mapping_id: r.data && r.data.id, apartment_id: apt, listing_id };
+}
+
 // 15.10.2026: Booking.com на проде. Одна карточка Booking (hotel_id) = один канал Channex = одно property (ЖК).
 // booking_probe  {hotel_id}                       → test_connection + mapping_details + connection_details (посмотреть номера/тарифы карточки)
 // booking_connect {hotel_id, title?, pairs:{<booking_room_id>:<apartment_id>}, activate?:true}
@@ -423,6 +484,10 @@ exports.handler = async (event) => {
       }
       case 'go_production': return out(200, await goProduction(body, user));
       case 'adapters': return out(200, await adapters());
+      case 'airbnb_link': return out(200, await airbnbLink(body, user));
+      case 'airbnb_listings': return out(200, await airbnbListings(body, user));
+      case 'airbnb_map': return out(200, await airbnbMap(body, user));
+      case 'airbnb_activate': { const id = String(body.channel_id || ''); await assertChannelOrg(id, user); let act = null, loaded = null; try { await C.cx('POST', '/channels/' + id + '/activate'); act = true; } catch (e) { act = String(e.message).slice(0, 200); } try { loaded = (await C.cx('POST', '/channels/' + id + '/execute/load_future_reservations')).data || true; } catch (e) { loaded = String(e.message).slice(0, 200); } try { await mappingScan({ channel: 'airbnb' }); } catch (_) { } return out(200, { activated: act, loaded }); }
       case 'channel_probe': return out(200, await bookingProbe(body));
       case 'channel_connect': return out(200, await bookingConnect(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
