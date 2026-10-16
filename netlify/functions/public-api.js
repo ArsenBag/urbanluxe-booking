@@ -27,10 +27,10 @@ async function auth(event) {
   const hash = key.startsWith('pk_') ? key : sha(key);
   const k = (await q('api_keys?select=*&key_hash=eq.' + enc(hash)))[0];
   if (!k || !k.is_active) throw ApiError(401, 'unauthorized', 'Ключ не найден или отключён');
-  // лимит: счётчик в памяти (быстро) + api_log за 60 с (общий для всех инстансов функции)
+  // лимит: атомарный счётчик api_rate (key, минута) — общий для всех инстансов функции; память — запасной вариант
   const m = Math.floor(Date.now() / 60000); const r = RATE.get(k.id) || { m, n: 0 }; if (r.m !== m) { r.m = m; r.n = 0; } r.n++; RATE.set(k.id, r);
   if (r.n > LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту');
-  if (r.n > 20) { try { const cr = await T.sb('api_log?select=id&key_id=eq.' + k.id + '&created_at=gte.' + enc(new Date(Date.now() - 60000).toISOString()) + '&limit=1', { method: 'HEAD', headers: { Prefer: 'count=exact' } }); const n = Number((cr.headers.get('content-range') || '').split('/')[1] || 0); if (n >= LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту'); } catch (e) { if (e.code === 'rate_limited') throw e; } }
+  try { const n = await rpc('api_rate_hit', { p_key: k.id }); if (Number(n) > LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту'); } catch (e) { if (e.code === 'rate_limited') throw e; }
   const org = (await q('organizations?select=id,name,short,slug,logo_url,telegram,tg_chat_id,is_active&id=eq.' + k.org_id))[0];
   if (!org || org.is_active === false) throw ApiError(403, 'org_inactive', 'Организация отключена');
   const acc = await q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: org.id }) });
