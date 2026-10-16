@@ -48,8 +48,9 @@ const photos = a => { const p = a.photo_url || ''; if (!p) return []; try { cons
 // ---- ресурсы
 async function apartments(ctx) {
   need(ctx, 'read');
-  const rows = await q('apartments?select=id,name,complex,floor,rooms,max_guests,weekday_price,weekend_price,min_nights,catalog_no,description,description_en,description_uz,amenities,photo_url,style,external_ref&is_active=eq.true' + aptIn(ctx) + '&order=complex,catalog_no.nullslast,name');
-  return rows.map(a => ({ id: a.id, external_ref: a.external_ref || null, name: a.name, complex: a.complex, floor: a.floor, rooms: a.rooms, max_guests: a.max_guests, catalog_no: a.catalog_no, style: a.style, weekday_price: a.weekday_price, weekend_price: a.weekend_price, min_nights: a.min_nights, currency: 'USD', photos: photos(a), description: { ru: a.description || null, en: a.description_en || null, uz: a.description_uz || null }, amenities: a.amenities || null }));
+  const rows = await q('apartments?select=id,name,complex,floor,rooms,max_guests,weekday_price,weekend_price,min_nights,catalog_no,description,description_en,description_uz,amenities,photo_url,style,external_ref,ical_export_url&is_active=eq.true' + aptIn(ctx) + '&order=complex,catalog_no.nullslast,name');
+  const rcIdOf = a => { try { const v = require('./_hk.js').realtyId(a); return v ? Number(v) : null; } catch (_) { return null; } };
+  return rows.map(a => ({ id: a.id, external_ref: a.external_ref || null, rc_id: rcIdOf(a), name: a.name, complex: a.complex, floor: a.floor, rooms: a.rooms, max_guests: a.max_guests, catalog_no: a.catalog_no, style: a.style, weekday_price: a.weekday_price, weekend_price: a.weekend_price, min_nights: a.min_nights, currency: 'USD', photos: photos(a), description: { ru: a.description || null, en: a.description_en || null, uz: a.description_uz || null }, amenities: a.amenities || null }));
 }
 async function availability(ctx, p) {
   need(ctx, 'read');
