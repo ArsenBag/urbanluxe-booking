@@ -58,7 +58,7 @@ async function boot() {
   const ROLE_LBL = { admin: 'админ', booker: 'бронер', ops: 'опер-менеджер', partner: 'собственник' };
   $('#me').textContent = (ME.org ? ME.org.name + ' · ' : '') + ME.name + ' · ' + (ROLE_LBL[ME.role] || ME.role);
   if (!ME.can.rates) $$('#top nav button[data-v=rules]').forEach(b => b.remove());
-  if (ME.role !== 'admin') $$('#top nav button[data-v=channels],#top nav button[data-v=users]').forEach(b => b.remove());
+  if (ME.role !== 'admin') $$('#top nav button[data-v=channels],#top nav button[data-v=users],#top nav button[data-v=integrations]').forEach(b => b.remove());
   if (!ME.can.objects) $$('#top nav button[data-v=objects]').forEach(b => b.remove());
   if (!ME.platform_admin) $$('#top nav button[data-v=orgs]').forEach(b => b.remove());
   if (!ME.has_partners) $$('#top nav button[data-v=partners]').forEach(b => b.remove());
