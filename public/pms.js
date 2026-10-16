@@ -62,7 +62,7 @@ async function boot() {
   if (!ME.can.objects) $$('#top nav button[data-v=objects]').forEach(b => b.remove());
   if (!ME.platform_admin) $$('#top nav button[data-v=orgs]').forEach(b => b.remove());
   if (!ME.has_partners) $$('#top nav button[data-v=partners]').forEach(b => b.remove());
-  if (!(ME.role === 'partner' || ME.can.pay_full)) $$('#top nav button[data-v=report]').forEach(b => b.remove());
+  if (!(ME.role === 'partner' || ME.can.report)) $$('#top nav button[data-v=report]').forEach(b => b.remove());
   // переключатель организации (только платформа-админ)
   const sw = $('#orgsw'); if (ME.platform_admin && (ME.orgs || []).length > 1) { sw.classList.remove('hide'); sw.innerHTML = ME.orgs.map(o => `<option value="${o.id}" ${o.id === ME.org.id ? 'selected' : ''}>${esc(o.name)}${o.is_active === false ? ' (выкл)' : ''}</option>`).join(''); sw.onchange = () => { localStorage.pms_org = sw.value === String(ME.home_org_id) ? '' : sw.value; location.reload(); }; }
   if (ME.platform_admin && ME.org.id !== ME.home_org_id) { $('#me').textContent = '👁 ' + $('#me').textContent; $('#me').title = 'Вы смотрите кабинет другой организации'; }
