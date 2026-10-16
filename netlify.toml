@@ -22,11 +22,11 @@
 [functions."ical-pull"]
   schedule = "*/2 * * * *"
 
-# Booking.com на проде Channex (15.10.2026): пока Booking не пушит новые брони новому провайдеру — опрашиваем
-# load_future_reservations по всем Booking-каналам каждые 3 минуты (booking-pull.js). Channex сам опрашивает Booking ~раз в 40 мин
-# (Ack Bookings в логах), push от Booking к Channex не включён — запрошено у Channex. Убрать/реже, когда push заработает.
+# Booking.com на проде Channex (15.10.2026): опрос load_future_reservations был каждые 3 мин, пока бронь 6065920185 шла 40 мин.
+# 16.10 Evan (Channex): задержка была из-за сбоя на стороне Booking.com, push работает в реальном времени, опрос можно убрать.
+# Оставлен как страховка раз в 30 минут (+ внутри — почасовой скан маппингов для матрицы «Каналы»). Статус Channex: status.channex.io
 [functions."booking-pull"]
-  schedule = "*/3 * * * *"
+  schedule = "*/30 * * * *"
 
 # Брони из RC ПАРТНЁРА (HighLife, 11 общих квартир) → bookings каждые 2 минуты (16.10.2026): их Airbnb/ручные брони закрывают
 # даты у нас и на наших площадках; пересечения → TG. Токен: RC_PARTNER_TOKEN или app_settings.rc_partner_token. Убрать, когда HighLife перейдут в наш PMS.
