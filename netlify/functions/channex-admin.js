@@ -259,7 +259,7 @@ async function setupComplex(body, user) {
   let prop = (await C.q('channel_properties?select=*&complex=eq.' + enc(complex) + '&org_id=eq.' + user.org_id))[0];
   const log = [];
   if (!prop || !prop.external_id) {
-    const title = body.title || ('Urban Luxe ' + complex);
+    const title = body.title || ((user.org_id === 1 ? 'Urban Luxe' : (user.org.name || 'PMS')) + ' ' + complex);
     const gid = await orgGroupId(user);
     const j = await C.cx('POST', '/properties', { property: { group_id: gid || undefined, title, currency: 'USD', email: process.env.CHANNEX_CONTACT_EMAIL || 'booking@urbanluxe.cc', phone: '+998936900044', country: 'UZ', city: 'Tashkent', address: COMPLEX_ADDR[complex] || 'Tashkent', zip_code: '100000', timezone: 'Asia/Tashkent', property_type: 'apartment', website: 'https://urbanluxe.cc', settings: { min_stay_type: 'arrival', state_length: 500, allow_availability_autoupdate_on_modification: false, allow_availability_autoupdate_on_cancellation: false } } });
     const ext = j.data.id;
