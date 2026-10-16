@@ -319,9 +319,30 @@ async function goProduction(body, user) {
 //   на один наш тариф (одинаковая цена), primary — первый тариф и максимальная occupancy; OBP — по одному маппингу на каждую occupancy.
 // 15.10: обобщено — adapter: 'BookingCom' (тариф booking) | 'Ostrovok' (ETG, тариф ostrovok). Ostrovok: 1 объект ETG = 1 квартира, OBP — одна наша цена на все occupancy.
 const ADAPTERS = { BookingCom: { derived: 'booking', readonly: true }, Ostrovok: { derived: 'ostrovok', readonly: false } };
+// 16.10.2026: «+ Площадка» — любой адаптер Channex. Ключ площадки у нас: известный (booking/ostrovok/airbnb/agoda/expedia) или код адаптера в нижнем регистре.
+function adapterInfo(code, title) {
+  if (ADAPTERS[code]) return Object.assign({ code }, ADAPTERS[code]);
+  const known = Object.keys(C.CHANNEL_CODES).find(k => C.CHANNEL_CODES[k] === code);
+  const key = known || String(code).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return { code, derived: key, readonly: false, title: title || C.OTA_PLANS[key] || code, isNew: !known };
+}
+// список адаптеров Channex (кэш сутки в app_settings.channex_adapters)
+async function adapters() {
+  let cached = null; try { const r = await C.q('app_settings?select=value,updated_at&key=eq.channex_adapters'); if (r && r[0] && Date.now() - new Date(r[0].updated_at).getTime() < 86400000) cached = JSON.parse(r[0].value); } catch (_) { }
+  let list = cached;
+  if (!list) {
+    const j = await C.cx('GET', '/channels/adapters');
+    const raw = j.data || j.adapters || j || [];
+    list = (Array.isArray(raw) ? raw : Object.keys(raw).map(k => Object.assign({ code: k }, typeof raw[k] === 'object' ? raw[k] : { title: raw[k] }))).map(x => { const a = x.attributes || x; return { code: a.code || a.id || x.id || a.channel, title: a.title || a.name || a.code || x.id }; }).filter(x => x.code);
+    list.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+    await C.q('app_settings?on_conflict=key', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ key: 'channex_adapters', value: JSON.stringify(list), note: 'адаптеры Channex (кэш)', updated_at: new Date().toISOString() }) });
+  }
+  const connected = {}; Object.keys(C.CHANNEL_CODES).forEach(k => connected[C.CHANNEL_CODES[k]] = k);
+  return { adapters: list.map(x => Object.assign({}, x, { key: connected[x.code] || adapterInfo(x.code).derived })), catalog: C.OTA_PLANS };
+}
 async function bookingProbe(body) {
-  const code = body.adapter || 'BookingCom'; if (!ADAPTERS[code]) throw new Error('adapter');
-  const settings = { hotel_id: String(body.hotel_id) };
+  const code = body.adapter || 'BookingCom';
+  const settings = Object.assign({}, body.settings || {}, body.hotel_id ? { hotel_id: String(body.hotel_id) } : {}); if (!Object.keys(settings).length) throw new Error('нужны настройки площадки (ID объекта)');
   const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings });
   let m = null; try { m = await C.cx('POST', '/channels/mapping_details', { channel: code, settings }); } catch (e) { m = { data: { error: String(e.message).slice(0, 200) } }; }
   let cd = null; try { cd = await C.cx('POST', '/channels/connection_details', { channel: code, settings }); } catch (e) { cd = { data: { error: String(e.message).slice(0, 120) } }; }
@@ -329,10 +350,10 @@ async function bookingProbe(body) {
 }
 
 async function bookingConnect(body, user) {
-  const code = body.adapter || 'BookingCom'; const AD = ADAPTERS[code]; if (!AD) throw new Error('adapter');
-  const hotel_id = String(body.hotel_id || ''); if (!hotel_id) throw new Error('hotel_id');
+  const code = body.adapter || 'BookingCom'; const AD = adapterInfo(code, body.adapter_title);
+  const settings = Object.assign({}, body.settings || {}, body.hotel_id ? { hotel_id: String(body.hotel_id) } : {}); const hotel_id = String(settings.hotel_id || Object.values(settings)[0] || ''); if (!hotel_id) throw new Error('hotel_id');
   const pairs = body.pairs || {}; if (!Object.keys(pairs).length) throw new Error('pairs');
-  const settings = { hotel_id };
+  if (AD.isNew) await C.addCatalog(AD.derived, code, AD.title);
   if (!body.skip_test) { const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings }); if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data)); }
   const md = body.mapping || (await C.cx('POST', '/channels/mapping_details', { channel: code, settings })).data || {}; const pricing = md.pricing_type || 'Standard';
   const units = await C.q('channel_units?select=*&is_active=eq.true');
@@ -341,7 +362,10 @@ async function bookingConnect(body, user) {
   for (const room of (md.rooms || [])) {
     const apt = pairs[String(room.id)]; if (!apt) { log.push('skip room ' + room.id + ' ' + room.title + ' (нет пары)'); continue; }
     const u = byApt[apt]; if (!u) { log.push('no unit ' + apt); continue; }
-    const d = (u.derived || {})[AD.derived]; if (!d || !d.rate_plan_id) { log.push('no derived ' + AD.derived + ' plan for ' + apt); continue; }
+    let d = (u.derived || {})[AD.derived];
+    if (!d || !d.rate_plan_id) { // производного тарифа площадки ещё нет (новая площадка) — создаём с наценкой организации (0 по умолчанию)
+      try { const pr = (await C.q('channel_properties?select=*&id=eq.' + u.channel_property_id))[0]; const mk = (await C.q('channel_markups?select=pct&org_id=eq.' + user.org_id + '&channel=eq.' + enc(AD.derived)))[0]; await C.ensureDerived(u, pr, AD.derived, mk ? Number(mk.pct) : 0); d = (u.derived || {})[AD.derived]; } catch (e) { log.push('derived ' + AD.derived + ' ' + apt + ': ' + String(e.message).slice(0, 120)); }
+      if (!d || !d.rate_plan_id) { log.push('no derived ' + AD.derived + ' plan for ' + apt); continue; } }
     propIds.add(u.channel_property_id);
     const rates = (room.rates || []).filter(r => !r.readonly);
     if (!rates.length) { log.push('room ' + room.id + ' без тарифов'); continue; }
@@ -374,6 +398,7 @@ exports.handler = async (event) => {
     const user = await auth(event); if (!user) return out(401, { error: 'unauthorized' });
     if (user.role !== 'admin') return out(403, { error: 'только admin' });
     C.setKey(user.channex_key);   // свой ключ Channex у организации — на время этого запроса
+    await C.loadCatalog();        // площадки, добавленные через «+ Площадка»
     const p = event.queryStringParameters || {};
     if (event.httpMethod === 'GET') { if (p.a === 'status') return out(200, await status(user)); return out(400, { error: 'unknown action' }); }
     const body = JSON.parse(event.body || '{}');
@@ -397,6 +422,9 @@ exports.handler = async (event) => {
         return out(200, { ok: true, channel_id: id, org_id: org, rescan: r });
       }
       case 'go_production': return out(200, await goProduction(body, user));
+      case 'adapters': return out(200, await adapters());
+      case 'channel_probe': return out(200, await bookingProbe(body));
+      case 'channel_connect': return out(200, await bookingConnect(body, user));
       case 'booking_probe': return out(200, await bookingProbe(body));
       case 'booking_connect': return out(200, await bookingConnect(body, user));
       case 'channel_activate': { const id = String(body.channel_id || ''); if (!id) return out(400, { error: 'channel_id' }); const r = await C.cx('POST', '/channels/' + id + '/activate'); return out(200, { ok: true, r: r && r.meta }); }

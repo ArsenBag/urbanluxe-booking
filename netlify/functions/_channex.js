@@ -210,9 +210,19 @@ async function ingestFeed() {
 
 // Производный тариф площадки: «Airbnb» = Standard + pct %. Создаётся один раз на квартиру, процент меняется PUT'ом.
 const OTA_PLANS = { airbnb: 'Airbnb', booking: 'Booking.com', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
+// 16.10.2026: каталог площадок расширяется из app_settings.channel_catalog = { "<key>": { "code": "<адаптер Channex>", "title": "…" } }
+// («+ Площадка» в /pms). Объекты OTA_PLANS/CHANNEL_CODES дополняются на месте — все функции модуля видят новые каналы.
+async function loadCatalog() {
+  try { const r = await q('app_settings?select=value&key=eq.channel_catalog'); const v = r && r[0] && r[0].value; const cat = typeof v === 'string' ? JSON.parse(v) : (v || {});
+    for (const k of Object.keys(cat)) { if (cat[k] && cat[k].code) { OTA_PLANS[k] = cat[k].title || k; CHANNEL_CODES[k] = cat[k].code; } } return cat; } catch (_) { return {}; }
+}
+async function addCatalog(key, code, title) {
+  const cat = await loadCatalog(); cat[key] = { code, title }; OTA_PLANS[key] = title; CHANNEL_CODES[key] = code;
+  await q('app_settings?on_conflict=key', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ key: 'channel_catalog', value: JSON.stringify(cat), note: 'площадки, подключённые через «+ Площадка»', updated_at: new Date().toISOString() }) });
+}
 const derivedRate = pct => ({ rate: Number(pct) > 0 ? [['increase_by_percent', Number(pct).toFixed(2)]] : [] });
 async function ensureDerived(unit, prop, channel, pct) {
-  const title = OTA_PLANS[channel]; if (!title) throw new Error('unknown channel ' + channel);
+  const title = OTA_PLANS[channel] || channel;
   const d = Object.assign({}, unit.derived || {});
   if (d[channel] && d[channel].rate_plan_id) {
     await cx('PUT', '/rate_plans/' + d[channel].rate_plan_id, { rate_plan: { options: [{ id: d[channel].option_id, occupancy: d[channel].occupancy, is_primary: true, derived_option: derivedRate(pct) }] } });
@@ -251,4 +261,4 @@ async function applyMarkup(orgId, channel, pct) {
 }
 // код канала в Channex (attributes.channel) по нашему ключу площадки
 const CHANNEL_CODES = { airbnb: 'AirBNB', booking: 'BookingCom', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
-module.exports = { cx, setKey, q, qAll, rpc, BASE, addDays, today, alertAdmin, alertOrg, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS, CHANNEL_CODES, derivedRate };
+module.exports = { cx, setKey, q, qAll, rpc, BASE, addDays, today, alertAdmin, alertOrg, pushUnit, processOutbox, loadCache, ingestRevision, ingestFeed, ensureDerived, applyMarkup, reconcileDerived, OTA_PLANS, CHANNEL_CODES, derivedRate, loadCatalog, addCatalog };
