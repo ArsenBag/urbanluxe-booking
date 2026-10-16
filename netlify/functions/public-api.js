@@ -27,8 +27,10 @@ async function auth(event) {
   const hash = key.startsWith('pk_') ? key : sha(key);
   const k = (await q('api_keys?select=*&key_hash=eq.' + enc(hash)))[0];
   if (!k || !k.is_active) throw ApiError(401, 'unauthorized', 'Ключ не найден или отключён');
+  // лимит: счётчик в памяти (быстро) + api_log за 60 с (общий для всех инстансов функции)
   const m = Math.floor(Date.now() / 60000); const r = RATE.get(k.id) || { m, n: 0 }; if (r.m !== m) { r.m = m; r.n = 0; } r.n++; RATE.set(k.id, r);
   if (r.n > LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту');
+  if (r.n > 20) { try { const cr = await T.sb('api_log?select=id&key_id=eq.' + k.id + '&created_at=gte.' + enc(new Date(Date.now() - 60000).toISOString()) + '&limit=1', { method: 'HEAD', headers: { Prefer: 'count=exact' } }); const n = Number((cr.headers.get('content-range') || '').split('/')[1] || 0); if (n >= LIMIT) throw ApiError(429, 'rate_limited', 'Больше ' + LIMIT + ' запросов в минуту'); } catch (e) { if (e.code === 'rate_limited') throw e; } }
   const org = (await q('organizations?select=id,name,short,slug,logo_url,telegram,tg_chat_id,is_active&id=eq.' + k.org_id))[0];
   if (!org || org.is_active === false) throw ApiError(403, 'org_inactive', 'Организация отключена');
   const acc = await q('rpc/pms_org_apartments', { method: 'POST', body: JSON.stringify({ p_org: org.id }) });
@@ -55,7 +57,8 @@ async function availability(ctx, p) {
   const from = isDate(p.from) ? p.from : today; let to = isDate(p.to) ? p.to : addDays(from, 30);
   if (to <= from) throw ApiError(400, 'bad_dates', 'to должен быть позже from');
   if ((new Date(to) - new Date(from)) / 864e5 > 400) to = addDays(from, 400);
-  const ids = p.apartment_id ? [p.apartment_id].filter(id => ctx.apts.has(id)) : [...ctx.apts];
+  if (p.apartment_id && !ctx.apts.has(p.apartment_id)) throw ApiError(404, 'not_found', 'Квартира не найдена');
+  const ids = p.apartment_id ? [p.apartment_id] : [...ctx.apts];
   if (!ids.length) return { from, to, free: [], days: {} };
   const rows = await qAll('rate_calendar?select=apartment_id,date,price,min_nights,closed,closed_to_arrival,available&date=gte.' + from + '&date=lt.' + to + '&apartment_id=in.(' + ids.map(enc).join(',') + ')&order=apartment_id,date');
   const days = {}; const nights = Math.round((new Date(to) - new Date(from)) / 864e5);
@@ -90,7 +93,7 @@ async function bookingCreate(ctx, body, ip) {
     created_by: 'api:' + ctx.key.name, updated_by: 'api:' + ctx.key.name, meta: { api_key_id: ctx.key.id, external_ref: body.external_ref ? String(body.external_ref).slice(0, 100) : null, ip } };
   let b;
   try { b = (await q('bookings', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) }))[0]; }
-  catch (e) { if (/exclusion|overlap|пересек/i.test(e.message)) throw ApiError(409, 'dates_taken', 'Даты заняты'); throw e; }
+  catch (e) { if (/23P01|conflicts with existing|exclusion|overlap|пересек/i.test(e.message)) throw ApiError(409, 'dates_taken', 'Даты заняты'); throw e; }
   // уведомление в TG организации (или наш чат)
   try { const a = (await q('apartments?select=name&id=eq.' + enc(apt)))[0]; const chat = ctx.org.tg_chat_id || null;
     const text = (status === 'request' ? '🆕 <b>Заявка через API</b>' : '✅ <b>Бронь через API</b>') + ' (' + T.esc(ctx.key.name) + ')' + ' · <b>' + T.esc(a ? a.name : apt) + '</b>\n📅 ' + ci + ' → ' + co + ' · ' + nights + ' ноч.\n👤 ' + T.esc(name) + (phone ? ' · ' + T.esc(phone) : '') + (total ? '\n💰 $' + total : '') + '\n#️⃣ ' + b.booking_ref + (row.meta.external_ref ? ' · ' + T.esc(row.meta.external_ref) : '') + '\n<a href="https://urbanluxe.cc/pms#booking=' + b.id + '">Открыть в PMS</a>';
