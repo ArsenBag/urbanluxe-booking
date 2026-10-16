@@ -683,6 +683,13 @@ exports.handler = async (event) => {
         if (b0.token) await q('app_settings?on_conflict=key', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ key: 'rc_partner_token', value: String(b0.token), note: 'X-User-Token RC HighLife (agency 75311)', updated_at: new Date().toISOString() }) });
         return out(200, await require('./partner-rc-sync.js').sync());
       } }
+    // 16.10: одноразовая выдача секретов для установки CRM на нашем сервере (app_settings.crm_setup_once: {once, PMS_API_KEY, PMS_WEBHOOK_SECRET}); запись удаляется при первом чтении
+    if (event.httpMethod === 'GET' && p.a === 'crm_setup') {
+      const row = (await q('app_settings?select=value&key=eq.crm_setup_once'))[0]; let v = null; try { v = row && JSON.parse(row.value); } catch (_) { }
+      if (!v || !p.once || v.once !== String(p.once)) return out(403, { error: 'bad once' });
+      await q('app_settings?key=eq.crm_setup_once', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      return out(200, { PMS_API_KEY: v.PMS_API_KEY, PMS_WEBHOOK_SECRET: v.PMS_WEBHOOK_SECRET });
+    }
     const user = await auth(event); if (!user) return out(401, { error: 'unauthorized' });
     if (event.httpMethod === 'GET') {
       switch (p.a) {
