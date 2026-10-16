@@ -132,6 +132,21 @@
   to = "/free.html"
   status = 200
 
+# Публичный API v1 для сайтов партнёров (16.10.2026): /api/v1/* → public-api.js; документация /api/docs → public/api/index.html
+[[redirects]]
+  from = "/api/v1/*"
+  to = "/.netlify/functions/public-api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/docs"
+  to = "/api/index.html"
+  status = 200
+
+# Вебхуки партнёрам — доставка очереди каждую минуту
+[functions."webhook-dispatch"]
+  schedule = "* * * * *"
+
 # Подборка для гостя (16.10.2026): /s/<code> — свободные квартиры с фото и ценами, заявка → book.js (selection-page.js)
 [[redirects]]
   from = "/s/*"
