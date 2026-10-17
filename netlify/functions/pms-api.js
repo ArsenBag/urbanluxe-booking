@@ -305,6 +305,30 @@ async function rateSet(body, user) {
   await q('rate_overrides?on_conflict=apartment_id,date', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify(rows) });
   return { ok: true, rows: rows.length };
 }
+// 17.10.2026: построчная правка по дням (таблица «как в RealtyCalendar»): days = [{date, price?, min_nights?, closed?, closed_to_arrival?}]
+// Поля, которых нет в строке, не трогаются (merge). Пустая строка (только date) пропускается.
+async function rateSetDays(body, user) {
+  const ids = Array.isArray(body.apartment_ids) ? body.apartment_ids.filter(Boolean) : [];
+  const days = Array.isArray(body.days) ? body.days.filter(d => d && isDate(d.date)) : [];
+  if (!ids.length || !days.length) throw new Error('apartment_ids, days');
+  ids.forEach(id => needFull(user, id));
+  if (ids.length * days.length > 5000) throw new Error('Слишком большой диапазон (до 5 000 дней за раз)');
+  const rows = [];
+  for (const id of ids) for (const d of days) {
+    const r = { apartment_id: id, date: d.date, set_by: user.name || user.email, set_at: new Date().toISOString(), note: body.note || null }; let any = false;
+    if (d.price !== undefined && d.price !== null && d.price !== '') { r.price = Math.round(Number(d.price) * 100) / 100; any = true; }
+    if (d.min_nights !== undefined && d.min_nights !== null && d.min_nights !== '') { r.min_nights = Math.max(1, parseInt(d.min_nights)); any = true; }
+    if (d.closed !== undefined && d.closed !== null) { r.closed = !!d.closed; any = true; }
+    if (d.closed_to_arrival !== undefined && d.closed_to_arrival !== null) { r.closed_to_arrival = !!d.closed_to_arrival; any = true; }
+    if (any) rows.push(r);
+  }
+  if (!rows.length) return { ok: true, rows: 0 };
+  // merge-duplicates по частям: в одном батче у строк могут быть разные наборы колонок — PostgREST требует одинаковые, поэтому группируем по набору ключей
+  const groups = {}; rows.forEach(r => { const k = Object.keys(r).sort().join(','); (groups[k] = groups[k] || []).push(r); });
+  for (const k of Object.keys(groups)) await q('rate_overrides?on_conflict=apartment_id,date', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify(groups[k]) });
+  await logEvent(null, 'rates_edited', { apartment_ids: ids, days: rows.length }, user).catch(() => null);
+  return { ok: true, rows: rows.length };
+}
 async function rateClear(body, user) {
   const ids = Array.isArray(body.apartment_ids) ? body.apartment_ids.filter(Boolean) : [];
   if (!ids.length || !isDate(body.from) || !isDate(body.to)) throw new Error('apartment_ids, from, to');
@@ -803,6 +827,7 @@ exports.handler = async (event) => {
       case 'payment': need('pay_full'); return out(200, await payment(body, user));
       case 'payment_delete': need('pay_full'); return out(200, await paymentDelete(body, user));
       case 'rate_set': need('rates'); return out(200, await rateSet(body, user));
+      case 'rate_set_days': need('rates'); return out(200, await rateSetDays(body, user));
       case 'rate_clear': need('rates'); return out(200, await rateClear(body, user));
       case 'rule_save': need('rates'); return out(200, await ruleSave(body, user));
       case 'rule_delete': need('rates'); await q('rate_rules?id=eq.' + enc(body.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); return out(200, { ok: true });
