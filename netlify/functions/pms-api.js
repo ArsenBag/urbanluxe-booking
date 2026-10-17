@@ -226,8 +226,7 @@ async function update(body, user) {
   o.updated_by = actorOf(user); o.updated_at = new Date().toISOString();
   await q('bookings?id=eq.' + enc(body.id), { method: 'PATCH', body: JSON.stringify(o) });
   if (o.total_price !== undefined && o.total_price !== cur.total_price) await logEvent(body.id, 'price_change', { from: cur.total_price, to: o.total_price }, user);
-  if ((o.apartment_id && o.apartment_id !== cur.apartment_id) || (o.check_in && o.check_in !== cur.check_in) || (o.check_out && o.check_out !== cur.check_out))
-    await logEvent(body.id, 'moved', { from: [cur.apartment_id, cur.check_in, cur.check_out], to: [o.apartment_id || cur.apartment_id, ci, co] }, user);
+  // событие 'moved' пишет триггер bookings_log_event (объект from/to) — второе здесь было дублем
   return booking(user, body.id);
 }
 async function setStatus(body, user) {
