@@ -14,6 +14,9 @@ const money = (v, cur) => v == null ? '—' : (cur === 'RUB' ? '₽' : cur === '
 const ST = { request: ['Заявка', '#fde68a'], confirmed: ['Подтверждена', '#f8a5a0'], checked_in: ['Живёт', '#9ee0a8'], checked_out: ['Выехал', '#d6dae0'], cancelled: ['Отменена', '#f3c4c1'], blocked: ['Блок', '#b8bec7'] }; // как полосы в шахматке (стиль RC), текст тёмный
 const CH = { telegram: 'Telegram', website: 'Сайт', manual: 'Бронер', rc: 'RC', ostrovok: 'Ostrovok', yandex: 'Яндекс', booking: 'Booking', airbnb: 'Airbnb', sutochno: 'Sutochno', walk_in: 'Без брони', corporate: 'Корпоратив', ota: 'OTA', other: 'Другое' };
 const OTA = ['ostrovok', 'yandex', 'booking', 'airbnb', 'sutochno', 'ota', 'agoda', 'expedia'];
+// 17.10.2026: метка площадки в начале полосы — видно без клика, с какой площадки гость (кому отписаться). Свои каналы (сайт/TG/бронер) — без метки.
+const OTA_ICON = { booking: ['B', '#003580'], airbnb: ['A', '#ff5a5f'], ostrovok: ['O', '#ff7a00'], agoda: ['G', '#5c2d91'], expedia: ['E', '#f5a300'], yandex: ['Я', '#fc3f1d'], sutochno: ['S', '#f26322'], tripcom: ['T', '#287dfa'], hostelworld: ['H', '#f26522'], vrbo: ['V', '#245abc'], 'partner-site': ['P', '#6b7480'], ota: ['●', '#8a919b'] };
+const otaIcon = ch => { if (!ch || ['manual', 'telegram', 'website', 'rc', 'walk_in', 'corporate', 'other', ''].includes(ch)) return ''; const k = String(ch).toLowerCase().replace(/[^a-zа-я-]/g, ''); const [l, c] = OTA_ICON[k] || [k.slice(0, 1).toUpperCase(), '#8a919b']; return `<i class="oi" style="background:${c}" title="${esc(CH[ch] || ch)}">${l}</i>`; };
 const toast = (m, ms) => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', ms || 2600); };
 
 // ---------- auth / api ----------
@@ -92,7 +95,7 @@ const VIEWS = {};
 // =====================================================================
 // ШАХМАТКА
 // =====================================================================
-let FROM = addD(iso(Date.now() + 5 * 36e5), -14), TO = addD(FROM, 90), G = null, COMPLEX = '', FLOOR = '', FREEQ = null, SEARCH = '', SHOWPRICE = localStorage.pms_prices !== '0', COLL = JSON.parse(localStorage.pms_coll || '{}');
+let FROM = addD(iso(Date.now() + 5 * 36e5), -14), TO = addD(FROM, 90), G = null, COMPLEX = '', FLOOR = '', FREEQ = null, SEARCH = '', SHOWPRICE = localStorage.pms_prices !== '0', SHOWCANC = false, COLL = JSON.parse(localStorage.pms_coll || '{}');
 let SEL = null;        // выделение: {apts:[], from, to}
 let RATES = {};        // 'apt|date' → rate
 let CLEAN = {};        // 'apt|date' → task
@@ -109,6 +112,7 @@ VIEWS.cal = async () => {
     <select id="fl" class="desk"><option value="">этаж</option></select>
     <span class="desk" style="display:flex;gap:4px;align-items:center;font-size:12px"><span class="muted">свободно</span><input type="date" id="fq1" style="width:128px"><input type="date" id="fq2" style="width:128px"><button class="sm" id="fqx" title="сбросить">✕</button></span>
     <input id="q" placeholder="гость / телефон / № брони" style="width:170px">
+    <label class="desk" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);white-space:nowrap" title="Показать отменённые и удалённые брони (тонкой пунктирной полосой) — их можно найти поиском и открыть"><input type="checkbox" id="tcanc" ${SHOWCANC ? 'checked' : ''} style="margin:0">отменённые</label>
     <button class="sm desk" id="tp">${SHOWPRICE ? 'скрыть цены' : 'показать цены'}</button>
     ${ME.can.write ? '<button class="sm pri" id="nb">+ бронь</button>' : ''}
     <span class="muted desk" id="cnt"></span>
@@ -121,6 +125,7 @@ VIEWS.cal = async () => {
   $('#fqx').onclick = () => { $('#fq1').value = ''; $('#fq2').value = ''; FREEQ = null; render(); };
   $('#q').oninput = e => { SEARCH = e.target.value.trim().toLowerCase(); render(); };
   $('#tp').onclick = () => { SHOWPRICE = !SHOWPRICE; localStorage.pms_prices = SHOWPRICE ? '1' : '0'; $('#tp').textContent = SHOWPRICE ? 'скрыть цены' : 'показать цены'; render(); };
+  if ($('#tcanc')) $('#tcanc').onchange = e => { SHOWCANC = e.target.checked; load(); };
   if ($('#nb')) $('#nb').onclick = () => openBooking(null, { check_in: G.today, check_out: addD(G.today, 1) });
   // масштаб: три ступени, запоминается
   const ZOOMS = [[28, 34, 10], [32, 38, 11], [38, 44, 12]]; let zi = Math.min(2, Math.max(0, Number(localStorage.pms_zoom ?? 1)));
@@ -132,7 +137,7 @@ VIEWS.cal = async () => {
 function shift(k) { FROM = addD(FROM, k); TO = addD(FROM, 90); load(); }
 async function load(silent) {
   if (!silent) $('#chess').innerHTML = '<div style="padding:20px" class="muted">загрузка…</div>';
-  try { G = await api({ a: 'grid', from: FROM, to: TO }); } catch (e) { $('#chess').innerHTML = '<div style="padding:20px">Ошибка: ' + esc(e.message) + '</div>'; return; }
+  try { G = await api(Object.assign({ a: 'grid', from: FROM, to: TO }, SHOWCANC ? { cancelled: 1 } : {})); } catch (e) { $('#chess').innerHTML = '<div style="padding:20px">Ошибка: ' + esc(e.message) + '</div>'; return; }
   const cmin = {}; G.apartments.forEach(a => { if (a.catalog_no) cmin[a.complex] = Math.min(cmin[a.complex] || 999, a.catalog_no); });
   G.apartments.sort((a, b) => ((cmin[a.complex] || 999) - (cmin[b.complex] || 999)) || a.complex.localeCompare(b.complex) || ((a.catalog_no || 999) - (b.catalog_no || 999)) || (a.floor || 0) - (b.floor || 0));
   RATES = {}; G.rates.forEach(r => RATES[r.apartment_id + '|' + r.date] = r);
@@ -171,7 +176,13 @@ function render() {
       const cl = c && c.hk_status !== 'canceled' ? `<span class="cl ${c.done ? 'ok' : d < today ? 'no' : 'plan'}" title="${c.done ? 'убрано' : d < today ? 'не убрано' : 'уборка запланирована'}${c.hk_maid ? ' · ' + esc(c.hk_maid) : ''}"></span>` : '';
       return `<div class="${cls}" data-apt="${a.id}" data-d="${d}">${pr}${mn}${cl}</div>`;
     }).join('');
-    const bs = (byApt[a.id] || []).slice().sort((x, y) => x.check_in < y.check_in ? -1 : 1);
+    const all = (byApt[a.id] || []).slice().sort((x, y) => x.check_in < y.check_in ? -1 : 1);
+    // отменённые (по флажку «отменённые») — тонкая пунктирная полоска поверх, живые брони не перекрывают
+    all.filter(b => b.status === 'cancelled').forEach(b => {
+      const s0 = Math.max(0, nightsOf(FROM, b.check_in)), e0 = Math.min(nightsOf(FROM, b.check_out), days.length); if (e0 <= s0) return;
+      h += `<div class="bar cancelled" data-id="${b.id}" style="left:calc(${s0} * var(--cell));width:calc(${e0 - s0} * var(--cell) - 3px)" title="Отменена · ${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)}"><div class="t">${otaIcon((b.channel || '').toLowerCase())}${esc(b.guest_name)}</div></div>`;
+    });
+    const bs = all.filter(b => b.status !== 'cancelled');
     bs.forEach((b, i) => {
       const s0 = nightsOf(FROM, b.check_in), e0 = nightsOf(FROM, b.check_out); if (e0 < 0 || s0 > days.length) return;
       const cut = s0 < 0, s = cut ? 0 : s0, e = Math.min(e0, days.length);
@@ -182,11 +193,15 @@ function render() {
       const nx = bs[i + 1]; const gap = nx && nx.check_in === b.check_out && (hoursOf(nx.arrival_time, 14) - hoursOf(b.departure_time, 12)) < 2;
       const ch = (b.channel || '').toLowerCase(); const ota = OTA.includes(ch);
       const sum = b.status === 'blocked' || b.occupancy_only ? '' : money(b.total_price, b.currency);
-      // точка долга — только по нашим броням: у импорта из RC платежи не ведутся, иначе красное на всём
       const orgTag = b.foreign_org && !b.occupancy_only ? ' · ' + esc(b.org_short || '') : '';
-      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${b.debt > 0 && b.status !== 'blocked' && b.total_price > 0 && b.source !== 'rc' ? 'debt' : ''} ${gap ? 'gap' : ''} ${late ? 'late' : ''} ${early ? 'early' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${gap ? ' · стык < 2 ч на уборку' : ''}">
-        <div class="t">${cut ? '◂ ' : ''}${esc(b.guest_name)}</div><div class="s">${sum}${b.channel && b.channel !== 'manual' && b.channel !== 'telegram' && !b.occupancy_only ? ' · ' + (CH[ch] || b.channel) : ''}${b.guests_count > 1 && !b.occupancy_only ? ' · ' + b.guests_count + ' чел.' : ''}${orgTag}</div>
-        ${late ? '<span class="lt">' + esc(String(b.departure_time).slice(0, 5)) + '</span>' : ''}${early ? '<span class="et">' + esc(String(b.arrival_time).slice(0, 5)) + '</span>' : ''}<div class="pay ${b.pay_state || ''}"></div></div>`;
+      // 17.10.2026 (как в RealtyCalendar): полоса нейтральная, оплата — линией снизу: зелёная на долю оплаченного, остаток красный;
+      // без цены/блок/чужая занятость — линии нет. Метка площадки — кружок с буквой в начале полосы.
+      const payable = !b.occupancy_only && b.status !== 'blocked' && b.pay_state && b.pay_state !== 'none' && Number(b.total_price) > 0;
+      const frac = payable ? Math.max(0, Math.min(1, Number(b.paid || 0) / Number(b.total_price))) : 0;
+      const payHtml = payable ? `<div class="pay ${frac >= 0.995 ? 'paid' : frac > 0 ? 'partial' : 'unpaid'}" title="оплачено ${money(b.paid || 0, b.currency)} из ${sum}"><i style="width:${Math.round(frac * 100)}%"></i></div>` : '';
+      h += `<div class="bar ${b.occupancy_only ? 'foreign' : b.status} ${ota && !b.occupancy_only ? 'ota ch-' + ch : ''} ${gap ? 'gap' : ''} ${late ? 'late' : ''} ${early ? 'early' : ''}" data-id="${b.id}" draggable="${ME.can.write && b.status !== 'checked_out' && !b.occupancy_only}" style="left:calc(${left} * var(--cell));width:calc(${width} * var(--cell) - 3px)" title="${esc(b.guest_name)} · ${ruD(b.check_in)}–${ruD(b.check_out)} · ${sum}${ota ? ' · ' + (CH[ch] || b.channel) : ''}${payable ? ' · оплачено ' + money(b.paid || 0, b.currency) : ''}${gap ? ' · стык < 2 ч на уборку' : ''}">
+        <div class="t">${cut ? '◂' : ''}${b.occupancy_only ? '' : otaIcon(ch)}${esc(b.guest_name)}</div><div class="s">${sum}${b.guests_count > 1 && !b.occupancy_only ? ' · ' + b.guests_count + ' чел.' : ''}${orgTag}</div>
+        ${late ? '<span class="lt">' + esc(String(b.departure_time).slice(0, 5)) + '</span>' : ''}${early ? '<span class="et">' + esc(String(b.arrival_time).slice(0, 5)) + '</span>' : ''}${payHtml}</div>`;
     });
     h += `</div>`;
   }
@@ -234,6 +249,19 @@ function bindGrid() {
     if (!drag) return; const s = drag; drag = null; const from = s.d0 < s.d1 ? s.d0 : s.d1, to = addD(s.d0 < s.d1 ? s.d1 : s.d0, 1); SEL = { apts: s.apts, from, to }; showPop(e, SEL);
   };
   document.onmouseleave = () => { if (pan) { pan = null; chess.classList.remove('panning'); } };
+  // 17.10.2026: подсветка колонки даты и строки квартиры под курсором (как в RealtyCalendar) — одним оверлеем, без перерисовки ячеек
+  if (!isMobile()) {
+    let colhl = chess.querySelector('#colhl'); if (!colhl) { colhl = document.createElement('div'); colhl.id = 'colhl'; chess.appendChild(colhl); }
+    let lastD = null, lastApt = null;
+    chess.onmouseover = e => {
+      const c = e.target.closest('.c'); const row = e.target.closest('.row');
+      const d = c ? c.dataset.d : null, apt = row ? row.dataset.apt : null;
+      if (d !== lastD) { lastD = d; chess.querySelectorAll('.hd-day.hl').forEach(x => x.classList.remove('hl'));
+        if (d) { const idx = nightsOf(FROM, d); colhl.style.display = 'block'; colhl.style.left = 'calc(var(--aptw) + ' + idx + ' * var(--cell))'; const hd = chess.querySelector('.hd-day[data-d="' + d + '"]'); if (hd) hd.classList.add('hl'); } else colhl.style.display = 'none'; }
+      if (apt !== lastApt) { lastApt = apt; chess.querySelectorAll('.apt.hl,.row.hl').forEach(x => x.classList.remove('hl')); if (row) { row.classList.add('hl'); const lab = row.previousElementSibling; if (lab && lab.classList.contains('apt')) lab.classList.add('hl'); } }
+    };
+    chess.onmouseleave = () => { lastD = lastApt = null; colhl.style.display = 'none'; chess.querySelectorAll('.hl').forEach(x => x.classList.remove('hl')); };
+  }
   // мобильный тап по клетке — сразу бронь
   if (isMobile()) chess.onclick = e => { const c = e.target.closest('.c'); if (!c) return; SEL = { apts: [c.dataset.apt], from: c.dataset.d, to: addD(c.dataset.d, 1) }; showPop(e, SEL); };
 }

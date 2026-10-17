@@ -55,12 +55,17 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 .c .mn{position:absolute;top:1px;right:2px;font-size:9px;color:#b08a3a}.c .ov{color:var(--blue);font-weight:700}
 .c .cl{position:absolute;left:50%;bottom:-3px;width:6px;height:6px;border-radius:50%;transform:translateX(-50%);z-index:3}.c .cl.ok{background:var(--green)}.c .cl.no{background:#e8a33d}.c .cl.plan{background:#fff;border:1.5px solid #b0b6bf}
 .bar{position:absolute;top:4px;height:calc(var(--row) - 9px);border-radius:5px;color:#1f2328;font-size:var(--fs);padding:2px 7px;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:5;display:flex;flex-direction:column;justify-content:center;line-height:1.2;border:1px solid rgba(0,0,0,.08)}
-.bar .t{font-weight:700;overflow:hidden;text-overflow:ellipsis}.bar .s{font-size:calc(var(--fs) - 1px);color:#4b5563;overflow:hidden;text-overflow:ellipsis}
-.bar.request{background:#fde68a}.bar.confirmed{background:#f8a5a0}.bar.checked_in{background:#9ee0a8}.bar.checked_out{background:#d6dae0;color:#4b5563}
+/* 17.10.2026 — минимализм как в RealtyCalendar: полоса нейтральная, оплата линией снизу (зелёная на долю оплаченного, остаток красный),
+   метка площадки кружком с буквой, имя мельче (видно и на однодневной брони), выехавшие серые */
+.bar{padding:2px 5px 4px}.bar .t{font-weight:600;font-size:calc(var(--fs) - 1px);overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;min-width:0}.bar .t>span,.bar .t{white-space:nowrap}
+.bar .s{font-size:calc(var(--fs) - 2px);color:#5b6572;overflow:hidden;text-overflow:ellipsis}
+.bar .oi{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;color:#fff;font-size:8.5px;font-weight:800;font-style:normal;line-height:1;letter-spacing:0}
+.bar.request{background:#fff3c4;border-style:dashed;border-color:#e0a71e}.bar.confirmed,.bar.checked_in{background:#dde7f3}.bar.checked_in{background:#d3e4f6}.bar.checked_out{background:#e3e6ea;color:#5b6572}
 .bar.blocked{background:repeating-linear-gradient(135deg,#9aa1ab 0 6px,#b8bec7 6px 12px);color:#1f2328}.bar.foreign{background:repeating-linear-gradient(135deg,#d6dae0 0 6px,#e8ebef 6px 12px);color:#4b5563;cursor:default}
-.bar.ota{border-left:4px solid #ff7a00}.bar.ch-booking{border-left-color:#003580}.bar.ch-airbnb{border-left-color:#ff5a5f}.bar.ch-ostrovok{border-left-color:#ff7a00}.bar.ch-yandex{border-left-color:#fc3f1d}.bar.ch-sutochno{border-left-color:#ff7a00}
-.bar .pay{position:absolute;left:0;right:0;bottom:0;height:4px;background:transparent}.bar .pay.paid{background:#1f9d4e}.bar .pay.partial{background:#e0a71e}.bar .pay.unpaid{background:transparent}
-.bar.debt::after{content:'$';position:absolute;right:4px;top:3px;background:var(--red);color:#fff;border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center;font-weight:700}
+.bar .pay{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--red);overflow:hidden}.bar .pay i{display:block;height:100%;background:#1f9d4e}.bar .pay.paid{background:#1f9d4e}
+.bar.cancelled{top:1px;height:7px;padding:0 4px;background:transparent;border:1px dashed var(--red);border-radius:3px;color:var(--red);z-index:4;font-size:8px;line-height:5px;opacity:.85}.bar.cancelled .t{font-size:8px;font-weight:600}.bar.cancelled .oi{width:7px;height:7px;font-size:5px}
+#chess{position:relative}#colhl{position:absolute;top:46px;bottom:0;width:var(--cell);background:rgba(26,111,209,.07);pointer-events:none;z-index:3;display:none}
+.hd-day.hl{background:#e8f0fe;border-radius:6px}.row.hl{background:rgba(26,111,209,.04)}.apt.hl{background:#eef4fd}.c:hover{background:rgba(26,111,209,.12)!important}
 .bar.late{clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);padding-right:22px;border-right:0}.bar.early{clip-path:polygon(14px 0,100% 0,100% 100%,0 100%);padding-left:22px;border-left-width:0}
 .bar.late.early{clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%)}
 .bar .lt,.bar .et{position:absolute;top:2px;font-size:9px;font-weight:700;color:#7a1f1a;background:rgba(255,255,255,.75);border-radius:3px;padding:0 3px;line-height:12px}.bar .lt{right:16px}.bar .et{left:16px}
@@ -104,7 +109,7 @@ table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th
   <div id="resetForm" class="hide"><div class="muted" style="font-size:13px;margin-bottom:8px">Новый пароль для входа</div><input id="rs_p1" type="password" placeholder="новый пароль (от 6 символов)" autocomplete="new-password"><input id="rs_p2" type="password" placeholder="ещё раз" autocomplete="new-password"><button class="pri" id="rs_ok">Сохранить и войти</button></div>
   <div id="loginErr"></div></div>
 <div id="app" class="hide">
-  <div id="top"><span class="logo">URBAN LUXE</span><div class="apps"><a class="on" href="/pms">PMS</a><a href="/admin" title="Дашборд, заявки, финансы, квартиры">Админка</a><a href="/map" title="Живая карта бизнеса">Карта</a></div>
+  <div id="top"><span class="logo">URBAN LUXE</span><div class="apps"><a class="on" href="/pms">PMS</a><a href="/admin" title="Дашборд, заявки, финансы, квартиры">Админка</a><a href="/map" title="Живая карта бизнеса">Карта</a><a href="https://crm.urbanluxe.cc" target="_blank" rel="noopener" title="CRM: клиенты, сделки, чаты Telegram/WhatsApp, задачи">CRM</a></div>
     <nav><button data-v="cal" class="on">Шахматка</button><button data-v="today">Сегодня</button><button data-v="free">Свободно</button><button data-v="guests">Гости</button><button data-v="debts">Долги</button><button data-v="rules">Цены</button><button data-v="partners">Партнёры</button><button data-v="channels">Каналы</button><button data-v="objects">Объекты</button><button data-v="report">Отчёт</button><button data-v="users">Сотрудники</button><button data-v="integrations">Интеграции</button><button data-v="orgs">Организации</button></nav>
     <span class="sp"></span><select id="orgsw" class="hide" title="Организация (кабинет)" style="font-size:12px;max-width:160px"></select><span id="conn">online</span><span class="me" id="me"></span><button class="sm" onclick="logout()">выйти</button></div>
   <div id="tools"></div>
@@ -113,7 +118,7 @@ table.t{width:100%;border-collapse:collapse;font-size:12px}table.t td,table.t th
 </div>
 <div id="drawer"><div class="dh"><h3 id="d_title">Бронь</h3><button class="sm" onclick="closeDrawer()">✕</button></div><div class="db" id="d_body"></div><div class="df" id="d_foot"></div></div>
 <div id="toast"></div>
-<script src="/pms.js?v=27"></script>
-<script src="/pms-v2.js?v=7"></script>
+<script src="/pms.js?v=28"></script>
+<script src="/pms-v2.js?v=8"></script>
 </body>
 </html>
