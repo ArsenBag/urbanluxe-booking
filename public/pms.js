@@ -704,7 +704,7 @@ VIEWS.channels = async () => {
     $$('#ch [data-res]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'resolve_conflict', id: x.dataset.id, resolution: x.dataset.res }), 'Решаю конфликт'));
     $$('#ch [data-mkup]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'markup_set', channel: x.dataset.mkup, pct: x.value }), 'Наценка ' + x.dataset.mkup));
     const addBtn = $('#c_addch'); if (addBtn) addBtn.onclick = () => openAddChannel();
-    $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
+    $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «' + (ME.org && ME.org.id !== 1 ? ME.org.name : 'Urban Luxe') + ' ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
     $$('#ch [data-cell]').forEach(x => x.onclick = e => { e.stopPropagation(); const [apt, ch] = x.dataset.cell.split('|'); PMS.channelPanel(S, apt, ch, load); });
     $$('#ch [data-push]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'push_full', apt: x.dataset.push }), 'Отправляю'));
@@ -816,12 +816,16 @@ VIEWS.channels = async () => {
     if ($('#u_push')) $('#u_push').onclick = () => run(() => capi(null, { a: 'push_full', apt: id }), 'Отправляю');
     $('#u_save').onclick = () => { if (!u.external_room_type_id) return closeDrawer(); run(() => capi(null, { a: 'unit_update', apartment_id: id, markup_pct: $('#u_mk').value, push_rates: $('#u_pr').checked, push_availability: $('#u_pa').checked, is_active: $('#u_on').checked }), 'Сохраняю').then(() => closeDrawer()); };
   };
-  $('#c_full').onclick = () => run(() => capi(null, { a: 'push_full' }), 'Отправляю всё');
-  $('#c_feed').onclick = () => run(() => capi(null, { a: 'feed' }), 'Забираю брони');
-  $('#c_hook').onclick = () => run(() => capi(null, { a: 'setup_webhook' }), 'Вебхук');
-  $('#c_ical').onclick = () => run(() => capi(null, { a: 'ical_pull' }), 'iCal');
-  $('#c_scan').onclick = () => run(async () => { let ch = 'airbnb', r; const all = []; while (ch) { say('скан ' + ch + '…'); r = await capi(null, { a: 'mapping_scan', channel: ch }); all.push(r.channel + ': ' + r.mapped); ch = r.next; } return all; }, 'Скан маппингов');
-  $('#c_cx').onchange = e => { const c = e.target.value; if (!c) return; e.target.value = ''; if (confirm('Создать в Channex карточку «Urban Luxe ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); };
+  // 17.10.2026: у партнёров платформенные кнопки удалены выше — обработчики только если кнопка есть (иначе TypeError, и load() не запускался:
+  // «Каналы» у HighLife висели на «загрузка…»)
+  const on = (id, fn, ev) => { const b = $(id); if (b) b[ev || 'onclick'] = fn; };
+  on('#c_full', () => run(() => capi(null, { a: 'push_full' }), 'Отправляю всё'));
+  on('#c_feed', () => run(() => capi(null, { a: 'feed' }), 'Забираю брони'));
+  on('#c_hook', () => run(() => capi(null, { a: 'setup_webhook' }), 'Вебхук'));
+  on('#c_ical', () => run(() => capi(null, { a: 'ical_pull' }), 'iCal'));
+  on('#c_scan', () => run(async () => { let ch = 'airbnb', r; const all = []; while (ch) { say('скан ' + ch + '…'); r = await capi(null, { a: 'mapping_scan', channel: ch }); all.push(r.channel + ': ' + r.mapped); ch = r.next; } return all; }, 'Скан маппингов'));
+  const orgTitle = () => (ME.org && ME.org.id !== 1 ? ME.org.name : 'Urban Luxe');
+  on('#c_cx', e => { const c = e.target.value; if (!c) return; e.target.value = ''; if (confirm('Создать в Channex карточку «' + orgTitle() + ' ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); }, 'onchange');
   load();
 };
 
