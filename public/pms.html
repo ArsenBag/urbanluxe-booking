@@ -23,7 +23,12 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 #login h1{font-size:18px;margin:0 0 14px}#login input{width:100%;margin:5px 0}#login button{width:100%;margin-top:10px;padding:9px}
 #loginErr{color:var(--red);font-size:12px;margin-top:8px;display:none}
 /* шапка */
-#top{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 14px;height:46px;flex-wrap:wrap}
+/* 17.10: шапка строго в одну строку — меню ужимается и прокручивается, а не переносится под тулбар */
+#top{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 14px;height:46px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+#top nav{flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}#top nav::-webkit-scrollbar{display:none}#top nav button{white-space:nowrap;flex:0 0 auto}
+#top .me{overflow:hidden;text-overflow:ellipsis;max-width:220px;flex:0 1 auto}
+@media (max-width:1500px){#top nav button{padding:7px 8px;font-size:13px}#top .me{max-width:140px}}
+@media (max-width:1250px){#top .me{display:none}#top .logo{display:none}}
 #top .logo{font-weight:800;letter-spacing:.06em;font-size:13px;color:var(--gold);margin-right:6px}
 #top .apps{display:flex;border:1px solid #c9d0d8;border-radius:var(--r);overflow:hidden;margin-right:10px}#top .apps a{padding:4px 10px;font-size:12px;color:var(--text);border-right:1px solid #c9d0d8}#top .apps a:last-child{border-right:0}#top .apps a:hover{background:#f3f5f8;text-decoration:none}#top .apps a.on{background:#1f2328;color:#fff;font-weight:600}
 #top nav{display:flex;gap:2px}#top nav button{border:0;background:transparent;padding:7px 11px;border-radius:var(--r);color:var(--text);font-size:14px}#top nav button:hover{background:#eef3fb}#top nav button.on{background:#e3eefb;color:var(--blue);font-weight:600}
