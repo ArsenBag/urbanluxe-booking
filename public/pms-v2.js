@@ -14,7 +14,8 @@ const num = v => v == null || v === '' ? '' : v;
 // =====================================================================
 VIEWS.objects = async () => {
   const ME = P.me(); const isAdmin = ME.role === 'admin';
-  $('#tools').innerHTML = `<button class="pri sm" id="o_apt">+ Квартира</button><button class="sm" id="o_cx">+ ЖК</button><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)"><input type="checkbox" id="o_arch">показать архив</label><span class="muted">Операционные поля квартиры. Описания, фото и SEO — в <a href="/admin#apartments" target="_blank">Админке → Квартиры</a>.</span>`;
+  // 17.10.2026: фото и описания — в карточке квартиры здесь (партнёры в /admin не ходят); ссылка в Админку — только платформа-админу (SEO, условия, инструкции)
+  $('#tools').innerHTML = `<button class="pri sm" id="o_apt">+ Квартира</button><button class="sm" id="o_cx">+ ЖК</button><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)"><input type="checkbox" id="o_arch">показать архив</label><span class="muted">ЖК, квартиры, фото и описания — в карточке (✎).${ME.platform_admin ? ' SEO сайта, условия аренды и инструкции заселения — в <a href="/admin#apartments" target="_blank">Админке → Квартиры</a>.' : ''}</span>`;
   $('#main').innerHTML = '<div class="page" id="ob"><div class="muted">загрузка…</div></div>';
   let D;
   const load = async () => {
@@ -26,8 +27,8 @@ VIEWS.objects = async () => {
       const c = D.complexes.find(x => x.name === name); const apts = byCx[name].filter(a => showArch || a.is_active);
       const inCx = byCx[name].filter(a => a.unit && a.unit.external_room_type_id).length;
       h += `<div class="card"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${esc(name)} <span class="muted" style="font-weight:400;font-size:12px">${byCx[name].filter(a => a.is_active).length} кв.${c && c.address ? ' · ' + esc(c.address) : ''}</span>${inCx ? '<span class="tag">Channex ' + inCx + '</span>' : '<span class="tag" style="opacity:.6">не в Channex</span>'}<span class="sp" style="flex:1"></span>${c ? '<button class="sm" data-cxe="' + c.id + '">✎ ЖК</button>' : '<button class="sm" data-cxn="' + esc(name) + '">создать запись ЖК</button>'}<button class="sm" data-apn="${esc(name)}">+ квартира</button></h3>` +
-        (apts.length ? `<table class="t"><tr><th>№</th><th>Название</th><th>Код</th><th>Этаж</th><th>Гостей</th><th>Комнат</th><th>Будни</th><th>Вых.</th><th>Мин. ночей</th><th>Channex</th><th></th></tr>` +
-          apts.map(a => `<tr style="${a.is_active ? '' : 'opacity:.5'}"><td>${num(a.catalog_no)}</td><td class="b">${esc(a.name)}${(a.partners || []).map(x => { const o = D.orgs.find(y => y.id === x.org_id) || {}; return ' <span class="tag" style="background:#e3ecff" title="партнёр: ' + esc(o.name || x.org_id) + (x.mode === 'occupancy' ? ' (только занятость)' : ' (полный доступ)') + '">' + esc(o.short || o.name || x.org_id) + '</span>'; }).join('')}${a.is_active ? '' : ' <span class="tag bad">архив</span>'}${a.tracked === false ? ' <span class="tag" title="не считается в загрузке">вне учёта</span>' : ''}</td><td><code style="font-size:11px">${esc(a.id)}</code></td><td>${num(a.floor)}</td><td>${num(a.max_guests)}</td><td>${esc(a.rooms || '')}</td><td>${a.weekday_price ? money(a.weekday_price) : ''}</td><td>${a.weekend_price ? money(a.weekend_price) : ''}</td><td>${num(a.min_nights)}</td><td>${a.unit && a.unit.external_room_type_id ? (a.unit.is_active ? '<span style="color:var(--green)">✓</span>' : '<span class="muted">выкл</span>') : '<span class="muted">—</span>'}${a.unit && a.unit.last_error ? ' <span class="tag bad" title="' + esc(a.unit.last_error) + '">ошибка</span>' : ''}</td><td><button class="sm" data-ape="${a.id}">✎</button></td></tr>`).join('') + `</table>` : '<div class="muted">квартир нет</div>') + `</div>`;
+        (apts.length ? `<table class="t"><tr><th>№</th><th>Название</th><th>Код</th><th>Этаж</th><th>Гостей</th><th>Комнат</th><th>Будни</th><th>Вых.</th><th>Мин. ночей</th><th>Фото</th><th>Channex</th><th></th></tr>` +
+          apts.map(a => `<tr style="${a.is_active ? '' : 'opacity:.5'}"><td>${num(a.catalog_no)}</td><td class="b">${esc(a.name)}${(a.partners || []).map(x => { const o = D.orgs.find(y => y.id === x.org_id) || {}; return ' <span class="tag" style="background:#e3ecff" title="партнёр: ' + esc(o.name || x.org_id) + (x.mode === 'occupancy' ? ' (только занятость)' : ' (полный доступ)') + '">' + esc(o.short || o.name || x.org_id) + '</span>'; }).join('')}${a.is_active ? '' : ' <span class="tag bad">архив</span>'}${a.tracked === false ? ' <span class="tag" title="не считается в загрузке">вне учёта</span>' : ''}</td><td><code style="font-size:11px">${esc(a.id)}</code></td><td>${num(a.floor)}</td><td>${num(a.max_guests)}</td><td>${esc(a.rooms || '')}</td><td>${a.weekday_price ? money(a.weekday_price) : ''}</td><td>${a.weekend_price ? money(a.weekend_price) : ''}</td><td>${num(a.min_nights)}</td><td>${(a.photos || []).length ? (a.photos.length + (a.description_en ? '' : ' <span class="tag" title="нет описания EN — площадки не получат текст">без EN</span>')) : '<span class="tag bad" title="без фото квартира не пойдёт на площадки и в подборки">нет</span>'}</td><td>${a.unit && a.unit.external_room_type_id ? (a.unit.is_active ? '<span style="color:var(--green)">✓</span>' : '<span class="muted">выкл</span>') : '<span class="muted">—</span>'}${a.unit && a.unit.last_error ? ' <span class="tag bad" title="' + esc(a.unit.last_error) + '">ошибка</span>' : ''}</td><td><button class="sm" data-ape="${a.id}">✎</button></td></tr>`).join('') + `</table>` : '<div class="muted">квартир нет</div>') + `</div>`;
     }
     $('#ob').innerHTML = h;
     $$('#ob [data-cxe]').forEach(b => b.onclick = () => editComplex(D.complexes.find(c => String(c.id) === b.dataset.cxe)));
@@ -46,9 +47,63 @@ VIEWS.objects = async () => {
       `<button class="pri" id="x_ok">${isNew ? 'Создать' : 'Сохранить'}</button><button onclick="closeDrawer()">Отмена</button>`);
     $('#x_ok').onclick = async () => { try { await api(null, { a: 'complex_save', id: c.id, name: $('#x_name').value.trim(), address: $('#x_addr').value.trim(), city: $('#x_city').value.trim(), timezone: $('#x_tz').value.trim(), notes: $('#x_notes').value.trim(), is_active: $('#x_act').checked }); P.closeDrawer(); toast('Сохранено'); load(); } catch (e) { alert(e.message); } };
   };
+  // --- карточка квартиры: вкладки Данные / Фото / Описание (17.10.2026) ---
+  const SB_PUB = 'https://sebvfvtofiysbywxjqut.supabase.co/storage/v1/object/public/apartments/';
+  const AMEN = { wifi: 'Wi-Fi', ac: 'Кондиционер', kitchen: 'Кухня', washer: 'Стиральная машина', tv: 'Smart TV', parking: 'Парковка', elevator: 'Лифт', balcony: 'Балкон', pool: 'Бассейн', gym: 'Спортзал', workspace: 'Рабочее место', pets: 'Можно с животными', crib: 'Детская кроватка', concierge: 'Консьерж' };
+  const thumbOf = u => u.includes('/storage/v1/object/public/') ? 'https://images.weserv.nl/?url=' + encodeURIComponent(u.replace(/^https?:\/\//, '')) + '&w=300&h=220&fit=cover&output=webp' : u;
+  const aptTabs = (a, cur) => `<div class="tabs" style="display:flex;gap:4px;margin:-4px 0 10px">${[['data', 'Данные'], ['photos', 'Фото' + (a.photos && a.photos.length ? ' · ' + a.photos.length : '')], ['desc', 'Описание']].map(([k, t]) => `<button class="sm ${cur === k ? 'pri' : ''}" data-at="${k}">${t}</button>`).join('')}</div>`;
+  const editPhotos = (a) => {
+    let PH = (a.photos || []).slice();
+    openDrawer(a.name, aptTabs(a, 'photos') + `<div class="muted" style="font-size:11px;margin-bottom:8px">Первое фото — обложка (в подборках для гостей и на площадках). ← → меняют порядок, ★ делает обложкой. Файлы до 20 МБ.</div>
+      <div id="ph_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="file" id="ph_file" accept="image/*" multiple style="font-size:12px"><button class="sm pri" id="ph_up">Загрузить</button><span style="flex:1"></span><button class="sm" id="ph_save">Сохранить порядок</button></div><div id="ph_st" class="muted" style="font-size:11px;margin-top:6px"></div>`,
+      `<button onclick="closeDrawer()">Закрыть</button>`);
+    $$('#d_body [data-at]').forEach(b => b.onclick = () => b.dataset.at === 'data' ? editApt(a) : b.dataset.at === 'desc' ? editDesc(a) : null);
+    const draw = () => {
+      $('#ph_grid').innerHTML = PH.map((u, i) => `<div style="position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f6f7f9"><img src="${esc(thumbOf(u))}" loading="lazy" style="width:100%;height:100px;object-fit:cover;display:block">${i === 0 ? '<span class="tag" style="position:absolute;left:6px;top:6px;background:#111;color:#fff">обложка</span>' : ''}<div style="display:flex;gap:2px;padding:4px;justify-content:center"><button class="sm" data-l="${i}" title="левее">←</button><button class="sm" data-r="${i}" title="правее">→</button><button class="sm" data-c="${i}" title="обложка">★</button><button class="sm danger" data-x="${i}" title="удалить">✕</button></div></div>`).join('') || '<div class="muted">фото нет — загрузите ниже</div>';
+      const mv = (i, j) => { if (j < 0 || j >= PH.length) return; const t = PH[i]; PH[i] = PH[j]; PH[j] = t; draw(); };
+      $$('#ph_grid [data-l]').forEach(b => b.onclick = () => mv(+b.dataset.l, +b.dataset.l - 1));
+      $$('#ph_grid [data-r]').forEach(b => b.onclick = () => mv(+b.dataset.r, +b.dataset.r + 1));
+      $$('#ph_grid [data-c]').forEach(b => b.onclick = () => { const u = PH.splice(+b.dataset.c, 1)[0]; PH.unshift(u); draw(); });
+      $$('#ph_grid [data-x]').forEach(b => b.onclick = () => { if (!confirm('Удалить фото? Файл удалится из хранилища после «Сохранить порядок».')) return; PH.splice(+b.dataset.x, 1); draw(); });
+    };
+    const savePh = async () => { try { const r = await api(null, { a: 'apt_photos', id: a.id, photos: PH }); PH = r.photos.slice(); a.photos = PH.slice(); $('#ph_st').textContent = 'Сохранено · фото ' + r.photos.length + (r.deleted.length ? ' · удалено файлов ' + r.deleted.length : ''); toast('Фото сохранены'); $$('#d_body [data-at="photos"]').forEach(b => b.textContent = 'Фото' + (PH.length ? ' · ' + PH.length : '')); } catch (e) { alert(e.message); } };
+    $('#ph_save').onclick = savePh;
+    $('#ph_up').onclick = async () => {
+      const inp = $('#ph_file'), st = $('#ph_st'); if (!inp.files.length) { st.textContent = 'Выберите файлы'; return; }
+      $('#ph_up').disabled = true; let n = 0;
+      for (const f of inp.files) {
+        if (f.size > 20 * 1024 * 1024) { st.textContent = f.name + ': больше 20 МБ, пропущено'; continue; }
+        const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const path = a.id + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        st.textContent = 'Загружаю ' + (n + 1) + ' из ' + inp.files.length + '…';
+        const { error } = await P.sb.storage.from('apartments').upload(path, f, { cacheControl: '3600', upsert: false, contentType: f.type || undefined });
+        if (error) { st.textContent = 'Ошибка: ' + error.message; break; }
+        PH.push(SB_PUB + path); n++;
+      }
+      $('#ph_up').disabled = false; inp.value = ''; draw();
+      if (n) { st.textContent = '✓ ' + n + ' фото загружено — сохраняю…'; await savePh(); }
+    };
+    draw();
+  };
+  const editDesc = (a) => {
+    openDrawer(a.name, aptTabs(a, 'desc') + `<div class="f">
+      <label class="w">Подзаголовок / стиль <input id="ds_style" value="${esc(a.style || '')}" placeholder="Студия с видом на город"></label>
+      <label class="w">Описание (RU) <textarea id="ds_ru" rows="6">${esc(a.description || '')}</textarea></label>
+      <label class="w">Description (EN) <textarea id="ds_en" rows="5">${esc(a.description_en || '')}</textarea></label>
+      <label class="w">Tavsif (UZ) <textarea id="ds_uz" rows="4">${esc(a.description_uz || '')}</textarea></label>
+      <label class="w">Удобства <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px;font-size:12px;color:var(--text)">${Object.entries(AMEN).map(([k, v]) => `<span><input type="checkbox" data-am="${k}" ${(a.amenities || []).includes(k) ? 'checked' : ''}> ${v}</span>`).join('')}</div></label></div>
+      <div class="muted" style="font-size:11px">Описание на английском уходит в карточку комнаты Channex при подключении квартиры (его видят площадки).</div>`,
+      `<button class="pri" id="ds_ok">Сохранить</button><button onclick="closeDrawer()">Отмена</button>`);
+    $$('#d_body [data-at]').forEach(b => b.onclick = () => b.dataset.at === 'data' ? editApt(a) : b.dataset.at === 'photos' ? editPhotos(a) : null);
+    $('#ds_ok').onclick = async () => {
+      const o = { a: 'apt_save', id: a.id, name: a.name, complex: a.complex, style: $('#ds_style').value.trim(), description: $('#ds_ru').value.trim(), description_en: $('#ds_en').value.trim(), description_uz: $('#ds_uz').value.trim(), amenities: $$('#d_body [data-am]:checked').map(x => x.dataset.am) };
+      try { const r = await api(null, o); Object.assign(a, { style: r.style, description: r.description, description_en: r.description_en, description_uz: r.description_uz, amenities: r.amenities }); toast('Описание сохранено'); } catch (e) { alert(e.message); }
+    };
+  };
   const editApt = (a) => { a = a || {}; const isNew = !a.id; const u = a.unit;
     const slug = (a.complex || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12);
-    openDrawer(isNew ? 'Новая квартира' : a.name, `<div class="f">
+    openDrawer(isNew ? 'Новая квартира' : a.name, (isNew ? '' : aptTabs(a, 'data')) + `<div class="f">
       <label class="w">Код (латиница, цифры, _) <input id="a_id" value="${esc(a.id || '')}" ${isNew ? 'placeholder="' + esc(slug) + '_77"' : 'readonly'} autocomplete="off"></label>
       <label class="w">Название <input id="a_name" value="${esc(a.name || '')}" placeholder="Nest One 77"></label>
       <label>ЖК <select id="a_cx">${D.complexes.filter(c => c.is_active !== false).map(c => `<option ${c.name === a.complex ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
@@ -60,14 +115,16 @@ VIEWS.objects = async () => {
       <label>Партнёр <select id="a_po"><option value="">— нет</option>${D.orgs.filter(o => o.id !== (a.org_id || ME.org.id)).map(o => `<option value="${o.id}" ${(a.partners || []).some(x => x.org_id === o.id) ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>
       <label>Доступ партнёра <select id="a_pm"><option value="full" ${((a.partners || [])[0] || {}).mode !== 'occupancy' ? 'selected' : ''}>полный — видит и ведёт брони как мы</option><option value="occupancy" ${((a.partners || [])[0] || {}).mode === 'occupancy' ? 'selected' : ''}>только занятость</option></select></label></div>
       <div class="muted" style="font-size:11px">Партнёрская квартира видна в обоих кабинетах одновременно: одна бронь, одна шахматка, одна история — кто что сделал, с пометкой организации (UL / HL).</div>
-      ${isNew ? '<div class="muted" style="font-size:11px">После создания квартира появится в шахматке и на сайте (после описаний и фото в Админке). Если ЖК подключён к Channex — нажмите «Подключить к Channex» в карточке.</div>' : ''}
+      ${isNew ? '<div class="muted" style="font-size:11px">После создания квартира появится в шахматке; дальше — вкладки «Фото» и «Описание» в карточке' + (ME.org && ME.org.id === 1 ? ' (на сайт — после фото и описания)' : '') + '. Чтобы продавать на площадках: «Каналы» → подключить ЖК → в карточке квартиры «Подключить к Channex».</div>' : ''}
       ${!isNew && ME.role === 'admin' ? `<div class="sec">Channex</div>${u && u.external_room_type_id ? '<div class="muted" style="font-size:11px">room ' + esc(u.external_room_type_id) + ' · тарифы: Standard' + Object.keys(u.derived || {}).map(k => ', ' + (OTA_RU[k] || k)).join('') + (u.last_pushed_at ? ' · отправлено ' + dt(u.last_pushed_at) : '') + '</div>' : '<div class="muted" style="font-size:11px">Комнаты в Channex нет.</div><button class="sm" id="a_cxu" style="margin-top:6px">Подключить к Channex</button>'}` : ''}`,
       `<button class="pri" id="a_ok">${isNew ? 'Создать' : 'Сохранить'}</button>${!isNew && ME.can.objects_archive ? (a.is_active ? '<button class="danger" id="a_arch">В архив</button>' : '<button id="a_rest">Восстановить</button>') : ''}<button onclick="closeDrawer()">Отмена</button>`);
     $('#a_ok').onclick = async () => {
       const o = { id: ($('#a_id').value || '').trim().toLowerCase(), name: $('#a_name').value.trim(), complex: $('#a_cx').value, catalog_no: $('#a_no').value, floor: $('#a_fl').value, max_guests: $('#a_mg').value, rooms: $('#a_rm').value.trim(), min_nights: $('#a_mn').value, weekday_price: $('#a_wd').value, weekend_price: $('#a_we').value, tracked: $('#a_tr').checked, partner_org_id: $('#a_po').value || null, partner_mode: $('#a_pm').value };
       if (!o.id) return alert('Код квартиры'); if (!o.name) return alert('Название');
-      try { await api(null, Object.assign({ a: 'apt_save' }, o)); P.closeDrawer(); toast(isNew ? 'Квартира создана' : 'Сохранено'); load(); } catch (e) { alert(e.message); }
+      try { const r = await api(null, Object.assign({ a: 'apt_save' }, o)); toast(isNew ? 'Квартира создана — добавьте фото' : 'Сохранено'); await load();
+        if (isNew) { const na = D.apartments.find(x => x.id === r.id) || Object.assign(r, { photos: [] }); editPhotos(na); } else P.closeDrawer(); } catch (e) { alert(e.message); }
     };
+    if (!isNew) $$('#d_body [data-at]').forEach(b => b.onclick = () => b.dataset.at === 'photos' ? editPhotos(a) : b.dataset.at === 'desc' ? editDesc(a) : null);
     if ($('#a_arch')) $('#a_arch').onclick = async () => { if (!confirm('Убрать «' + a.name + '» в архив? Продажи закроются на 500 дней вперёд на всех площадках, квартира исчезнет из шахматки и с сайта. Брони останутся.')) return; try { const r = await api(null, { a: 'apt_archive', id: a.id }); P.closeDrawer(); toast('В архиве · закрыто дней: ' + (r.days || 0)); load(); } catch (e) { alert(e.message); } };
     if ($('#a_rest')) $('#a_rest').onclick = async () => { try { await api(null, { a: 'apt_restore', id: a.id }); P.closeDrawer(); toast('Восстановлена, цены и занятость уйдут на площадки за минуту'); load(); } catch (e) { alert(e.message); } };
     if ($('#a_cxu')) $('#a_cxu').onclick = async () => { $('#a_cxu').disabled = true; $('#a_cxu').textContent = 'создаю комнату и тарифы…'; try { const r = await capi(null, { a: 'setup_unit', apartment_id: a.id }); toast('Channex: ' + r.log.join('; ').slice(0, 120)); P.closeDrawer(); load(); } catch (e) { alert(e.message); $('#a_cxu').disabled = false; $('#a_cxu').textContent = 'Подключить к Channex'; } };

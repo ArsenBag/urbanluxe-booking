@@ -845,7 +845,7 @@ async function realtime() {
 function setConn(ok) { const c = $('#conn'); if (!c) return; c.classList.toggle('off', !ok); c.textContent = ok ? 'online' : 'нет связи · данные на ' + new Date(lastOk).toTimeString().slice(0, 5); }
 
 // 16.10.2026: мост для pms-v2.js (Объекты, панель площадки, подборки)
-window.PMS = Object.assign(window.PMS || {}, { $, $$, esc, api, capi, openDrawer, closeDrawer: () => closeDrawer(), toast, money, ruD, iso, addD, VIEWS, me: () => ME, grid: () => G, ensureGrid: async () => { if (!G) { try { G = await api({ a: 'grid', from: iso(Date.now()), to: addD(iso(Date.now()), 1) }); } catch (_) { G = { apartments: [] }; } } return G; }, openBooking, statusBadge });
+window.PMS = Object.assign(window.PMS || {}, { $, $$, esc, api, capi, openDrawer, sb, closeDrawer: () => closeDrawer(), toast, money, ruD, iso, addD, VIEWS, me: () => ME, grid: () => G, ensureGrid: async () => { if (!G) { try { G = await api({ a: 'grid', from: iso(Date.now()), to: addD(iso(Date.now()), 1) }); } catch (_) { G = { apartments: [] }; } } return G; }, openBooking, statusBadge });
 
 // 13.10.2026: вход по одноразовой ссылке из бота бронеров (/pms → magic link): /pms?tk=<hashed_token>
 (async () => {
