@@ -60,7 +60,8 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 .bar{padding:2px 5px 4px}.bar .t{font-weight:600;font-size:calc(var(--fs) - 1px);overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;min-width:0}.bar .t>span,.bar .t{white-space:nowrap}
 .bar .s{font-size:calc(var(--fs) - 2px);color:#5b6572;overflow:hidden;text-overflow:ellipsis}
 .bar .oi{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;color:#fff;font-size:8.5px;font-weight:800;font-style:normal;line-height:1;letter-spacing:0}
-.bar.request{background:#fff3c4;border-style:dashed;border-color:#e0a71e}.bar.confirmed,.bar.checked_in{background:#dde7f3}.bar.checked_in{background:#d3e4f6}.bar.checked_out{background:#e3e6ea;color:#5b6572}
+/* 17.10 (Арсен): цвета статусов как раньше, но приглушённые; серый — только выехавшие */
+.bar.request{background:#fbefc2;border-color:#e6c766}.bar.confirmed{background:#f7d3d0;border-color:#e9b3ae}.bar.checked_in{background:#d2ecd6;border-color:#a9d6b1}.bar.checked_out{background:#e3e6ea;color:#5b6572}
 .bar.blocked{background:repeating-linear-gradient(135deg,#9aa1ab 0 6px,#b8bec7 6px 12px);color:#1f2328}.bar.foreign{background:repeating-linear-gradient(135deg,#d6dae0 0 6px,#e8ebef 6px 12px);color:#4b5563;cursor:default}
 .bar .pay{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--red);overflow:hidden}.bar .pay i{display:block;height:100%;background:#1f9d4e}.bar .pay.paid{background:#1f9d4e}
 .bar.n1{padding:2px 2px 4px}.bar.n1 .t{gap:2px;font-size:calc(var(--fs) - 2px)}.bar.n1 .oi{width:10px;height:10px;font-size:7px}.bar.n1 .s{display:none}
