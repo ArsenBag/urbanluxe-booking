@@ -300,7 +300,9 @@ function openDrawer(title, body, foot) { $('#d_title').textContent = title; $('#
 window.closeDrawer = () => $('#drawer').classList.remove('open');
 let CUR = null;
 async function openBooking(id, preset) {
-  if (id) { openDrawer('Бронь', '<div class="muted">загрузка…</div>'); try { CUR = await api({ a: 'booking', id }); } catch (e) { $('#d_body').innerHTML = 'Ошибка: ' + esc(e.message); return; } renderBooking(); }
+  if (id) { openDrawer('Бронь', '<div class="muted">загрузка…</div>'); try { CUR = await api({ a: 'booking', id }); } catch (e) { $('#d_body').innerHTML = 'Ошибка: ' + esc(e.message); return; }
+    // ошибка отрисовки не должна оставлять «загрузка…» навсегда (17.10: упало на событии истории)
+    try { renderBooking(); } catch (e) { console.error(e); $('#d_body').innerHTML = 'Ошибка отображения: ' + esc(e.message) + '<br><button class="btn" onclick="PMS.openBooking(\'' + id + '\')">повторить</button>'; } }
   else { CUR = null; renderForm(preset || {}); }
 }
 // 16.10.2026: контакты гостя одной строкой — клик по номеру открывает меню: позвонить / SMS / Telegram / WhatsApp; email → письмо
@@ -386,7 +388,11 @@ function evText(ev) {
     case 'payment_delete': return 'удалил платёж ' + money(p.amount, p.currency);
     case 'price_change': return 'цена ' + money(p.from) + ' → ' + money(p.to);
     case 'price_manual': return 'цена ' + money(p.price) + ' при прайсе ' + money(p.list_price) + ' (' + (p.diff > 0 ? '+' : '') + money(p.diff) + ')';
-    case 'moved': return 'перенос: ' + (p.from || []).join(' ') + ' → ' + (p.to || []).join(' ');
+    case 'moved': { // payload: массив [apt, in, out] (API) или объект {apartment_id, check_in, check_out} (триггер bookings_log_event)
+      const an = id => ((S.apartments || []).find(a => a.id === id) || { name: id }).name;
+      const mv = v => !v ? '' : Array.isArray(v) ? v.map((x, i) => i ? ruD(x) : an(x)).join(' ') : [an(v.apartment_id), ruD(v.check_in), ruD(v.check_out)].join(' ');
+      return 'перенос: ' + mv(p.from) + ' → ' + mv(p.to);
+    }
     case 'closed_with_debt': return 'закрыл с долгом ' + money(p.debt) + (p.reason ? ': ' + p.reason : '');
     case 'guest_link': return 'привязал карточку гостя';
     case 'guest_unlink': return 'отвязал карточку гостя';
