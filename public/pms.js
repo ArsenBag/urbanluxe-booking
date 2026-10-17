@@ -354,6 +354,46 @@ function bindContacts(root) {
 }
 function hideContactMenu() { const m = $('#phmenu'); if (m) m.remove(); }
 function statusBadge(st) { const s = ST[st] || ST.confirmed; return `<span class="st" style="background:${s[1]}">${s[0]}</span>`; }
+// 17.10.2026: «Площадка» — всё, что прислала площадка через Channex: брутто / комиссия / к выплате, кто собирает оплату, карта,
+// цены по ночам, питание, штрафы отмены, услуги, сообщение гостя. Airbnb присылает выплату (нетто) и сбор хоста, брутто — из notes
+// «Listing Base Price»; Booking.com присылает брутто и комиссию (при импорте старых броней — нет: тогда ≈ по ставке канала);
+// Ostrovok комиссию не присылает — ≈ по ставке канала («Каналы → Наценки и комиссии»).
+function otaSection(b, o) {
+  if (!o) return '';
+  const cur = o.currency || b.currency || 'USD'; const n = v => v == null || v === '' ? null : Number(v); const m = v => money(v, cur);
+  const ch = (b.channel || '').toLowerCase(); const amount = n(o.amount); let comm = n(o.ota_commission);
+  const notes = String(o.notes || '');
+  const kv = {}; notes.split('\n').forEach(l => { const mm = l.match(/^([A-Za-z][A-Za-z ]+?):\s*(.*)$/); if (mm) kv[mm[1].trim()] = mm[2].trim(); });
+  const guestMsg = notes.split('\n').filter(l => l.trim() && !/^([A-Za-z][A-Za-z ]+?):\s*/.test(l) && !/^Imported Booking/i.test(l)).join('\n').trim();
+  let gross = amount, net = null, est = false;
+  if (ch === 'airbnb') { const base = n(kv['Listing Base Price']); const fees = ['Resort Fee', 'Extra Guest Fee', 'Cleaning Fee'].map(k => n(kv[k]) || 0).reduce((a, x) => a + x, 0); net = amount; if (comm == null && base != null) comm = Math.round((base + fees - amount) * 100) / 100; gross = base != null ? base + fees : (amount != null && comm != null ? amount + comm : amount); }
+  else { if ((comm == null || (comm === 0 && amount > 0 && (o.imported || ch === 'ostrovok'))) && o.commission_pct_default != null && amount != null) { comm = Math.round(amount * o.commission_pct_default) / 100; est = true; } net = amount != null && comm != null ? Math.round((amount - comm) * 100) / 100 : null; }
+  const pct = gross && comm != null ? Math.round(comm / gross * 1000) / 10 : null;
+  const collect = o.payment_collect === 'ota' ? 'площадка (деньги переводит нам площадка)' : o.payment_collect === 'property' ? 'мы — гость платит при заселении' : (ch === 'airbnb' ? 'площадка' : '<span class="muted">площадка не сообщила</span>');
+  const ptype = { credit_card: 'карта гостя', bank_transfer: 'перевод от площадки', cash: 'наличные', virtual_card: 'виртуальная карта' }[o.payment_type] || o.payment_type || '';
+  const card = o.guarantee ? `${esc(o.guarantee.card_type || 'карта')}${o.guarantee.last4 ? ' •••• ' + esc(o.guarantee.last4) : ''}${o.guarantee.expiration ? ' · до ' + esc(o.guarantee.expiration) : ''}${o.guarantee.is_virtual ? ' · виртуальная' : ''} <span class="muted">(полные данные — в Channex → Bookings)</span>` : '';
+  const days = o.days ? Object.entries(o.days).sort() : [];
+  const pen = (o.cancel_penalties || []).map(p => [p.from ? 'с ' + ruD(String(p.from).slice(0, 10)) : '', p.amount != null ? m(p.amount) : (p.percent != null ? p.percent + '%' : ''), p.nights ? p.nights + ' ноч.' : ''].filter(Boolean).join(' ')).filter(Boolean);
+  const occ = o.occupancy ? [o.occupancy.adults && 'взрослых ' + o.occupancy.adults, o.occupancy.children && 'детей ' + o.occupancy.children, o.occupancy.infants && 'младенцев ' + o.occupancy.infants].filter(Boolean).join(', ') : '';
+  let h = `<div class="sec">Площадка · ${esc(CH[ch] || o.ota_name || '')}</div><table class="t">
+    <tr><td>№ на площадке</td><td class="b">${esc(o.code || o.unique_id || '')}${o.imported ? ' <span class="tag" title="бронь была сделана до подключения к нашему менеджеру каналов и импортирована">импорт</span>' : ''}${o.secondary_ota ? ' · через ' + esc(o.secondary_ota) : ''}</td></tr>
+    ${o.inserted_at ? `<tr><td>Получена</td><td>${esc(String(o.inserted_at).slice(0, 16).replace('T', ' '))}${o.status && o.status !== 'new' ? ' · ' + esc(o.status) : ''}</td></tr>` : ''}
+    ${gross != null ? `<tr><td>Сумма брутто</td><td class="b">${m(gross)}</td></tr>` : ''}
+    <tr><td>Комиссия</td><td>${comm != null ? '<b style="color:var(--red)">− ' + m(comm) + '</b>' + (pct != null ? ' <span class="muted">(' + pct + '%)</span>' : '') + (est ? ' <span class="tag" title="площадка не прислала сумму комиссии — посчитано по ставке канала из «Каналы → Наценки и комиссии»">≈ по ставке</span>' : '') : '<span class="muted">площадка не сообщила</span>'}</td></tr>
+    ${net != null ? `<tr><td>К выплате нам</td><td class="b" style="color:var(--green)">${m(net)}</td></tr>` : ''}
+    <tr><td>Оплату собирает</td><td>${collect}${ptype ? ' · ' + esc(ptype) : ''}</td></tr>
+    ${card ? `<tr><td>Карта</td><td>${card}</td></tr>` : ''}
+    ${occ ? `<tr><td>Состав</td><td>${esc(occ)}</td></tr>` : ''}
+    ${days.length ? `<tr><td>По ночам</td><td style="font-size:11px">${days.map(([d, v]) => ruD(d) + ' ' + m(v)).join(' · ')}</td></tr>` : ''}
+    ${o.meal_plan ? `<tr><td>Питание</td><td>${esc(o.meal_plan)}</td></tr>` : ''}
+    ${pen.length ? `<tr><td>Штрафы отмены</td><td>${esc(pen.join('; '))}</td></tr>` : ''}
+    ${(o.services || []).length ? `<tr><td>Услуги</td><td>${o.services.map(s => esc((s.name || s.type || '') + (s.total_price != null ? ' ' + m(s.total_price) : ''))).join(', ')}</td></tr>` : ''}
+    ${(o.taxes || []).length ? `<tr><td>Налоги</td><td>${o.taxes.map(t => esc((t.name || '') + ' ' + (t.total_price != null ? m(t.total_price) : ''))).join(', ')}</td></tr>` : ''}
+    ${guestMsg ? `<tr><td>Сообщение гостя</td><td style="white-space:pre-wrap">${esc(guestMsg)}</td></tr>` : ''}
+    ${Object.keys(kv).length ? `<tr><td class="muted">Подробности</td><td class="muted" style="font-size:11px">${Object.entries(kv).filter(([k]) => !/^(OTA Commission|Listing Base Price)$/.test(k)).map(([k, v]) => esc(k) + ': ' + esc(v)).join(' · ')}</td></tr>` : ''}
+    </table>`;
+  return h;
+}
 function renderBooking() {
   const b = CUR.booking, apt = (G && G.apartments.find(a => a.id === b.apartment_id)) || { name: b.apartment_name };
   const g = CUR.guest; const canW = ME.can.write && b.status !== 'cancelled' && !b.occupancy_only;
@@ -371,11 +411,12 @@ function renderBooking() {
     <table class="t"><tr><td>Квартира</td><td class="b">${esc(apt.name)}${apt.catalog_no ? ' <span class="no tag">№' + apt.catalog_no + '</span>' : ''}</td></tr>
     <tr><td>Даты</td><td class="b">${ruD(b.check_in)} ${esc(b.arrival_time || '14:00')} → ${ruD(b.check_out)} ${esc(b.departure_time || '12:00')} · ${nights} ноч.</td></tr>
     <tr><td>Гостей</td><td>${b.guests_count || 1}</td></tr>
-    <tr><td>Цена</td><td class="b">${money(b.total_price, b.currency)}${nights ? ' <span class="muted">(' + money(b.total_price / nights, b.currency) + '/ночь)</span>' : ''}</td></tr>
+    <tr><td>Цена</td><td class="b">${money(b.total_price, b.currency)}${nights ? ' <span class="muted">(' + money(b.total_price / nights, b.currency) + '/ночь)</span>' : ''}${CUR.ota && /airbnb/.test((b.channel || '').toLowerCase()) ? ' <span class="muted">· выплата Airbnb, нетто</span>' : CUR.ota ? ' <span class="muted">· брутто площадки</span>' : ''}</td></tr>
     ${b.total_price > 0 ? (b.source === 'rc' && !(b.paid > 0) ? `<tr><td>Оплачено</td><td class="muted">учёт оплат — в RC (у нас платежей нет)</td></tr>` : `<tr><td>Оплачено</td><td><span class="b" style="color:${b.pay_state === 'paid' ? 'var(--green)' : b.pay_state === 'partial' ? '#b07a00' : 'var(--red)'}">${money(b.paid, b.currency)}</span>${b.debt > 0 ? ' · остаток <b style="color:var(--red)">' + money(b.debt, b.currency) + '</b>' : ' · ✓'}</td></tr>`) : ''}
     ${b.deposit ? `<tr><td>Депозит</td><td>${money(b.deposit, b.currency)}</td></tr>` : ''}${b.deposit_held > 0 ? `<tr><td>Депозит на руках</td><td class="b">${money(b.deposit_held, b.currency)} <span class="muted">(взят, не возвращён)</span></td></tr>` : ''}
     ${b.notes ? `<tr><td>Заметки</td><td>${esc(b.notes)}</td></tr>` : ''}${b.admin_notes ? `<tr><td>Для своих</td><td>${esc(b.admin_notes)}</td></tr>` : ''}${b.client_notes ? `<tr><td>От гостя</td><td>${esc(b.client_notes)}</td></tr>` : ''}
     </table>`;
+  h += otaSection(b, CUR.ota);
   if (ME.can.pay_full && b.status !== 'blocked') {
     h += `<div class="sec">Платежи<span class="sp"></span>${canW ? '<button class="sm" id="p_add">+ платёж</button>' : ''}</div>`;
     h += CUR.payments.length ? `<table class="t">` + CUR.payments.map(p => `<tr><td>${ruD(p.paid_at.slice(0, 10))}</td><td class="b">${p.kind === 'refund' ? '−' : ''}${money(p.amount, p.currency)}</td><td>${{ payment: 'оплата', prepayment: 'предоплата', deposit: 'депозит', refund: 'возврат', deposit_return: 'возврат депозита' }[p.kind] || p.kind} · ${{ cash: 'нал', card: 'карта', transfer: 'перевод', payme: 'Payme', click: 'Click', ota: 'площадка' }[p.method] || p.method}</td><td class="muted">${esc(p.received_by || '')}${p.note ? ' · ' + esc(p.note) : ''}</td><td>${canW ? '<button class="sm danger" data-pd="' + p.id + '">✕</button>' : ''}</td></tr>`).join('') + `</table>` : `<div class="muted">${b.prepaid ? 'Предоплата из RC: ' + money(b.prepaid, b.currency) : 'платежей нет'}</div>`;
@@ -682,8 +723,11 @@ VIEWS.channels = async () => {
     if (S.conflicts.length) h += `<div class="card" style="border-color:#f3bdb8"><h3 style="color:var(--red)">Овербукинг с площадок</h3>` + S.conflicts.map(c => `<div class="li"><div class="g"><div class="n">${esc(aptName(c.apartment_id))} · ${ruD(c.check_in)} → ${ruD(c.check_out)} · ${esc(c.ota_name || '')} · ${esc(c.guest_name || '')} · ${money(c.amount, c.currency)}</div><div class="s">пересекается с бронью <a href="#" data-b="${c.conflicts_with}">${(c.conflicts_with || '').slice(0, 8)}</a> · ${dt(c.created_at)}</div></div><button class="sm" data-res="accept" data-id="${c.id}" title="другую бронь перенесли/отменили — записать эту">Даты освободили → записать</button><button class="sm danger" data-res="cancelled_on_ota" data-id="${c.id}">Отменено на площадке</button></div>`).join('') + `</div>`;
     // наценки площадкам (0 по умолчанию)
     const MK = S.markups || {}; const PL = S.ota_plans || { airbnb: 'Airbnb', booking: 'Booking.com', ostrovok: 'Ostrovok', agoda: 'Agoda', expedia: 'Expedia' };
-    h += `<div class="card"><h3>Наценки площадкам <span class="muted" style="font-weight:400;font-size:12px">· % сверх прайса; 0 = цена как на сайте. Меняется — уходит на площадку за минуту</span></h3><div style="display:flex;gap:14px;flex-wrap:wrap">` +
-      Object.keys(PL).map(ch => `<label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted)">${PL[ch]}<span style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="100" step="1" value="${MK[ch] == null ? 0 : MK[ch]}" data-mkup="${ch}" style="width:70px"> %</span></label>`).join('') + `</div></div>`;
+    const CM = S.commissions || {};
+    h += `<div class="card"><h3>Наценки и комиссии площадок <span class="muted" style="font-weight:400;font-size:12px">· наценка — % сверх прайса (0 = как на сайте), уходит на площадку за минуту · комиссия — ставка площадки для расчёта «к выплате», когда площадка не прислала точную сумму (импорт Booking, Ostrovok)</span></h3>
+      <table class="t" style="width:auto"><tr><th></th>${Object.keys(PL).map(ch => '<th>' + esc(PL[ch]) + '</th>').join('')}</tr>
+      <tr><td class="muted">Наценка, %</td>${Object.keys(PL).map(ch => `<td><input type="number" min="0" max="100" step="1" value="${MK[ch] == null ? 0 : MK[ch]}" data-mkup="${ch}" style="width:64px"></td>`).join('')}</tr>
+      <tr><td class="muted">Комиссия, %</td>${Object.keys(PL).map(ch => `<td><input type="number" min="0" max="100" step="0.5" value="${CM[ch] == null ? '' : CM[ch]}" placeholder="—" data-comm="${ch}" style="width:64px"></td>`).join('')}</tr></table></div>`;
     // матрица квартиры × площадки
     // 16.10.2026: колонки площадок — из каталога (известные 5 + добавленные через «+ Площадка»)
     const BASE_OTAS = [['booking', 'Booking', 'BookingCom'], ['airbnb', 'Airbnb', 'Airbnb'], ['ostrovok', 'Ostrovok', 'EmergingTravel'], ['agoda', 'Agoda', 'Agoda'], ['expedia', 'Expedia', 'Expedia']];
@@ -731,6 +775,7 @@ VIEWS.channels = async () => {
     $$('#ch [data-b]').forEach(x => x.onclick = e => { e.preventDefault(); openBooking(x.dataset.b); });
     $$('#ch [data-res]').forEach(x => x.onclick = () => run(() => capi(null, { a: 'resolve_conflict', id: x.dataset.id, resolution: x.dataset.res }), 'Решаю конфликт'));
     $$('#ch [data-mkup]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'markup_set', channel: x.dataset.mkup, pct: x.value }), 'Наценка ' + x.dataset.mkup));
+    $$('#ch [data-comm]').forEach(x => x.onchange = () => run(() => capi(null, { a: 'commission_set', channel: x.dataset.comm, pct: x.value }), 'Комиссия ' + x.dataset.comm));
     const addBtn = $('#c_addch'); if (addBtn) addBtn.onclick = () => openAddChannel();
     $$('#ch [data-cx]').forEach(x => x.onclick = e => { e.stopPropagation(); const c = x.dataset.cx; if (confirm('Создать в Channex карточку «' + (ME.org && ME.org.id !== 1 ? ME.org.name : 'Urban Luxe') + ' ' + c + '» и комнаты для всех квартир ЖК?')) run(() => capi(null, { a: 'setup_complex', complex: c }), 'Подключаю ' + c); });
     $$('#ch tr[data-apt]').forEach(r => r.onclick = () => openUnit(r.dataset.apt));
