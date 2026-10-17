@@ -139,7 +139,9 @@ async function load(silent) {
   if (!silent) $('#chess').innerHTML = '<div style="padding:20px" class="muted">загрузка…</div>';
   try { G = await api(Object.assign({ a: 'grid', from: FROM, to: TO }, SHOWCANC ? { cancelled: 1 } : {})); } catch (e) { $('#chess').innerHTML = '<div style="padding:20px">Ошибка: ' + esc(e.message) + '</div>'; return; }
   const cmin = {}; G.apartments.forEach(a => { if (a.catalog_no) cmin[a.complex] = Math.min(cmin[a.complex] || 999, a.catalog_no); });
-  G.apartments.sort((a, b) => ((cmin[a.complex] || 999) - (cmin[b.complex] || 999)) || a.complex.localeCompare(b.complex) || ((a.catalog_no || 999) - (b.catalog_no || 999)) || (a.floor || 0) - (b.floor || 0));
+  // 17.10 [Арсен]: внутри ЖК — по возрастанию номера квартиры (число из кода: nest_15 → 15; если нет — последнее число в названии), не по номеру каталога
+  const aptNo = a => { const m = String(a.id).match(/(\d+)\D*$/) || String(a.name || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 9999; };
+  G.apartments.sort((a, b) => ((cmin[a.complex] || 999) - (cmin[b.complex] || 999)) || a.complex.localeCompare(b.complex) || (aptNo(a) - aptNo(b)) || ((a.catalog_no || 999) - (b.catalog_no || 999)) || (a.floor || 0) - (b.floor || 0));
   RATES = {}; G.rates.forEach(r => RATES[r.apartment_id + '|' + r.date] = r);
   CLEAN = {}; G.cleaning.forEach(c => CLEAN[c.apartment_id + '|' + c.date] = c);
   const cx = $('#cx'); if (cx && cx.options.length <= 1) [...new Set(G.apartments.map(a => a.complex))].forEach(c => cx.add(new Option(c, c)));
