@@ -300,25 +300,54 @@ async function showPop(e, s) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { hidePop(); closeDrawer(); } });
 
 // ---------- правка цен (override) ----------
+// 17.10.2026 (как в RealtyCalendar «Настройка спец. условий»): диапазон дат меняется прямо в окне, строка «Общее значение»
+// заполняет все дни, каждый день правится отдельно (цена, мин. ночей, продажа, заезд). Сохраняются только изменённые поля.
 function openRateEditor(s) {
   const names = s.apts.map(id => (G.apartments.find(a => a.id === id) || {}).name).join(', ');
+  let from = s.from, to = addD(s.to, -1);   // включительно
+  const multi = s.apts.length > 1; const apt = s.apts[0];
   openDrawer('Цена и ограничения', `
-    <div class="muted" style="margin-bottom:8px">${esc(names)}<br>${ruD(s.from)} – ${ruD(addD(s.to, -1))} включительно (${nightsOf(s.from, s.to)} дн.)</div>
-    <div class="f"><label>Цена за ночь, $ <input id="r_price" type="number" min="0" step="0.01" placeholder="не менять"></label>
-      <label>Мин. ночей <input id="r_min" type="number" min="1" placeholder="не менять"></label>
-      <label>Закрыть продажу <select id="r_closed"><option value="">не менять</option><option value="1">закрыть</option><option value="0">открыть</option></select></label>
-      <label>Заезд в эти даты <select id="r_cta"><option value="">не менять</option><option value="1">запретить</option><option value="0">разрешить</option></select></label>
-      <label class="w">Заметка <input id="r_note" placeholder="почему"></label></div>
-    <div class="muted" style="font-size:11px">Ручная правка побеждает сезонные правила. «Снять правки» возвращает цену по прайсу и правилам.</div>`,
-    `<button class="pri" id="r_ok">Применить</button><button id="r_clear">Снять правки</button><button onclick="closeDrawer()">Отмена</button>`);
-  $('#r_ok').onclick = async () => {
-    const b = { a: 'rate_set', apartment_ids: s.apts, from: s.from, to: addD(s.to, -1), note: $('#r_note').value };
-    if ($('#r_price').value !== '') b.price = $('#r_price').value; if ($('#r_min').value !== '') b.min_nights = $('#r_min').value;
-    if ($('#r_closed').value !== '') b.closed = $('#r_closed').value === '1'; if ($('#r_cta').value !== '') b.closed_to_arrival = $('#r_cta').value === '1';
-    if (b.price === undefined && b.min_nights === undefined && b.closed === undefined && b.closed_to_arrival === undefined) return alert('Ничего не задано');
-    try { await api(null, b); closeDrawer(); toast('Применено'); load(true); } catch (e) { alert(e.message); }
+    <div class="muted" style="margin-bottom:6px">${esc(names)}</div>
+    <div class="f" style="margin-bottom:6px"><label>С <input type="date" id="r_from" value="${from}"></label><label>По (включительно) <input type="date" id="r_to" value="${to}"></label>
+      <label>&nbsp;<span style="display:flex;gap:4px"><button class="sm" data-rq="7">неделя</button><button class="sm" data-rq="30">месяц</button><button class="sm" data-rq="we">выходные</button></span></label></div>
+    <div id="r_tbl"></div>
+    <div class="f" style="margin-top:8px"><label class="w">Заметка <input id="r_note" placeholder="почему (акция, ремонт, праздники…)"></label></div>
+    <div class="muted" style="font-size:11px">Ручная правка побеждает сезонные правила и уходит на площадки за минуту. «Снять правки» на выбранные даты возвращает цену по прайсу и правилам. Кнопка «выходные» оставляет в таблице только пт–сб.</div>`,
+    `<button class="pri" id="r_ok">Сохранить</button><button id="r_clear">Снять правки</button><button onclick="closeDrawer()">Отмена</button>`);
+  let onlyWe = false;
+  const DN2 = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const rowsOf = () => { const out = []; if (!from || !to || to < from) return out; for (let d = from, i = 0; d <= to && i < 370; d = addD(d, 1), i++) { const dow = new Date(d + 'T00:00:00Z').getUTCDay(); if (onlyWe && dow !== 5 && dow !== 6) continue; out.push(d); } return out; };
+  const draw = () => {
+    const days = rowsOf(); if (!days.length) { $('#r_tbl').innerHTML = '<div class="muted">выберите даты</div>'; return; }
+    const cur = d => (!multi && RATES[apt + '|' + d]) || {};
+    $('#r_tbl').innerHTML = `<table class="t" style="font-size:12px"><tr><th>Дата</th><th>Цена, $</th><th>Мин. ночей</th><th title="Продажа открыта">Продажа</th><th title="Заезд в эту дату разрешён">Заезд</th></tr>
+      <tr style="background:#f7f8fa"><td class="b">Общее значение</td><td><input type="number" min="0" step="1" id="ra_p" placeholder="всем" style="width:76px"></td><td><input type="number" min="1" id="ra_m" placeholder="всем" style="width:60px"></td><td style="text-align:center"><select id="ra_c" style="width:auto"><option value="">—</option><option value="1">открыть</option><option value="0">закрыть</option></select></td><td style="text-align:center"><select id="ra_a" style="width:auto"><option value="">—</option><option value="1">можно</option><option value="0">нельзя</option></select></td></tr>` +
+      days.map(d => { const r = cur(d); const dow = new Date(d + 'T00:00:00Z').getUTCDay(); const we = dow === 5 || dow === 6; const ov = r.source === 'override';
+        return `<tr data-rd="${d}" style="${we ? 'background:#fff6f6' : ''}"><td><b>${ruD(d)}</b> <span class="muted">${DN2[dow]}</span>${ov ? ' <span class="tag" title="ручная правка">ручн.</span>' : ''}${r.booking_id ? ' <span class="tag" style="background:#e3ecff" title="на эту ночь есть бронь">бронь</span>' : ''}</td>
+          <td><input type="number" min="0" step="1" data-p value="" placeholder="${r.price != null ? r.price : '—'}" style="width:76px"></td>
+          <td><input type="number" min="1" data-m value="" placeholder="${r.min_nights || 1}" style="width:60px"></td>
+          <td style="text-align:center"><input type="checkbox" data-c ${r.closed ? '' : 'checked'} style="width:auto"></td>
+          <td style="text-align:center"><input type="checkbox" data-a ${r.closed_to_arrival ? '' : 'checked'} style="width:auto"></td></tr>`; }).join('') + `</table>`;
+    // «Общее значение» → во все строки
+    $('#ra_p').oninput = e => $$('#r_tbl [data-p]').forEach(x => x.value = e.target.value);
+    $('#ra_m').oninput = e => $$('#r_tbl [data-m]').forEach(x => x.value = e.target.value);
+    $('#ra_c').onchange = e => { if (e.target.value !== '') $$('#r_tbl [data-c]').forEach(x => { x.checked = e.target.value === '1'; x.dataset.touched = '1'; }); };
+    $('#ra_a').onchange = e => { if (e.target.value !== '') $$('#r_tbl [data-a]').forEach(x => { x.checked = e.target.value === '1'; x.dataset.touched = '1'; }); };
+    $$('#r_tbl [data-c],#r_tbl [data-a]').forEach(x => x.onchange = () => { x.dataset.touched = '1'; });
   };
-  $('#r_clear').onclick = async () => { if (!confirm('Снять все ручные правки на эти даты?')) return; try { await api(null, { a: 'rate_clear', apartment_ids: s.apts, from: s.from, to: addD(s.to, -1) }); closeDrawer(); toast('Снято'); load(true); } catch (e) { alert(e.message); } };
+  $('#r_from').onchange = e => { from = e.target.value; if (to < from) { to = from; $('#r_to').value = to; } draw(); };
+  $('#r_to').onchange = e => { to = e.target.value; draw(); };
+  $$('#d_body [data-rq]').forEach(b => b.onclick = () => { const k = b.dataset.rq; if (k === 'we') { onlyWe = !onlyWe; b.classList.toggle('pri', onlyWe); } else { to = addD(from, Number(k) - 1); $('#r_to').value = to; } draw(); });
+  draw();
+  $('#r_ok').onclick = async () => {
+    const days = [];
+    $$('#r_tbl tr[data-rd]').forEach(tr => { const d = { date: tr.dataset.rd }; const p = tr.querySelector('[data-p]').value, m = tr.querySelector('[data-m]').value, c = tr.querySelector('[data-c]'), a = tr.querySelector('[data-a]');
+      if (p !== '') d.price = p; if (m !== '') d.min_nights = m; if (c.dataset.touched) d.closed = !c.checked; if (a.dataset.touched) d.closed_to_arrival = !a.checked;
+      if (Object.keys(d).length > 1) days.push(d); });
+    if (!days.length) return alert('Ничего не изменено: впишите цену/мин. ночей или переключите галочки');
+    try { const r = await api(null, { a: 'rate_set_days', apartment_ids: s.apts, days, note: $('#r_note').value }); closeDrawer(); toast('Сохранено: ' + r.rows + ' дн.'); load(true); } catch (e) { alert(e.message); }
+  };
+  $('#r_clear').onclick = async () => { if (!confirm('Снять все ручные правки с ' + ruD(from) + ' по ' + ruD(to) + '?')) return; try { await api(null, { a: 'rate_clear', apartment_ids: s.apts, from, to }); closeDrawer(); toast('Снято'); load(true); } catch (e) { alert(e.message); } };
 }
 
 // =====================================================================
