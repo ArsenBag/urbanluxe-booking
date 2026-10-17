@@ -389,7 +389,7 @@ function evText(ev) {
     case 'price_change': return 'цена ' + money(p.from) + ' → ' + money(p.to);
     case 'price_manual': return 'цена ' + money(p.price) + ' при прайсе ' + money(p.list_price) + ' (' + (p.diff > 0 ? '+' : '') + money(p.diff) + ')';
     case 'moved': { // payload: массив [apt, in, out] (API) или объект {apartment_id, check_in, check_out} (триггер bookings_log_event)
-      const an = id => ((S.apartments || []).find(a => a.id === id) || { name: id }).name;
+      const an = id => (((G && G.apartments) || []).find(a => a.id === id) || { name: id }).name;
       const mv = v => !v ? '' : Array.isArray(v) ? v.map((x, i) => i ? ruD(x) : an(x)).join(' ') : [an(v.apartment_id), ruD(v.check_in), ruD(v.check_out)].join(' ');
       return 'перенос: ' + mv(p.from) + ' → ' + mv(p.to);
     }
