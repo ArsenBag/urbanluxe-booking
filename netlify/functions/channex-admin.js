@@ -261,7 +261,9 @@ async function setupComplex(body, user) {
   if (!prop || !prop.external_id) {
     const title = body.title || ((user.org_id === 1 ? 'Urban Luxe' : (user.org.name || 'PMS')) + ' ' + complex);
     const gid = await orgGroupId(user);
-    const j = await C.cx('POST', '/properties', { property: { group_id: gid || undefined, title, currency: 'USD', email: process.env.CHANNEX_CONTACT_EMAIL || 'booking@urbanluxe.cc', phone: '+998936900044', country: 'UZ', city: 'Tashkent', address: COMPLEX_ADDR[complex] || 'Tashkent', zip_code: '100000', timezone: 'Asia/Tashkent', property_type: 'apartment', website: 'https://urbanluxe.cc', settings: { min_stay_type: 'arrival', state_length: 500, allow_availability_autoupdate_on_modification: false, allow_availability_autoupdate_on_cancellation: false } } });
+    // 17.10: адрес/город — из карточки ЖК организации (раздел «Объекты»), у наших ЖК запасной список COMPLEX_ADDR
+    const cxRow = (await C.q('complexes?select=address,city,timezone&name=eq.' + enc(complex) + '&org_id=eq.' + user.org_id).catch(() => []))[0] || {};
+    const j = await C.cx('POST', '/properties', { property: { group_id: gid || undefined, title, currency: 'USD', email: process.env.CHANNEX_CONTACT_EMAIL || 'booking@urbanluxe.cc', phone: '+998936900044', country: 'UZ', city: cxRow.city || 'Tashkent', address: cxRow.address || COMPLEX_ADDR[complex] || 'Tashkent', zip_code: '100000', timezone: cxRow.timezone || 'Asia/Tashkent', property_type: 'apartment', website: 'https://urbanluxe.cc', settings: { min_stay_type: 'arrival', state_length: 500, allow_availability_autoupdate_on_modification: false, allow_availability_autoupdate_on_cancellation: false } } });
     const ext = j.data.id;
     if (prop) { await C.q('channel_properties?id=eq.' + prop.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ external_id: ext, name: title, updated_at: new Date().toISOString() }) }); prop.external_id = ext; }
     else prop = (await C.q('channel_properties', { method: 'POST', body: JSON.stringify({ provider: 'channex', external_id: ext, name: title, complex, currency: 'USD', org_id: user.org_id }) }))[0];
@@ -417,7 +419,9 @@ async function bookingConnect(body, user) {
   if (AD.isNew) await C.addCatalog(AD.derived, code, AD.title);
   if (!body.skip_test) { const t = await C.cx('POST', '/channels/test_connection', { channel: code, settings }); if (!(t.data && t.data.success)) throw new Error('test_connection: ' + JSON.stringify(t.data)); }
   const md = body.mapping || (await C.cx('POST', '/channels/mapping_details', { channel: code, settings })).data || {}; const pricing = md.pricing_type || 'Standard';
-  const units = await C.q('channel_units?select=*&is_active=eq.true');
+  // 17.10: только квартиры своей организации (общие с нами — у владельца, их площадки подключает владелец)
+  const own = new Set((await C.q('apartments?select=id&org_id=eq.' + user.org_id)).map(a => a.id));
+  const units = (await C.q('channel_units?select=*&is_active=eq.true')).filter(u => own.has(u.apartment_id));
   const byApt = {}; units.forEach(u => byApt[u.apartment_id] = u);
   const log = []; const rate_plans = []; const propIds = new Set();
   for (const room of (md.rooms || [])) {
@@ -446,6 +450,8 @@ async function bookingConnect(body, user) {
   if (dup) { ch = await C.cx('PUT', '/channels/' + dup.id, { channel: { title: body.title || dup.attributes.title, properties: [prop.external_id], settings, rate_plans } }); log.unshift('updated existing channel ' + dup.id); }
   else ch = await C.cx('POST', '/channels', { channel: { channel: code, group_id, title: body.title || (code + ' ' + hotel_id), properties: [prop.external_id], settings: Object.assign({}, settings, { send_email_notifications: false }), rate_plans } });
   const id = ch.data.id; let activated = null, loaded = null;
+  // 17.10: канал клиента (org≠1) закрепляем за его организацией — матрица показывает, чей аккаунт площадки
+  if (user.org_id !== 1) { try { await C.q('channel_accounts?on_conflict=channel_id', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ channel_id: id, org_id: user.org_id, channel: AD.derived, title: body.title || null, updated_at: new Date().toISOString() }) }); } catch (_) { } }
   if (body.activate !== false) {
     try { await C.cx('POST', '/channels/' + id + '/activate'); activated = true; } catch (e) { activated = String(e.message).slice(0, 200); }
     if (code === 'BookingCom') { try { loaded = (await C.cx('POST', '/channels/' + id + '/execute/load_future_reservations')).data || true; } catch (e) { loaded = String(e.message).slice(0, 200); } }

@@ -115,7 +115,8 @@ async function grid(user, p) {
   const to = isDate(p.to) ? p.to : addDays(from, 90);
   const [apts, bk, rates, cleaning] = await Promise.all([
     q('apartments?select=id,name,complex,floor,rooms,max_guests,catalog_no,weekday_price,weekend_price,min_nights,is_active,org_id&is_active=eq.true&order=complex,catalog_no.nullslast,floor,name'),
-    qAll('v_bookings?select=*&status=neq.cancelled&check_in=lt.' + to + '&check_out=gt.' + addDays(from, -1) + aptIn(user) + '&order=check_in'),
+    // 17.10: ?cancelled=1 — вместе с отменёнными (флажок «отменённые» в шахматке: найти/открыть удалённую бронь)
+    qAll('v_bookings?select=*' + (p.cancelled ? '' : '&status=neq.cancelled') + '&check_in=lt.' + to + '&check_out=gt.' + addDays(from, -1) + aptIn(user) + '&order=check_in'),
     qAll('rate_calendar?select=apartment_id,date,price,min_nights,closed,closed_to_arrival,available,source&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=apartment_id,date'),
     qAll('cleaning_tasks?select=apartment_id,date,done,hk_status,hk_maid&date=gte.' + from + '&date=lt.' + to + aptIn(user) + '&order=date').catch(() => [])
   ]);
@@ -533,6 +534,35 @@ async function orgPartnerSet(body, user) {
   else { await q('org_partners?or=(and(org_id.eq.' + a + ',partner_org_id.eq.' + b + '),and(org_id.eq.' + b + ',partner_org_id.eq.' + a + '))', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); }
   AUTH_CACHE.clear(); return { ok: true };
 }
+// 17.10.2026: удаление квартиры / ЖК своей организации (клиент сам чистит за собой, напр. тестовые объекты). Только без броней — иначе «В архив».
+// Квартира: комната в Channex (room_type + тарифы) удаляется, строки календаря чистятся. ЖК: все его квартиры + property в Channex.
+async function channexKeyOf(user) { const org = (await q('organizations?select=settings&id=eq.' + user.org.id))[0] || {}; return ((org.settings || {}).channex || {}).api_key || null; }
+async function aptDelete(body, user) {
+  const id = String(body.id || ''); const a = (await q('apartments?select=id,name,org_id&id=eq.' + enc(id)))[0]; if (!a) throw new Error('Квартира не найдена');
+  if ((a.org_id || 1) !== user.org.id && !user.platform_admin) throw Object.assign(new Error('Чужая квартира'), { status: 403 });
+  const n = (await q('bookings?select=id&apartment_id=eq.' + enc(id) + '&limit=1')).length; if (n) throw new Error('У квартиры есть брони — удалить нельзя, уберите в архив');
+  const C = require('./_channex.js'); const key = await channexKeyOf(user); const log = [];
+  const u = (await q('channel_units?select=*&apartment_id=eq.' + enc(id)))[0];
+  if (u) { for (const rp of [u.external_rate_plan_id].concat(Object.values(u.derived || {}).map(d => d && d.rate_plan_id)).filter(Boolean)) { try { await C.cx('DELETE', '/rate_plans/' + rp, null, key); } catch (e) { log.push('rate ' + String(e.message).slice(0, 60)); } }
+    if (u.external_room_type_id) { try { await C.cx('DELETE', '/room_types/' + u.external_room_type_id, null, key); log.push('channex room deleted'); } catch (e) { log.push('room: ' + String(e.message).slice(0, 80)); } } }
+  for (const t of ['channel_outbox', 'channel_restrictions', 'channel_units', 'rate_calendar', 'rate_overrides', 'cleaning_tasks', 'apartment_access', 'ical_sources']) await q(t + '?apartment_id=eq.' + enc(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  await q('apartments?id=eq.' + enc(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  AUTH_CACHE.clear(); await logEvent(null, 'apartment_deleted', { apartment_id: id, name: a.name }, user);
+  return { ok: true, log };
+}
+async function complexDelete(body, user) {
+  const cx = (await q('complexes?select=*&id=eq.' + enc(body.id) + '&org_id=eq.' + user.org.id))[0]; if (!cx) throw new Error('ЖК не найден');
+  const apts = await q('apartments?select=id&complex=eq.' + enc(cx.name) + '&org_id=eq.' + user.org.id);
+  if (apts.length) { const inA = '&apartment_id=in.(' + apts.map(a => enc(a.id)).join(',') + ')'; if ((await q('bookings?select=id' + inA + '&limit=1')).length) throw new Error('В ЖК есть брони — удалить нельзя (уберите квартиры в архив)'); }
+  const log = []; for (const a of apts) { const r = await aptDelete({ id: a.id }, user); log.push(a.id + ': ' + (r.log.join(', ') || 'ok')); }
+  const C = require('./_channex.js'); const key = await channexKeyOf(user);
+  const props = await q('channel_properties?select=id,external_id&complex=eq.' + enc(cx.name) + '&org_id=eq.' + user.org.id);
+  for (const pr of props) { if (pr.external_id) { try { await C.cx('DELETE', '/properties/' + pr.external_id, null, key); log.push('channex property deleted'); } catch (e) { log.push('channex property: ' + String(e.message).slice(0, 80)); } } }
+  await q('channel_properties?complex=eq.' + enc(cx.name) + '&org_id=eq.' + user.org.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => null);
+  await q('complexes?id=eq.' + cx.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  await logEvent(null, 'complex_deleted', { complex: cx.name, apartments: apts.length }, user);
+  return { ok: true, log };
+}
 // удалить организацию целиком (только платформа-админ, не Urban Luxe): Channex property/группа, квартиры с бронями, ЖК, сотрудники (и auth), приглашения
 async function orgDelete(body, user) {
   needPlatform(user); const id = Number(body.id); if (!id || id === 1) throw new Error('Нельзя удалить Urban Luxe');
@@ -780,6 +810,8 @@ exports.handler = async (event) => {
       case 'complex_save': need('objects'); return out(200, await complexSave(body, user));
       case 'apt_save': need('objects'); return out(200, await aptSave(body, user));
       case 'apt_photos': need('objects'); return out(200, await aptPhotos(body, user));
+      case 'apt_delete': need('objects_archive'); return out(200, await aptDelete(body, user));
+      case 'complex_delete': need('objects_archive'); return out(200, await complexDelete(body, user));
       case 'apt_archive': need('objects_archive'); {
         // закрыть 500 дней (rate_overrides → пересчёт → очередь) → отправить в Channex сейчас → только потом выключить квартиру и unit
         if (!(await ownApt(user, body.id))) return out(403, { error: 'не ваша квартира' });
