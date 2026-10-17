@@ -80,8 +80,8 @@ async function status(user) {
   const [access, accounts, orgs] = await Promise.all([C.q('apartment_access?select=apartment_id,org_id,mode'), C.q('channel_accounts?select=*'), C.q('organizations?select=id,name,short&is_active=eq.true&order=id')]);
   const accByCh = {}; accounts.forEach(a => accByCh[a.channel_id] = a.org_id);
   channels.forEach(c => c.org_id = accByCh[c.id] || 1);
-  const markups = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => markups[m.channel] = Number(m.pct));
-  return { platform_admin: !!user.platform_admin, org_id: user.org_id, channex, channels, markups, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, access: access.filter(x => mine.has(x.apartment_id)), accounts, orgs, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent: user.org_id === 1 ? recent : [], icals: icals.filter(i => mineSet.has(i.apartment_id)), webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
+  const markups = {}, commissions = {}; (await C.q('channel_markups?select=*&org_id=eq.' + user.org_id)).forEach(m => { markups[m.channel] = Number(m.pct); if (m.commission_pct != null) commissions[m.channel] = Number(m.commission_pct); });
+  return { platform_admin: !!user.platform_admin, org_id: user.org_id, channex, channels, markups, commissions, ota_plans: C.OTA_PLANS, channel_codes: C.CHANNEL_CODES, restrictions, access: access.filter(x => mine.has(x.apartment_id)), accounts, orgs, properties: props, units: units.filter(u => mine.has(u.apartment_id)), apartments: apts, pending: pending.length, failed, conflicts, recent: user.org_id === 1 ? recent : [], icals: icals.filter(i => mineSet.has(i.apartment_id)), webhook_url: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/channex-webhook', ical_base: (process.env.URL || 'https://urbanluxe.cc') + '/.netlify/functions/calendar?apt=' };
 }
 
 // Комната + тариф Standard одной квартиры в property ЖК → channel_units. Возвращает строку лога.
@@ -538,6 +538,13 @@ exports.handler = async (event) => {
           return out(200, { phase: 'map', log });
         }
         return out(200, { mappings: maps.map(m => ({ id: m.id, rate_plan_id: m.rate_plan_id, apt: (byStd[m.rate_plan_id] || byDer[m.rate_plan_id] || {}).apartment_id, plan: byStd[m.rate_plan_id] ? 'Standard' : byDer[m.rate_plan_id] ? 'Airbnb' : '?', listing_id: (m.settings || {}).listing_id })) });
+      }
+      case 'commission_set': {   // 17.10: ставка комиссии площадки (для броней, где площадка не прислала сумму)
+        const ch = String(body.channel || ''); const pct = Math.max(0, Math.min(100, Number(body.pct) || 0));
+        if (!C.OTA_PLANS[ch]) return out(400, { error: 'channel' });
+        const cur = (await C.q('channel_markups?select=pct&org_id=eq.' + user.org_id + '&channel=eq.' + enc(ch)))[0];
+        await C.q('channel_markups?on_conflict=org_id,channel', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ org_id: user.org_id, channel: ch, pct: cur ? Number(cur.pct) : 0, commission_pct: pct, updated_at: new Date().toISOString(), updated_by: user.name }) });
+        return out(200, { channel: ch, commission_pct: pct });
       }
       case 'markup_set': {
         const ch = String(body.channel || ''); const pct = Math.max(0, Math.min(100, Number(body.pct) || 0));

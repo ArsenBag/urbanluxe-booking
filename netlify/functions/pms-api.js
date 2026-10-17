@@ -130,12 +130,27 @@ async function booking(user, id) {
   if (!b) throw Object.assign(new Error('not found'), { status: 404 });
   if (!canSeeApt(user, b.apartment_id)) throw Object.assign(new Error('forbidden'), { status: 403 });
   if (!fullApt(user, b.apartment_id)) return { booking: stripPay(user, b), payments: [], events: [], guest: null };
-  const [pays, ev, g] = await Promise.all([
+  const [pays, ev, g, cb] = await Promise.all([
     user.can.pay_full ? q('payments?select=*&booking_id=eq.' + enc(id) + '&order=paid_at') : [],
     q('booking_events?select=*&booking_id=eq.' + enc(id) + '&order=created_at'),
-    b.guest_id && user.can.guests ? q('guests?select=id,name,phone,telegram,whatsapp,email,lang,tags,blacklisted,doc_verified,total_bookings,total_spent,last_stay,notes&id=eq.' + enc(b.guest_id)).then(r => r[0] || null) : null
+    b.guest_id && user.can.guests ? q('guests?select=id,name,phone,telegram,whatsapp,email,lang,tags,blacklisted,doc_verified,total_bookings,total_spent,last_stay,notes&id=eq.' + enc(b.guest_id)).then(r => r[0] || null) : null,
+    // 17.10: всё, что прислала площадка (последняя ревизия Channex) — комиссия, кто собирает оплату, карта, цены по ночам, сообщение гостя
+    b.source === 'channex' ? q('channel_bookings?select=id,revision_id,received_at,payload&booking_id=eq.' + enc(id) + '&order=id.desc&limit=1').then(r => r[0] || null).catch(() => null) : null
   ]);
-  return { booking: stripPay(user, b), payments: pays, events: ev, guest: g };
+  let ota = null;
+  if (cb && cb.payload) {
+    const p = Object.assign({}, cb.payload); delete p.raw_message;
+    const room = (p.rooms || [])[0] || {};
+    const ch = (b.channel || '').toLowerCase();
+    const mk = (await q('channel_markups?select=commission_pct&org_id=eq.' + user.org.id + '&channel=eq.' + enc(ch)).catch(() => []))[0];
+    // карта гарантии: только тип и последние 4 цифры (полные данные — в Channex, PCI)
+    const gq = p.guarantee && typeof p.guarantee === 'object' ? { card_type: p.guarantee.card_type || null, last4: String(p.guarantee.card_number || '').replace(/\D/g, '').slice(-4) || null, expiration: p.guarantee.expiration_date || null, holder: p.guarantee.cardholder_name || null, is_virtual: p.guarantee.is_virtual || null } : null;
+    ota = { ota_name: p.ota_name, unique_id: p.unique_id, code: p.ota_reservation_code, status: p.status, inserted_at: p.inserted_at, received_at: cb.received_at, imported: !!(p.meta && p.meta.is_imported), amount: p.amount, currency: p.currency,
+      ota_commission: p.ota_commission, payment_collect: p.payment_collect, payment_type: p.payment_type, guarantee: gq, notes: p.notes || null, services: p.services || [], deposits: p.deposits || [], occupancy: room.occupancy || p.occupancy || null,
+      days: room.days || null, taxes: room.taxes || [], meal_plan: room.meta && room.meta.meal_plan || null, cancel_penalties: room.meta && room.meta.cancel_penalties || [], promotion: room.meta && (room.meta.days_breakdown || []).find(d => d.promotion) ? (room.meta.days_breakdown || []).filter(d => d.promotion).map(d => d.promotion) : [],
+      commission_pct_default: mk && mk.commission_pct != null ? Number(mk.commission_pct) : null, secondary_ota: p.secondary_ota || null, agent: p.agent || null, arrival_hour: p.arrival_hour || null };
+  }
+  return { booking: stripPay(user, b), payments: pays, events: ev, guest: g, ota };
 }
 async function price(p) {
   if (!p.apartment_id || !isDate(p.check_in) || !isDate(p.check_out)) throw new Error('apartment_id, check_in, check_out');
