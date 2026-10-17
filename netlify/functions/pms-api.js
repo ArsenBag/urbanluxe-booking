@@ -396,12 +396,14 @@ async function guestUpdate(body, user) {
 }
 
 // ---- PMS v2-A (16.10.2026): объекты (ЖК и квартиры), история брони, подборки для гостя. Спека docs/superpowers/specs/2026-10-15-pms-objects-channels-v2-design.md
-const APT_FIELDS = ['name', 'complex', 'floor', 'max_guests', 'rooms', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no', 'tracked', 'org_id', 'is_active'];
+// 17.10.2026: описания, удобства и стиль редактируются в карточке объекта PMS (партнёры не ходят в /admin); фото — apt_photos
+const APT_FIELDS = ['name', 'complex', 'floor', 'max_guests', 'rooms', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no', 'tracked', 'org_id', 'is_active', 'description', 'description_en', 'description_uz', 'amenities', 'style'];
+const parsePhotos = a => { let ph = []; try { const p = JSON.parse(a.photo_url); if (Array.isArray(p)) ph = p; } catch (e) { if (a.photo_url) ph = [a.photo_url]; } return ph.filter(Boolean); };
 async function objects(user) {
   const org = '&org_id=eq.' + user.org.id;
   const [cx, apts, units, access, orgs] = await Promise.all([
     q('complexes?select=*' + org + '&order=name'),
-    q('apartments?select=id,name,complex,floor,max_guests,rooms,weekday_price,weekend_price,min_nights,catalog_no,tracked,org_id,is_active,photo_url,updated_at' + org + '&order=complex,catalog_no.nullslast,name'),
+    q('apartments?select=id,name,complex,floor,max_guests,rooms,weekday_price,weekend_price,min_nights,catalog_no,tracked,org_id,is_active,photo_url,updated_at,description,description_en,description_uz,amenities,style' + org + '&order=complex,catalog_no.nullslast,name').then(rows => rows.map(a => Object.assign(a, { photos: parsePhotos(a) }))),
     q('channel_units?select=apartment_id,channel_property_id,external_room_type_id,external_rate_plan_id,is_active,derived,channels,last_error,last_pushed_at'),
     q('apartment_access?select=apartment_id,org_id,mode'),
     q('organizations?select=id,name,short&is_active=eq.true&order=id')
@@ -430,6 +432,10 @@ async function aptSave(body, user) {
   if (!/^[a-z0-9_]{3,40}$/.test(id)) throw new Error('Код квартиры: латиница, цифры, _ (например kislorod_77)');
   const o = {}; APT_FIELDS.forEach(f => { if (body[f] !== undefined) o[f] = body[f]; });
   ['floor', 'max_guests', 'weekday_price', 'weekend_price', 'min_nights', 'catalog_no'].forEach(f => { if (o[f] === '' || o[f] === null) o[f] = null; else if (o[f] !== undefined) o[f] = Number(o[f]); });
+  if (o.amenities !== undefined && !Array.isArray(o.amenities)) o.amenities = String(o.amenities || '').split(',').map(x => x.trim()).filter(Boolean);
+  ['description', 'description_en', 'description_uz', 'style'].forEach(f => { if (o[f] !== undefined) o[f] = o[f] == null ? null : String(o[f]).slice(0, 8000); });
+  // org_id с клиента принимает только администратор платформы — иначе клиент мог бы «переложить» квартиру в чужую организацию
+  if (o.org_id !== undefined && !user.platform_admin) delete o.org_id;
   if (o.org_id === undefined) o.org_id = user.org.id;
   if (!o.name) throw new Error('Название обязательно');
   if (!o.complex) throw new Error('Выберите ЖК');
@@ -444,7 +450,8 @@ async function aptSave(body, user) {
     AUTH_CACHE.clear();
   }
   if (cur) {
-    if (cur.org_id && cur.org_id !== user.org.id && user.role !== 'admin') throw new Error('Чужая квартира');
+    if ((cur.org_id || 1) !== user.org.id && !user.platform_admin) throw Object.assign(new Error('Чужая квартира'), { status: 403 });
+    if (!user.platform_admin) delete o.org_id;
     o.updated_at = new Date().toISOString();
     const rows = await q('apartments?id=eq.' + enc(id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(o) });
     await logEvent(null, 'apartment_updated', { apartment_id: id, fields: Object.keys(o) }, user);
@@ -456,6 +463,35 @@ async function aptSave(body, user) {
   AUTH_CACHE.clear();   // чтобы новая квартира сразу была в access (шахматка, архив)
   await logEvent(null, 'apartment_created', { apartment_id: id }, user);
   return rows[0];
+}
+// Фото квартиры (17.10.2026): файлы грузит браузер прямо в Storage (bucket apartments/<id>/…), сюда приходит итоговый список —
+// порядок, обложка (первое), удалённые файлы чистятся из Storage, превью 800px пересобирается через weserv. Та же логика, что в admin-api.
+const SB_URL_ = process.env.SUPABASE_URL || 'https://sebvfvtofiysbywxjqut.supabase.co';
+const SB_SERVICE_ = process.env.SUPABASE_SERVICE_KEY;
+async function aptThumb(id, coverUrl) {
+  if (!coverUrl || !SB_SERVICE_) return { ok: false };
+  try {
+    const src = 'https://images.weserv.nl/?url=' + encodeURIComponent(String(coverUrl).replace(/^https?:\/\//, '')) + '&w=800&h=600&fit=cover&q=72&output=webp';
+    const img = await fetch(src); if (!img.ok) return { ok: false, reason: 'weserv ' + img.status };
+    const buf = Buffer.from(await img.arrayBuffer());
+    const up = await fetch(SB_URL_ + '/storage/v1/object/apartments/thumbs/' + encodeURIComponent(id) + '_thumb.webp', { method: 'POST', headers: { apikey: SB_SERVICE_, Authorization: 'Bearer ' + SB_SERVICE_, 'Content-Type': 'image/webp', 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' }, body: buf });
+    return { ok: up.ok, size: buf.length, reason: up.ok ? undefined : (await up.text()).slice(0, 120) };
+  } catch (e) { return { ok: false, reason: String(e.message || e) }; }
+}
+async function aptPhotos(body, user) {
+  const id = String(body.id || ''); const photos = (body.photos || []).map(String).filter(u => /^https?:\/\//.test(u)).slice(0, 60);
+  const a = (await q('apartments?select=id,org_id,photo_url&id=eq.' + enc(id)))[0]; if (!a) throw Object.assign(new Error('Квартира не найдена'), { status: 404 });
+  if ((a.org_id || 1) !== user.org.id && !user.platform_admin) throw Object.assign(new Error('Чужая квартира'), { status: 403 });
+  const prev = parsePhotos(a);
+  await q('apartments?id=eq.' + enc(id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ photo_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || ''), updated_at: new Date().toISOString() }) });
+  const removed = prev.filter(u => !photos.includes(u)); const deleted = [];
+  for (const u of removed) {
+    const m = u.match(/\/storage\/v1\/object\/public\/apartments\/(.+)$/); if (!m || !SB_SERVICE_ || /^(thumbs|hero)\//.test(m[1])) continue;
+    try { const d = await fetch(SB_URL_ + '/storage/v1/object/apartments/' + m[1], { method: 'DELETE', headers: { apikey: SB_SERVICE_, Authorization: 'Bearer ' + SB_SERVICE_ } }); if (d.ok) deleted.push(m[1]); } catch (e) { /* не критично */ }
+  }
+  const thumb = prev[0] !== photos[0] || body.force_thumb ? await aptThumb(id, photos[0]) : { ok: true, skipped: true };
+  await logEvent(null, 'apartment_photos', { apartment_id: id, count: photos.length }, user);
+  return { ok: true, photos, deleted, thumb };
 }
 // ---- PMS v2-B (16.10.2026): организации, приглашения, сброс пароля, отчёт собственника. Спека docs/superpowers/specs/2026-10-16-pms-orgs-partners-design.md
 const SITE = process.env.URL || 'https://urbanluxe.cc';
@@ -743,6 +779,7 @@ exports.handler = async (event) => {
       case 'user_logout_all': need('users'); return out(200, await userLogoutAll(body, user));
       case 'complex_save': need('objects'); return out(200, await complexSave(body, user));
       case 'apt_save': need('objects'); return out(200, await aptSave(body, user));
+      case 'apt_photos': need('objects'); return out(200, await aptPhotos(body, user));
       case 'apt_archive': need('objects_archive'); {
         // закрыть 500 дней (rate_overrides → пересчёт → очередь) → отправить в Channex сейчас → только потом выключить квартиру и unit
         if (!(await ownApt(user, body.id))) return out(403, { error: 'не ваша квартира' });

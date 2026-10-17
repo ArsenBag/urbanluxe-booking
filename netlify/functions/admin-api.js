@@ -54,6 +54,9 @@ async function q(path, opts) { const r = await T.sb(path, opts); if (!r.ok) thro
 async function auth(event) {
   const u = await PMS.authFor(event);
   if (!u) return null;
+  // 17.10.2026: админка — только Urban Luxe (org 1) и администратор платформы. Клиенты/партнёры PMS (HighLife и др.) сюда не ходят:
+  // их объекты, фото, описания и каналы — в /pms. Без этого партнёр с ролью admin своей организации видел всю нашу внутрянку.
+  if (!u.platform_admin && (u.org ? u.org.id : (u.org_id || 1)) !== 1) return null;
   if (u.partner_id === undefined) { const rows = await q('app_users?select=partner_id&email=eq.' + encodeURIComponent(u.email)); u.partner_id = rows[0] ? rows[0].partner_id : null; }
   return u;
 }
